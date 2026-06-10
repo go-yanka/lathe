@@ -9,8 +9,9 @@ system gets *sharper as it ages* instead of drifting.
 
 > 🖥️ **Runs on a 2019 gaming PC.** The whole pipeline — local code generation, gating (including a headless
 > browser), and reproducible pinned builds — was built and runs end-to-end on an **8 GB RTX 2060 Super with
-> 16 GB RAM**. No cloud, no API bills, nothing leaves your machine. A quantized 12B model does the work at
-> ~33 tok/s. Reproducible, gated, private LLM development on hardware you already own.
+> 16 GB RAM**. The *code generation* runs entirely local at ~33 tok/s — no per-token bill. Only the
+> *thinking* (the specs) uses a premium model (we used Claude), sparingly — and that role can be a human or
+> a local model. Reproducible, gated, mostly-local LLM development on hardware you already own.
 
 > Developed independently, then mapped to prior art honestly. None of the individual ideas are new — see
 > [PRIOR_ART.md](PRIOR_ART.md). What's unusual is the combination and three deliberate choices: **no model

@@ -60,8 +60,9 @@ generation as a chat, and treating it as a build instead.**
   randomness — it sidesteps it. (Same idea as a `package-lock.json`.)
 - **It gets *better* as it ages, not worse.** Every failure is banked and turned into a sharper spec, so
   tomorrow's build needs fewer tries than today's.
-- **It runs on hardware you already own.** A quantized local model on an 8 GB gaming GPU does the work.
-  No cloud, no API bill, nothing leaves your machine.
+- **The volume runs on hardware you already own.** A quantized local model generates the code on an 8 GB
+  gaming GPU — for free, no per-token bill. Only the *thinking* (the specs) uses a premium model, and that
+  step is small — it can even be a human or a local model.
 
 How? By spending each kind of model where it's worth most — premium judgment on the specs, cheap local
 muscle on the volume:
@@ -203,10 +204,12 @@ reproducible build — was built and runs on a **2019 mid-range gaming PC: an 8 
 of RAM.** A used one costs a couple hundred dollars. A quantized 12B model does the coding at ~33 tokens a
 second, entirely on the card.
 
-This isn't a lucky accident — it's the design. Because the scarce thing (judgment) is spent only on specs,
-and the cheap thing (a small local model) does the volume, the bill is essentially zero and your code never
-leaves your desk. Reproducible, gated, private AI development turns out to be within reach of a hobbyist,
-not just a lab.
+This isn't a lucky accident — it's the design. The scarce thing (judgment) is spent only on specs; the
+cheap thing (a small local model) does the volume. So the code is generated on your own GPU at essentially
+zero marginal cost, and the one premium step is the thinking — writing the specs. We used Claude for that
+(a cloud model), but the analyst role can equally be a human or a local model. To be precise: the *code
+generation* is fully local; the *spec authoring* is where a premium model earns its keep. Reproducible,
+gated, mostly-local AI development, within reach of a hobbyist, not just a lab.
 
 And it isn't tied to one card. The architecture cares about *a small local model*, not the brand of
 silicon — the same method runs on AMD GPUs via Vulkan, on Apple Silicon, or on any ~8 GB-and-up
