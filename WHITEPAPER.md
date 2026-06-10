@@ -116,6 +116,8 @@ never the source — the plans are. **Big changes are spec changes; the build do
 
 ## The loop, in one breath
 
+![The Lathe loop: spec → generate → gate → pin → ship; on failure, sharpen the spec](docs/loop.svg)
+
 For each function: **generate → run its tests → if it passes, pin it; if it fails, don't escalate — fix
 the spec.**
 
