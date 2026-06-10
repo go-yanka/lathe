@@ -1,0 +1,35 @@
+<svg viewBox="0 0 720 460" width="720" height="460" xmlns="http://www.w3.org/2000/svg" role="img" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+<title>Most AI coding rots as it ages; a build gets sharper</title>
+<desc>Two curves over project age. Conversational AI coding starts brilliant then declines through drift, context bloat, forgetting, and confabulation into an unreproducible pile. A build (Lathe) costs a little up front to write specs, then rises and stays high as gating, pinning, and failures-turned-into-better-specs compound — getting sharper as it ages.</desc>
+<rect x="0" y="0" width="720" height="460" fill="#ffffff"/>
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#9ca3af"/></marker></defs>
+
+<text x="360" y="32" text-anchor="middle" font-size="20" font-weight="600" fill="#111827">Most AI coding rots as it ages. A build gets sharper.</text>
+<text x="360" y="55" text-anchor="middle" font-size="13.5" fill="#6b7280">the same work, two ways — what happens to trust and reproducibility over time</text>
+
+<!-- axes -->
+<line x1="80" y1="78" x2="80" y2="372" stroke="#d1d5db" stroke-width="1.5" marker-end="url(#ar)"/>
+<line x1="80" y1="372" x2="668" y2="372" stroke="#d1d5db" stroke-width="1.5" marker-end="url(#ar)"/>
+<text x="44" y="232" font-size="12" fill="#6b7280" transform="rotate(-90 44 232)">trust · coherence · reproducibility</text>
+<text x="372" y="398" text-anchor="middle" font-size="12" fill="#6b7280">project / session age  →</text>
+
+<!-- chat (decaying, dashed gray) -->
+<polyline points="80,118 200,130 340,182 500,292 655,346" fill="none" stroke="#9ca3af" stroke-width="2.2" stroke-dasharray="6 5"/>
+<text x="92" y="108" font-size="11.5" fill="#6b7280">brilliant for ten minutes</text>
+<text x="300" y="172" font-size="11.5" fill="#6b7280">drift · bloat · forgetting</text>
+<text x="470" y="338" font-size="11.5" fill="#6b7280">confabulation → unreproducible pile</text>
+
+<!-- build (rising, solid indigo) -->
+<polyline points="80,252 260,236 440,196 655,150" fill="none" stroke="#4f46e5" stroke-width="2.6"/>
+<text x="92" y="268" font-size="11.5" fill="#4f46e5">a little up front: write the specs</text>
+<text x="360" y="186" font-size="11.5" fill="#4f46e5">gated · pinned · failures → better specs</text>
+<text x="540" y="140" font-size="11.5" font-weight="600" fill="#4f46e5">sharper as it ages</text>
+
+<!-- legend -->
+<line x1="430" y1="92" x2="458" y2="92" stroke="#9ca3af" stroke-width="2.2" stroke-dasharray="6 5"/>
+<text x="464" y="96" font-size="12" fill="#6b7280">chat (vibe coding)</text>
+<line x1="430" y1="112" x2="458" y2="112" stroke="#4f46e5" stroke-width="2.6"/>
+<text x="464" y="116" font-size="12" fill="#111827">build (Lathe)</text>
+
+<text x="360" y="436" text-anchor="middle" font-size="13" fill="#111827">discipline costs a little up front — and pays compounding returns as the project ages.</text>
+</svg>

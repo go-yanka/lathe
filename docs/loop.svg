@@ -1,0 +1,53 @@
+<svg viewBox="0 0 720 650" width="720" height="650" xmlns="http://www.w3.org/2000/svg" role="img" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif">
+<title>The Lathe loop: spec in, reproducible build out</title>
+<desc>Spec and tests are the source of truth. A local model generates code. A gate of tests, live-browser checks and design runs. Passing output is pinned by content hash for reproducible rebuilds and shipped. Failing output is banked and fed back to sharpen the spec, with no escalation to a bigger model.</desc>
+<rect x="0" y="0" width="720" height="650" fill="#ffffff"/>
+<defs>
+  <marker id="ah" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#6b7280"/></marker>
+  <marker id="ahi" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#4f46e5"/></marker>
+</defs>
+<text x="360" y="34" text-anchor="middle" font-size="19" font-weight="600" fill="#111827">Spec in. Reproducible build out.</text>
+<text x="360" y="56" text-anchor="middle" font-size="13" fill="#6b7280">treat AI code generation like a build system, not a conversation</text>
+
+<rect x="240" y="80" width="240" height="60" rx="10" fill="#ffffff" stroke="#4f46e5" stroke-width="1.5"/>
+<text x="360" y="105" text-anchor="middle" font-size="15" font-weight="600" fill="#111827">Analyst — you + premium model</text>
+<text x="360" y="125" text-anchor="middle" font-size="13" fill="#6b7280">writes the spec + tests</text>
+<text x="492" y="113" font-size="11.5" fill="#4f46e5">source of truth</text>
+
+<line x1="360" y1="140" x2="360" y2="176" stroke="#6b7280" stroke-width="1.5" marker-end="url(#ah)"/>
+<text x="372" y="163" font-size="11.5" fill="#6b7280">build</text>
+
+<rect x="240" y="178" width="240" height="60" rx="10" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="360" y="203" text-anchor="middle" font-size="15" font-weight="600" fill="#111827">Local model</text>
+<text x="360" y="223" text-anchor="middle" font-size="13" fill="#6b7280">generates the code — the compiler</text>
+
+<line x1="360" y1="238" x2="360" y2="274" stroke="#6b7280" stroke-width="1.5" marker-end="url(#ah)"/>
+
+<rect x="240" y="276" width="240" height="60" rx="10" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="360" y="301" text-anchor="middle" font-size="15" font-weight="600" fill="#111827">Gate</text>
+<text x="360" y="321" text-anchor="middle" font-size="13" fill="#6b7280">tests · live browser · design</text>
+
+<path d="M420,336 L420,370 L565,370 L565,400" fill="none" stroke="#4f46e5" stroke-width="1.5" marker-end="url(#ahi)"/>
+<text x="575" y="361" font-size="11.5" fill="#4f46e5">pass</text>
+<path d="M300,336 L300,370 L175,370 L175,400" fill="none" stroke="#6b7280" stroke-width="1.5" marker-end="url(#ah)"/>
+<text x="150" y="361" font-size="11.5" fill="#6b7280">fail</text>
+
+<rect x="450" y="402" width="230" height="64" rx="10" fill="#ffffff" stroke="#4f46e5" stroke-width="1.5"/>
+<text x="565" y="427" text-anchor="middle" font-size="15" font-weight="600" fill="#111827">Pin it</text>
+<text x="565" y="447" text-anchor="middle" font-size="12.5" fill="#6b7280">hash(spec + tests + model)</text>
+<line x1="565" y1="466" x2="565" y2="498" stroke="#4f46e5" stroke-width="1.5" marker-end="url(#ahi)"/>
+<rect x="486" y="500" width="158" height="38" rx="19" fill="#ffffff" stroke="#4f46e5" stroke-width="1.5"/>
+<text x="565" y="524" text-anchor="middle" font-size="13" fill="#4f46e5">ship — reproducible</text>
+
+<rect x="60" y="402" width="230" height="64" rx="10" fill="#ffffff" stroke="#d1d5db" stroke-width="1.5"/>
+<text x="175" y="427" text-anchor="middle" font-size="15" font-weight="600" fill="#111827">Bank the failure</text>
+<text x="175" y="447" text-anchor="middle" font-size="12.5" fill="#6b7280">keep what + why it failed</text>
+
+<path d="M60,434 L32,434 L32,110 L240,110" fill="none" stroke="#4f46e5" stroke-width="1.5" marker-end="url(#ahi)"/>
+<text x="52" y="250" font-size="13" font-weight="600" fill="#4f46e5">the learning loop</text>
+<text x="52" y="270" font-size="12" fill="#6b7280">fix the spec —</text>
+<text x="52" y="287" font-size="12" fill="#6b7280">never escalate</text>
+
+<text x="360" y="582" text-anchor="middle" font-size="12.5" fill="#6b7280">code is a build output, never hand-edited · pins make rebuilds deterministic</text>
+<text x="360" y="603" text-anchor="middle" font-size="12.5" fill="#4f46e5">every failure becomes a better spec — so it sharpens as it ages</text>
+</svg>

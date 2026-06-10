@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+_fails/
+_itest.py
+_*.tmp
+.DS_Store
