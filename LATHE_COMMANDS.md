@@ -1,0 +1,181 @@
+# Lathe — Command Reference (every command, with a runnable example)
+
+Lathe treats AI code generation like a **build system, not a conversation**: you write a *spec* (a plan), a
+local model implements it under *test gates*, passing code is *pinned* (content-hashed, so rebuilds are free
+and deterministic), and you never hand-edit generated code — you fix the spec and rebuild.
+
+Run `python lathe.py <command>`. Below, each command shows **what it does**, a **runnable example**, and the
+**expected output** (trimmed). See `ARCHITECTURE.md` for *how* it all fits together and *why*.
+
+---
+
+## Build — turn a spec into gated, pinned code
+
+### `lathe "<goal>"` / `lathe do "<goal>"`
+Draft a spec for a goal, build it on the local model under gates, pin it — one shot. The analyst (a frontier
+model) writes the functions + tests; the local model implements; tests gate; green code is pinned.
+```
+$ python lathe.py do "a function that parses a duration like '2h30m' into seconds"
+  parse_duration   PASS (qwen)   1 tries  (5 tests)
+  -> built 1 function, pinned. module: projects/agentic-harness/tools/parse_duration.py
+```
+
+### `lathe build <plan.py>`
+Build an explicit plan file (you wrote the spec). Reproducible: an unchanged plan reuses its pins instantly.
+```
+$ python lathe.py build projects/agentic-harness/plans/auto_070.py
+  registry_violations PASS (qwen)   1 tries  (11 tests)
+  build_ok: true   run report: .../RUN_REPORT.md   metrics -> runs.jsonl
+```
+
+### `lathe chat`
+Interactive REPL — each line is a goal or a command (`build ...`, `status`, `quit`). Survives transient
+failures (a proxy/rig blip prints an error and keeps the session alive).
+```
+$ python lathe.py chat
+lathe> slugify a title string
+  -> green (1 built)
+lathe> quit
+```
+
+### `lathe lint-spec <plan.py>`  *(test-quality)*
+Score a plan's **tests** *before* building: static gaps + a **mutation probe** (does a trivial stub impl —
+`return None`/`0`/identity — pass every test? then the tests don't pin behavior). Set `LATHE_LINT_SPEC=warn`
+or `=block` to run it as a pre-implementer gate during a build.
+```
+$ python lathe.py lint-spec projects/agentic-harness/plans/auto_070.py
+  [warn ] registry_violations
+          advisory: no zero case
+  0/1 function(s) have BLOCKING weak tests
+```
+
+### `lathe flow [<name>] [--run <targets>]`  *(workflows)*
+Named, transparent end-to-end **workflows** — `code-review`, `bug-fix`, `enhancement`, `doc-review`,
+`new-project`. `lathe flow` lists them; `lathe flow <name>` shows the exact ordered steps (so you know how the
+harness handles a job *before* running it); `--run` executes the automatable `[AUTO]`/`[GATE]` steps in order,
+halting on failure, and flags the human-judgment `[YOU]` steps. Definitions are data (`tools/workflows.py`).
+```
+$ python lathe.py flow bug-fix
+workflow: bug-fix — Reproduce -> diagnose -> fix the SPEC -> verify -> review -> release.
+  1. [AUTO] Reproduce: rebuild the failing plan  ->  lathe build {plan}
+  2. [AUTO] Diagnose: read the full run trace     ->  lathe logs --tail
+  3. [AUTO] Are the tests even GOOD?              ->  lathe lint-spec {plan}
+  4. [YOU]  Fix the SPEC/tests (never hand-edit generated code), then rebuild
+  ...
+```
+
+## Quality — gates and review
+
+### `lathe gate`
+Run the standing cleanliness + lint gates on the tree (stale/dup files, one canonical DB, capability registry,
+no corrupt files, no real-bug lint). Fast, deterministic, git-independent.
+```
+$ python lathe.py gate
+tree_no_stale_dups     PASS   no backup/dup/superseded files
+capability_registry    PASS   8 capabilities, one canonical 'live' each
+lint_no_real_bugs      PASS   no undefined-name/syntax/format defects
+regression clean (5 checks)
+```
+
+### `lathe review [lens|all] <files...>`
+Multi-file, multi-lens Compound-Engineering review (read-only). Lenses: security, correctness, adversarial,
+data, perf, reliability, api, maintainability, ui. Findings fold into the owning plan and regenerate.
+```
+$ python lathe.py review correctness adversarial projects/your-product/runtime/match.py
+========== lathe review: correctness (1 file) ==========
+  ... findings by severity ...
+```
+
+### `lathe verify <plan.py>`
+Rebuild a plan and confirm it still passes its gates (a targeted regression for one plan).
+
+### `lathe selftest`
+Exercise every Lathe capability and report PASS/FAIL — the confidence check before relying on it.
+```
+$ python lathe.py selftest
+  [PASS] build + content-hash pins
+  [PASS] repair feedback loop
+  ...
+12/12 capabilities confirmed via CLI.
+```
+
+## Autonomy — the board and the driver
+
+### `lathe auto "<objective>"`
+Decompose a big objective into small jobs and keep building them (the planner loop + repair loop).
+
+### `lathe decompose <plans...>` / `lathe run [N]`
+`decompose` seeds the board (one task per plan, wiring `DEPENDS_ON`); `run` is the dispatcher that drives the
+whole board to gated-green (the overnight multi-task driver).
+
+### `lathe board` / `lathe status`
+`board` shows the kanban task list; `status` shows a one-glance summary (board counts, pins, ledger tail, and
+the implementer/analyst endpoints derived from your env).
+```
+$ python lathe.py status
+  board:   {'done': 12, 'todo': 0}
+  pins:    47 approved impls
+  implementer (127.0.0.1:8090): up
+  analyst (127.0.0.1:8787): up
+```
+
+### `lathe wait <task>` / `lathe resume <task> [signal]` / `lathe waiting`
+Park a long job **dormant** awaiting an external signal (human approval, a slow dep, a time window), resume it
+from durable board state, and list what's waiting. (Event-driven pause/resume.)
+
+### `lathe checkpoint [list|restore]`
+Git snapshot / list / restore for safe rollback (`refs/harness/ckpt`, doesn't touch HEAD).
+
+## Introspection — know what's live
+
+### `lathe whatis <capability>`
+The capability **source of truth** — answers "which artifact is LIVE for X" by lookup, not by grepping N copies
+and guessing. Fixes the duplication/divergence trap.
+```
+$ python lathe.py whatis planner
+planner -> tools/planner_prompt.py (live)  entrypoint: build_planner_prompt
+```
+
+### `lathe map <path...>`  *(repo-map)*
+Multi-language **code-structure map** via universal-ctags (the real OSS C tool — we shell out to it, not
+reimplement it). Emits names, kinds, **signatures**, and scopes across ~150 languages (Python, JS, …) so a large
+model reads the *structure* instead of every full file — less context, fewer tool calls. Needs `ctags` on PATH.
+```
+$ python lathe.py map projects/agentic-harness/tools/spec_lint.py
+spec_lint.py:
+  function spec_static_gaps(t)
+  function _stub_survives(fname, body, tests)
+  function lint_function(fname, tests)
+  function lint_plan(plan_path)
+```
+
+### `lathe dups [--min N]`
+Advisory structural-duplication report — flags functions sharing an AST shape (rename-safe). Catches "same
+feature built twice."
+
+### `lathe plans` / `lathe metrics`
+`plans` lists available plan files; `metrics` summarizes recent engine runs from the ledger (success rate,
+cost/function, churn).
+
+### `lathe logs [<run_id>] [--tail] [--grep <s>]`  *(observability)*
+Read the structured per-run logs. Every build writes `runs/<run_id>.jsonl` (start → each model call with
+latency+tokens → result), secrets redacted. This is what you attach to a bug report.
+```
+$ python lathe.py logs --tail
+=== run 20260630-235607-981b (3 events) ===
+  ... start / model_call {elapsed_s, tokens} / result {build_ok} ...
+```
+
+## Maintenance — keep the tree pristine + file issues
+
+### `lathe clean [--dry]`
+Bring the tree to a **pristine** state, git-independently: quarantine unparseable/corrupt files to `_archive/`,
+cap the failure bank. `--dry` previews.
+
+### `lathe report "<title>"` / `lathe issues`
+`report` files an issue into the shared queue (`~/.lathe/issues`) for the maintainer; `issues` is the
+maintainer's triage view. Bug reports should include the run log (`lathe logs <id>`).
+
+---
+*This reference is kept honest by a docs-drift check (`qa/docs_drift_gate.py`): every command in the CLI's
+table must appear here, or the gate fails. Docs can't silently fall behind the code.*

@@ -2,7 +2,7 @@
 
 This is the core of Lathe: the `plan.py` format, how a human/analyst (here, Claude) spells out the design
 and expectations per function, and how the engine turns that into gated, pinned, delivered code. Every
-example below is taken from the real plans that built a working app (a pharma job-search agent) — not a
+example below is taken from the real plans that built a working app (a a regulated-industry app job-search agent) — not a
 toy.
 
 ---

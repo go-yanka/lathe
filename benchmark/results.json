@@ -1,0 +1,111 @@
+{
+ "rows": [
+  {
+   "task": "parse_duration",
+   "tool": "raw-claude",
+   "pass": true,
+   "elapsed_s": 6.7
+  },
+  {
+   "task": "parse_duration",
+   "tool": "aider",
+   "pass": true,
+   "elapsed_s": 23.4
+  },
+  {
+   "task": "parse_duration",
+   "tool": "lathe",
+   "pass": true,
+   "elapsed_s": 14.5
+  },
+  {
+   "task": "slugify",
+   "tool": "raw-claude",
+   "pass": true,
+   "elapsed_s": 5.1
+  },
+  {
+   "task": "slugify",
+   "tool": "aider",
+   "pass": true,
+   "elapsed_s": 22.6
+  },
+  {
+   "task": "slugify",
+   "tool": "lathe",
+   "pass": true,
+   "elapsed_s": 80.8
+  },
+  {
+   "task": "dedupe_keep_order",
+   "tool": "raw-claude",
+   "pass": true,
+   "elapsed_s": 3.8
+  },
+  {
+   "task": "dedupe_keep_order",
+   "tool": "aider",
+   "pass": true,
+   "elapsed_s": 16.9
+  },
+  {
+   "task": "dedupe_keep_order",
+   "tool": "lathe",
+   "pass": true,
+   "elapsed_s": 33.8
+  },
+  {
+   "task": "roman_to_int",
+   "tool": "raw-claude",
+   "pass": true,
+   "elapsed_s": 5.7
+  },
+  {
+   "task": "roman_to_int",
+   "tool": "aider",
+   "pass": true,
+   "elapsed_s": 18.5
+  },
+  {
+   "task": "roman_to_int",
+   "tool": "lathe",
+   "pass": true,
+   "elapsed_s": 33.5
+  },
+  {
+   "task": "clamp",
+   "tool": "raw-claude",
+   "pass": true,
+   "elapsed_s": 5.0
+  },
+  {
+   "task": "clamp",
+   "tool": "aider",
+   "pass": true,
+   "elapsed_s": 11.1
+  },
+  {
+   "task": "clamp",
+   "tool": "lathe",
+   "pass": true,
+   "elapsed_s": 42.2
+  }
+ ],
+ "summary": {
+  "raw-claude": {
+   "pass": 5,
+   "n": 5,
+   "t": 26.3
+  },
+  "aider": {
+   "pass": 5,
+   "n": 5,
+   "t": 92.5
+  },
+  "lathe": {
+   "pass": 5,
+   "n": 5,
+   "t": 204.8
+  }
+ }
+}

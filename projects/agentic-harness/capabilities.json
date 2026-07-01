@@ -1,0 +1,11 @@
+{
+  "_doc": "Capability source-of-truth. capability -> {canonical, entrypoint, status: live|designed|retired, supersedes}. Query: `lathe whatis <capability>`. Enforced by qa/registry_gate.py. One 'live' per capability.",
+  "task_board": {"canonical": "harness.db", "entrypoint": "board:DEFAULT_DB", "status": "live"},
+  "plan_validator": {"canonical": "tools/plan_validator.py", "entrypoint": "plan_validator:is_valid_plan", "status": "live"},
+  "sandbox": {"canonical": "tools/sandbox.py", "entrypoint": "sandbox:run_unit", "status": "live"},
+  "planner": {"canonical": "tools/planner_prompt.py", "entrypoint": "planner_prompt:build_planner_prompt", "status": "live"},
+  "analyst_call": {"canonical": "tools/request_spec.py", "entrypoint": "request_spec:request_spec", "status": "live"},
+  "resource_dup_detector": {"canonical": "tools/duplicate_basenames.py", "entrypoint": "duplicate_basenames:duplicate_basenames", "status": "live"},
+  "logic_dup_detector": {"canonical": "tools/structural_signature.py", "entrypoint": "structural_signature:structural_signature", "status": "live"},
+  "capability_registry": {"canonical": "tools/registry.py", "entrypoint": "registry:whatis", "status": "live"}
+}

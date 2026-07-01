@@ -1,150 +1,75 @@
 # Lathe
 
-**Treat AI code generation like a build system, not a conversation.**
+**A test-driven build engine for LLMs.** Treat AI code generation like a compiler, not a conversation: you
+describe *what* you want as data (a plan) and its acceptance tests; a local model implements it under those
+tests; passing code is content-hash **pinned** (so rebuilds are free and deterministic); and you **never
+hand-edit generated code** — if it's wrong, you fix the spec and rebuild.
 
-Lathe is a small, reproducible, spec-driven harness for building software with LLMs. Specs and tests are
-the source of truth; a cheap **local** model does the generation; every output must pass a gate; accepted
-output is **pinned** so rebuilds are identical; and every failure is banked to sharpen the spec — so the
-system gets *sharper as it ages* instead of drifting.
-
-> 🖥️ **Runs on a 2019 gaming PC.** The whole pipeline — local code generation, gating (including a headless
-> browser), and reproducible pinned builds — was built and runs end-to-end on an **8 GB RTX 2060 Super with
-> 16 GB RAM**. The *code generation* runs entirely local at ~33 tok/s — no per-token bill. Only the
-> *thinking* (the specs) uses a premium model (we used Claude), sparingly — and that role can be a human or
-> a local model. Reproducible, gated, mostly-local LLM development on hardware you already own.
-
-> Developed independently, then mapped to prior art honestly. None of the individual ideas are new — see
-> [PRIOR_ART.md](PRIOR_ART.md). What's unusual is the combination and three deliberate choices: **no model
-> escalation on failure, content-hash pinning for reproducibility, and live-browser behavioral gating.**
-
----
-
-## The idea in three pictures
-
-**1. The pain, and the payoff.** Chat-style AI coding starts brilliant, then rots. A *build* costs a little
-up front and gets sharper as it ages.
-
-![Most AI coding rots as it ages; a build gets sharper](docs/decay-vs-build.svg)
-
-**2. Big brain thinks, small brain builds.** A premium model writes the design and tests (rare, expensive
-tokens — judgment). A cheap local model writes the code (free, abundant tokens — volume). Each is spent
-where it's worth most.
-
-![Big brain thinks, small brain builds](docs/division-of-labor.svg)
-
-**3. The loop.** Spec in → generate → gate → pin → ship. On failure: don't escalate, sharpen the spec.
-
-![The Lathe loop](docs/loop.svg)
+This is not an "autonomous AI engineer." It's a disciplined pipeline that makes AI-written code **tested,
+reproducible, and clean** — and refuses anything that isn't.
 
 ## Why
 
-Every long AI-coding session rots the same way: the same prompt gives different code, the goal drifts, the
-context bloats, the process gets bypassed, the model confabulates success, and nothing is reproducible.
-(The field has the receipts: only ~68% of AI-generated projects even run out-of-the-box — see the
-[white paper](WHITEPAPER.md).)
+Standard AI coding tools generate code you then tweak by hand — and the moment you do, you own the technical
+debt and reproducibility is gone. Lathe forces every change *upstream into the spec*, keeps a **frontier model
+for judgment** (writing specs + tests) and a **cheap local model for the typing** (implementing under those
+tests), and gates the result. You get frontier-level judgment with local-level cost, speed, and privacy.
 
-Lathe's bet is that the cure isn't a smarter model — it's the boring engineering discipline we used
-*before* AI: reproducible builds, a single source of truth, CI gates, regression tests. Old wine, new
-bottle.
-
-## How it works
+## How it works (30 seconds)
 
 ```
-  Analyst (you + premium model)  ──writes──▶  spec + tests        ◀── source of truth
-            │
-            ▼  build
-  Local model  ──generates──▶  code            ◀── the cheap "compiler"
-            │
-            ▼
-  Gate:  unit tests · live-browser behavioral test · design contract
-       │                                   │
-   FAIL│                               PASS│
-       ▼                                   ▼
-  Bank the failure                    Pin it: hash(spec+tests+model)
-  + sharpen the spec                  → reproducible rebuild → ship
-       │   (no escalation to a bigger model)
-       └────────────────────────────────▶ back to the spec
-                  the learning loop — sharper as it ages
+goal → ANALYST (frontier) writes spec + tests → IMPLEMENTER (local model) writes code
+     → GATE runs the tests in an isolated sandbox → pass: PIN it / fail: rewrite the spec and retry
 ```
 
-The five rules:
+Full design + rationale: **[ARCHITECTURE.md](ARCHITECTURE.md)**. Threat model: **[SECURITY.md](SECURITY.md)**.
 
-1. **Plans = spec + tests are the source of truth.** Code is a build output, never hand-edited.
-2. **Cheap local model generates; premium model only thinks** (authors specs/tests).
-3. **Gate everything** — unit tests, a *behavioral* browser test for UI, and a design check.
-4. **Pin** accepted output by `hash(spec+tests+model)` → deterministic rebuilds.
-5. **Failures are assets** — banked and fed back to the spec. Retries are sampling; better specs are learning.
+## Quick start
 
-## The plan — the core idea
-
-A **plan** is a small declarative file: the complete, regenerable source of truth for a module. Its key
-move is **granularity** — design + expectations + tests *per function*, the atomic unit that's generated,
-gated, and pinned on its own. (Feature-level spec tools spec broadly; task-level TDD tests a whole problem.
-Lathe goes down to the single function — which is *why* a local model can be reliable and *why* the pins
-are fine-grained.)
-
-```python
-MODULE_NAME = "calc"
-FUNCTIONS = [
-    {
-        "name": "fizzbuzz",
-        "prompt": "Write `fizzbuzz(n)`: 'FizzBuzz' if divisible by 3 and 5, "
-                  "'Fizz' if by 3, 'Buzz' if by 5, else the number as a string.",   # design + expectations
-        "tests": ["assert fizzbuzz(15)=='FizzBuzz'", "assert fizzbuzz(9)=='Fizz'",  # the contract
-                  "assert fizzbuzz(10)=='Buzz'", "assert fizzbuzz(7)=='7'"],
-    },
-    # ... more functions, each independently spec'd, gated, pinned
-]
-GLUE = "..."          # hand-authored wiring, appended verbatim (not generated)
-INTEGRATION = "..."   # asserts the assembled module works as a whole
-```
-
-**Dependencies and order** are explicit: plans run in filename order (`01_…`, `02_…`), and later modules
-build on earlier ones — the numeric prefix *is* the dependency graph.
-
-> 📖 **The most important doc: [docs/HOW_IT_WORKS.md](docs/HOW_IT_WORKS.md)** — the plan format, how the
-> analyst spells out design + expectations + tests per function (with the two registers: *describe the
-> algorithm* vs *verbatim spec*), GLUE + INTEGRATION, behavioral UI gating + design-as-code, the engine
-> loop, and how a real 23-plan app was actually delivered — all from the real plans, not a sketch.
-
-## Quickstart
-
-> Requirements: Python 3.11+ and [Ollama](https://ollama.com). For UI/behavioral gates:
-> `pip install playwright && playwright install chromium`.
-
-We run a **Gemma 4 12B QAT quant, 100% on an 8 GB RTX 2060 Super** (~33 tok/s) — `num_gpu 99`,
-`num_ctx 8192`. A 12B-class model is far more reliable than a 7B on non-trivial functions (itself a good
-demonstration of the model-tier point); any ~12B local model works.
+Requirements: Python 3.10+, an OpenAI-compatible local model endpoint (Ollama / llama-server / vLLM), and an
+analyst endpoint (any OpenAI-compatible frontier model). Point Lathe at them with env vars:
 
 ```bash
-# build the demo app from its plan — generate, gate, pin
-python engine.py examples/calc/plan_add.py gemma4:12b 3
+export LOCAL_OPENAI_URL=http://localhost:8080/v1/chat/completions   # your local implementer
+export HARNESS_CLAUDE_URL=http://localhost:8787/v1/chat/completions # your analyst (frontier)
+export LATHE_MODEL=openai:local
 
-# re-run it — pinned, so it rebuilds identically (no re-roll)
-python engine.py examples/calc/plan_add.py gemma4:12b 3
+python lathe.py selftest            # confirm the harness is healthy on your machine
+python lathe.py do "a function that parses a duration like '2h30m' into seconds"
+python lathe.py metrics summary     # build success rate, cost split, first-pass rate, churn
 ```
 
-> Don't have a Gemma 4 build? Any ~12B local model works (e.g. `gemma3:12b`). A 7B (`qwen2.5-coder:7b`) runs
-> too — it's where we started — but expect more gate failures on harder functions, which the engine will
-> (correctly) refuse to escalate.
+Reproducible demo (no model needed — proves the pinning story):
 
-Watch the loop work: easy functions generate and **pin** (re-runs reuse them); a function the model can't
-do **fails the gate and is NOT escalated** — the engine banks the failure for you to sharpen the spec.
-See [`examples/`](examples/) for the project and [`docs/`](docs/) for the diagrams.
+```bash
+python lathe.py build examples/hello.py    # rebuilds a pinned, test-gated module deterministically, offline
+```
 
-## What this is — and isn't
+## What makes it trustworthy (not just fast)
 
-- **Is:** a working reference implementation + field notes for reproducible, gated, local-first LLM codegen.
-- **Isn't:** a novel invention (the pieces are prior art), a product, or a cost-savings claim.
+- **Test-quality linter** (`lathe lint-spec`) — checks the tests are *good*, not just that they pass: a
+  mutation probe flags a spec whose tests a trivial stub could satisfy.
+- **Isolated execution** — tests run in a sandbox with an unforgeable verdict; fully-untrusted plans run in a
+  network-less, read-only container (locally or on a remote host over SSH). See `SECURITY.md`.
+- **Six standing gates** — no stale/duplicate files, one canonical implementation per capability, no corrupt
+  files, no real-bug lint, docs can't drift. The tree stays pristine *intrinsically*, not via git.
+- **Structured logging** — every run writes `runs/<id>.jsonl` (with secrets redacted); a bug report is
+  self-diagnosing.
+- **Honest metrics** — `lathe metrics summary` shows build success, cost, and churn. No hand-waving.
 
-Read the [white paper](WHITEPAPER.md) for the full argument and the [honest prior-art map](PRIOR_ART.md)
-for exactly what's borrowed vs. what's unusual.
+## Docs
 
-## Status
+- [ARCHITECTURE.md](ARCHITECTURE.md) — how it works and why
+- [LATHE_COMMANDS.md](LATHE_COMMANDS.md) — every command with a runnable example
+- [SECURITY.md](SECURITY.md) — the threat model and isolation tiers
+- [DATA_QUALITY.md](DATA_QUALITY.md) — gating "unit-green but wrong on real data"
+- [VENDORING.md](VENDORING.md) — one canonical copy; projects vendor, don't fork
 
-Early. The engine, gating, and pinning work and have built a non-trivial app end-to-end on an 8 GB
-consumer GPU. Reliability of complex one-shot UI generation is the active frontier (see the white paper's
-limitations).
+## Status & honesty
+
+Lathe is used internally to build real modules for real projects; it is disciplined and hardened, but it is
+young. It depends on model endpoints you provide. Independent benchmarks vs. other tools are still to come. If
+you try it, file issues — the feedback loop is part of the design.
 
 ## License
 

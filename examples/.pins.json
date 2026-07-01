@@ -1,0 +1,1 @@
+{"f514d89f9dcdb4b96f2b9df11d5d3d5b3c20d925bbff4395301e38a7ecd646bd": "def greet(name):\n    if not name:\n        return 'Hello, world!'\n    return 'Hello, ' + name + '!'"}

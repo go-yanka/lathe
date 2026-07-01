@@ -36,7 +36,7 @@ before printing "new.")*
 - "An AI-native SDLC: keep the process, swap the labor."
 - "Lockfiles, test gates, reproducible builds — for AI codegen."
 
-**Economics / access / privacy** (strong, esp. for regulated industries — our demo is pharma)
+**Economics / access / privacy** (strong, esp. for regulated industries — our demo is a regulated-industry app)
 - "Frontier-grade discipline on a $200 used gaming GPU."
 - "Spend the expensive model on thinking; let a cheap local model do the typing."
 - "Your code and data never leave your machine."
