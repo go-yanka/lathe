@@ -240,11 +240,18 @@ def cmd_review(args):
     if args[0] == "all":
         lenses, files = _ALL_LENSES, args[1:]
     elif args[0] in _ALL_LENSES:
-        lenses, files = [args[0]], args[1:]
+        n = 0                                         # consume ALL leading lens tokens (multi-lens: `review adversarial correctness <file>`)
+        while n < len(args) and args[n] in _ALL_LENSES:
+            n += 1
+        lenses, files = args[:n], args[n:]
     else:
         lenses, files = _DEFAULT_LENSES, args        # first arg is a file -> use the default lens set
     if not files:
         print("no files given"); return 2
+    files = [os.path.abspath(f) for f in files]            # resolve vs the caller's cwd, not the reviewer's INNER cwd
+    missing = [f for f in files if not os.path.exists(f)]   # fail loud instead of silently "reviewing" nothing
+    if missing:
+        print("review: these targets do not exist: %s" % ", ".join(missing)); return 2
     rc = 0
     for lens in lenses:
         print("\n========== lathe review: %s  (%d file%s) ==========" % (lens, len(files), "s" if len(files) != 1 else ""))

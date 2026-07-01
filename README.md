@@ -45,6 +45,26 @@ Reproducible demo (no model needed — proves the pinning story):
 python lathe.py build examples/hello.py    # rebuilds a pinned, test-gated module deterministically, offline
 ```
 
+## Workflows
+
+Lathe ships named, transparent end-to-end **workflows** — so you (or an agent) can see exactly how a job is
+handled *before* running it. `lathe flow` lists them; `lathe flow <name>` prints the ordered steps, each tagged
+`[AUTO]` (a Lathe command), `[GATE]` (a tree check), or `[YOU]` (human judgment); `lathe flow <name> --run` runs
+the automatable steps, halting on failure. Definitions are data in `projects/agentic-harness/tools/workflows.py`.
+
+| Workflow | What it does |
+|---|---|
+| `code-review` | Multi-lens review of a change → land only *verified* fixes (upstream, in the plan). |
+| `bug-fix` | Reproduce → diagnose from the run log → fix the **spec** → verify → review → release. |
+| `enhancement` | Scope (vendor-don't-fork) → build **through** the harness → integrate → review → document → release. |
+| `doc-review` | Coherence/accuracy review + the docs-drift gate (every command documented with an example). |
+| `new-project` | Vendor Lathe → configure endpoints → verify → land the first gated build. |
+
+```
+$ python lathe.py flow bug-fix        # show the steps
+$ python lathe.py flow code-review --run   # execute the automatable steps
+```
+
 ## What makes it trustworthy (not just fast)
 
 - **Test-quality linter** (`lathe lint-spec`) — checks the tests are *good*, not just that they pass: a
