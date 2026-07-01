@@ -4,3 +4,9 @@ _fails/
 _itest.py
 _*.tmp
 .DS_Store
+
+# runtime state
+metrics/
+runs/
+harness.db
+*.db

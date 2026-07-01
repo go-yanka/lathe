@@ -10,7 +10,7 @@ if it's wrong, you fix the spec and rebuild.
 ```
         ┌─────────────┐   spec + tests    ┌──────────────┐   code    ┌─────────────┐
   goal ─▶│  ANALYST    │──────────────────▶│  IMPLEMENTER │──────────▶│    GATE     │
-        │ (frontier /  │                   │ (local 35B / │           │ tests run in│
+        │ (frontier /  │                   │ (local model / │           │ tests run in│
         │  Claude)     │◀──────────────────│  the rig)    │           │ a SANDBOX   │
         └─────────────┘   repair: rewrite  └──────────────┘           └──────┬──────┘
               ▲            the spec from the                                  │

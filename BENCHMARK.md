@@ -3,21 +3,23 @@
 Run: `python benchmark/bench.py` (harness + task set are checked in; reproducible). First run 2026-07-01.
 
 ## Setup (read this before the numbers)
+> **Model note (reconciling the docs):** the *shipped default* implementer is a **12B Gemma** (8 GB GPU — the whitepaper's story). This run pointed the implementer at the **rig's 35B**. Both are "the local model" — Lathe is model-agnostic; the size is the machine that ran, not a requirement.
+
 - **5 tasks**, small pure functions (`parse_duration`, `slugify`, `dedupe_keep_order`, `roman_to_int`, `clamp`).
 - Each tool gets the **same natural-language spec** and operates **naturally**. None of them sees the
   **held-out acceptance tests** used for scoring — so this measures real correctness, not teaching-to-the-test.
 - The three configs are **architecturally different** (this is an end-to-end "spec → correct code" comparison,
   **not** a single-variable study — stated plainly):
   - **raw-claude** — one-shot to the frontier analyst endpoint (no tests, no iteration).
-  - **aider** — Aider driving the **local 35B** to edit a file (tool-assisted, no external test gate).
-  - **lathe** — `lathe do`: frontier analyst writes tests, **local 35B** implements **under the test gate**, result pinned.
+  - **aider** — Aider driving the **local model** to edit a file (tool-assisted, no external test gate).
+  - **lathe** — `lathe do`: frontier analyst writes tests, **local model** implements **under the test gate**, result pinned.
 
 ## Results
 
 | tool | passed | avg time |
 |---|---|---|
 | raw-claude | **5/5** | 5.3 s |
-| aider (local 35B) | **5/5** | 18.5 s |
+| aider (local model) | **5/5** | 18.5 s |
 | lathe | **5/5** | 41.0 s |
 
 ## Honest interpretation — Lathe does NOT win here, and that's the point
@@ -41,7 +43,7 @@ numbers **cannot** claim to show:
 ## Limitations (so the number isn't over-read)
 - Small N (5), easy tasks, single run, Python-only, no $ cost, no "wrong-but-plausible" tasks.
 - `lathe do` includes a frontier **analyst** step the other two don't get; conversely raw-Claude **is** frontier
-  while Aider/Lathe implement on a local 35B. Apples-to-oranges by construction.
+  while Aider/Lathe implement on a local model. Apples-to-oranges by construction.
 
 ## What a fair, harder benchmark should add next (the honest to-do)
 1. **Hard tasks where a one-shot fails** (subtle edge cases, multi-step logic) — where the gate + repair earns

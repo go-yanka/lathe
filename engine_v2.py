@@ -18,7 +18,7 @@ except Exception:
     BeautifulSoup = None
 
 PLAN_PATH = sys.argv[1]
-MODEL = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("HARNESS_MODEL", "qwen2.5-coder")
+MODEL = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("HARNESS_MODEL", "gemma2:12b")  # published default; model-agnostic, override via HARNESS_MODEL
 N = int(sys.argv[3]) if len(sys.argv) > 3 else 12
 
 # structured per-run logging so a reported bug is self-diagnosing (best-effort — a logging failure must NEVER
@@ -154,7 +154,7 @@ CLAUDE_URL = os.environ.get("HARNESS_CLAUDE_URL", "http://127.0.0.1:8787/v1/chat
 # Model LEVELS: the PLAN picks the model/level per function; the engine STICKS with it.
 # There is NO fall-through to another model on failure — a failure means the analyst
 # improves the spec so the assigned model can implement it. (Owner directive.)
-LEVELS = {1: MODEL, 2: "claude"}   # 1 = local qwen (default); 2 = claude via proxy (assigned deliberately)
+LEVELS = {1: MODEL, 2: "claude"}   # 1 = local local (default); 2 = claude via proxy (assigned deliberately)
 
 def call_model(prompt, temperature, model):
     """Timed+logged wrapper over the router: every model call is traced (model, sizes, latency, tokens) into the
@@ -454,7 +454,7 @@ for f in plan.FUNCTIONS:
     prompt = f["prompt"] + (("\n\n" + f["context"]) if f.get("context") else "")
     # The PLAN assigns the model (or level) per function; the engine STICKS with it (no fall-through).
     fmodel = f.get("model") or LEVELS.get(f.get("level", 1), MODEL)
-    short = "claude" if fmodel == "claude" else "qwen"
+    short = "claude" if fmodel == "claude" else "local"
     pkey = hashlib.sha256((name + "\x00" + prompt + "\x00" + repr(tests) + "\x00" + fmodel).encode()).hexdigest()
     winner, tries, source, picked = None, 0, None, 0
     # Opt-in quality selection (D28): collect K passing candidates, judge-pick the cleanest.
@@ -487,7 +487,7 @@ for f in plan.FUNCTIONS:
     # FAIL -> analyst improves the spec so THIS model passes (D6/D19); NO model fall-through.
     solved_src[name] = winner
     report.append((name, winner is not None, tries, source))
-    tag = {"qwen": "PASS (qwen)", "claude": "PASS (claude)", "pinned": "REUSED (pinned)",
+    tag = {"local": "PASS (local)", "claude": "PASS (claude)", "pinned": "REUSED (pinned)",
            None: "FAIL -> analyst must refine spec"}[source]
     sel = f"  [judged best of {picked}]" if picked > 1 else ""
     print(f"  {name:16} {tag:22} {tries} tries  ({len(tests)} tests){sel}")
@@ -563,7 +563,7 @@ for art in getattr(plan, "ARTIFACTS", []):
     afunc = art.get("functional", "")
     aext = os.path.splitext(apath)[1] or ".html"   # #132: temp-file ext for the func gate (.py modules importable via $ARTIFACT_FILE)
     afallback = art.get("fallback"); afb_after = int(art.get("fallback_after", 2))  # local-first: after afb_after failed gate tries on the primary, escalate to fallback (e.g. claude)
-    ashort = "claude" if amodel == "claude" else "qwen"
+    ashort = "claude" if amodel == "claude" else "local"
     def _structural(c):
         ns = {"content": c, "re": re, "json": json}
         fails = []
@@ -615,7 +615,7 @@ for art in getattr(plan, "ARTIFACTS", []):
     else:
         for k in range(N):
             use_model = amodel if (not afallback or k < afb_after) else afallback   # local-first -> escalate
-            ushort = "claude" if use_model == "claude" else "qwen"
+            ushort = "claude" if use_model == "claude" else "local"
             try:
                 raw = call_model(aprompt, min(0.2 + 0.1 * k, 1.0), use_model)
             except Exception as e:
@@ -696,7 +696,7 @@ except Exception:
     pass
 
 passed = sum(1 for r in report if r[1])
-by_qwen = sum(1 for r in report if r[3] == "qwen")
+by_local = sum(1 for r in report if r[3] == "local")
 by_claude = sum(1 for r in report if r[3] == "claude")
 by_pinned = sum(1 for r in report if r[3] == "pinned")
 failed = [r[0] for r in report if not r[1]]
@@ -849,14 +849,14 @@ build_ok = ((passed == len(plan.FUNCTIONS)) and (artifacts_passed == artifacts_t
             and not str(integration).startswith("FAIL")              # an INTEGRATION failure is NOT a green build
             and not (regression or "").startswith(("REGRESSION", "TIMEOUT")))   # a timeout is not a green gate
 print("\n===== RESULT =====")
-print(f"functions implemented: {passed}/{len(plan.FUNCTIONS)}  (generated: qwen={by_qwen}, claude={by_claude}; pinned-reused={by_pinned})")
+print(f"functions implemented: {passed}/{len(plan.FUNCTIONS)}  (generated: local={by_local}, claude={by_claude}; pinned-reused={by_pinned})")
 if artifacts_total:
     print(f"artifacts implemented: {artifacts_passed}/{artifacts_total}")
 if failed:
     print(f"NEEDS SPEC REFINEMENT (analyst refines spec/tests; never implements): {failed}")
 print(f"integration: {integration}")
 print(f"regression: {regression}")
-print(f"qwen tokens: prompt={tok['p']} eval={tok['e']} total={tok['p']+tok['e']}")
+print(f"local tokens: prompt={tok['p']} eval={tok['e']} total={tok['p']+tok['e']}")
 print(f"elapsed: {elapsed:.0f}s")
 if module_ok:
     print(f"program written to: {os.path.join(out_dir, module + '.py')}")
@@ -866,20 +866,20 @@ os.makedirs(out_dir, exist_ok=True)
 rep = ["# RUN REPORT", "",
        f"- programmer model: {MODEL}",
        f"- best-of-N: {N}",
-       f"- functions implemented: {passed}/{len(plan.FUNCTIONS)} (qwen={by_qwen}, claude={by_claude}, pinned-reused={by_pinned})",
+       f"- functions implemented: {passed}/{len(plan.FUNCTIONS)} (local={by_local}, claude={by_claude}, pinned-reused={by_pinned})",
        f"- needs-spec-refinement: {failed if failed else 'none'}",
        f"- integration: {integration.splitlines()[0]}",
        f"- elapsed: {elapsed:.0f}s",
        "", "## Token accounting (System A = this harness)",
-       f"- PROGRAMMER tier-1 (qwen, local/free): prompt={tok['p']}  eval={tok['e']}  total={tok['p']+tok['e']}",
-       f"- PROGRAMMER tier-2 (claude fallback, $0 subscription): {tok['claude_calls']} calls -> {by_claude} functions qwen couldn't do",
+       f"- PROGRAMMER tier-1 (local, local/free): prompt={tok['p']}  eval={tok['e']}  total={tok['p']+tok['e']}",
+       f"- PROGRAMMER tier-2 (claude fallback, $0 subscription): {tok['claude_calls']} calls -> {by_claude} functions local couldn't do",
        "- ANALYST (spec authoring + refinement): NOT INSTRUMENTED this run "
        "(analyst was human-Claude). To measure true savings, automate the analyst as an "
        "LLM call and sum its tokens here.",
        "- ENGINE (deterministic): 0 tokens",
        "", "## Per-function", "| function | result | tries |", "|---|---|---|"]
 for nm, ok, tries, src in report:
-    rep.append(f"| {nm} | {'PASS (qwen)' if ok else 'FAIL - refine spec'} | {tries} |")
+    rep.append(f"| {nm} | {'PASS (local)' if ok else 'FAIL - refine spec'} | {tries} |")
 open(os.path.join(out_dir, "RUN_REPORT.md"), "w", encoding="utf-8").write("\n".join(rep))
 print(f"run report: {os.path.join(out_dir, 'RUN_REPORT.md')}")
 
@@ -893,7 +893,7 @@ _metrics = {
     "ts": datetime.datetime.now().isoformat(timespec="seconds"), "run_id": _RUN_ID,   # ties the metrics row to runs/<run_id>.jsonl
     "plan": os.path.basename(PLAN_PATH), "model": MODEL, "endpoint": _endpoint, "N": N,
     "functions_total": len(plan.FUNCTIONS), "functions_passed": passed,
-    "by_local": by_qwen, "by_claude": by_claude, "by_pinned": by_pinned, "failed": failed,
+    "by_local": by_local, "by_claude": by_claude, "by_pinned": by_pinned, "failed": failed,
     "first_pass": sum(1 for r in report if r[1] and r[2] == 1),
     "fresh_attempts": sum(r[2] for r in report if r[3] != "pinned"),
     "avg_tries": round(sum(r[2] for r in report) / len(report), 2) if report else 0,

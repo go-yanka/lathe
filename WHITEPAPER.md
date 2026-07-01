@@ -108,7 +108,7 @@ modules wire together, how UI pages are generated and tested in a real browser �
 Yes — the way builds always have: by composition. Functions assemble into modules; modules are **ordered
 plans** (`01_…`, `02_…`); later plans build on earlier ones, and an integration test guards every boundary.
 The real application behind this paper is **23 ordered plans** — a scoring engine, 47 data-source
-ingesters, an AI layer, a FastAPI server, and model-generated UI — built and reproduced end to end.
+ingesters, an AI layer, a FastAPI server, and model-generated UI — built and reproduced end to end. *(That product is private and is **not** included in this public repository, so this specific scaling claim cannot be verified from what ships here — a public multi-plan demo is planned to make it falsifiable.)*
 
 Macro-architectural changes work exactly like bug fixes: you change the *upstream* plan, and everything
 downstream regenerates and re-gates. There is no hand-written code to keep in sync, because the code was
@@ -139,8 +139,7 @@ This is the difference between *looking* smart and *being* smart:
   build after it.
 
 Retries are sampling. **Banked failures becoming better specs is learning.** Do this across a project and
-across many projects, and the harness compounds: the cost curve bends down as it ages. That's the whole
-reason it gets better instead of decaying.
+across many projects, and the harness compounds: the cost curve bends down as it ages. That's the design *intent* — the cost curve should bend down as it ages. (A claim about direction, not a measured track record yet.)
 
 ## Fixing a bug becomes a design decision
 

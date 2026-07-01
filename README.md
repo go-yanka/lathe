@@ -67,7 +67,7 @@ python lathe.py build examples/hello.py    # rebuilds a pinned, test-gated modul
 
 ## Status & honesty
 
-Lathe is used internally to build real modules for real projects; it is disciplined and hardened, but it is
+Lathe has been used **privately** to build internal modules; those apps are not in this public repo, so treat the track record here as unverified-from-this-repo. The harness is security-conscious and disciplined, but
 young. It depends on model endpoints you provide. Independent benchmarks vs. other tools are still to come. If
 you try it, file issues — the feedback loop is part of the design.
 
