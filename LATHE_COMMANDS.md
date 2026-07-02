@@ -28,6 +28,10 @@ $ python lathe.py build projects/agentic-harness/plans/auto_070.py
   build_ok: true   run report: .../RUN_REPORT.md   metrics -> runs.jsonl
 ```
 
+**Bug-fix mode (`LATHE_REGRESSION_PROOF=1`):** a changed function is refused unless ≥1 of its new tests
+FAILS on the old accepted implementation — a fix must ship a test that reproduces the bug (refused before
+any generation; new functions and unchanged pins are unaffected; default off).
+
 ### `lathe chat`
 Interactive REPL — each line is a goal or a command (`build ...`, `status`, `quit`). Survives transient
 failures (a proxy/rig blip prints an error and keeps the session alive).

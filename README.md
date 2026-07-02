@@ -126,6 +126,9 @@ so it's model- and host-agnostic and drops into several setups:
   files, no real-bug lint, docs can't drift. The tree stays pristine *intrinsically*, not via git.
 - **Structured logging** — every run writes `runs/<id>.jsonl` (with secrets redacted); a bug report is
   self-diagnosing.
+- **A bug fix must prove the bug** — with `LATHE_REGRESSION_PROOF=1` (the bug-fix mode), a changed
+  function whose new tests all pass on the *old* accepted implementation is **refused before a single
+  generation token is spent**: no test reproduces the bug, so a green rebuild would prove nothing.
 - **Requirement→test traceability, by construction** — a plan may declare acceptance criteria
   (`CRITERIA`); the validator **refuses** any criterion not mapped to a named, existing test, and
   `lathe trace` emits the criterion→test→pin→model matrix (which test proves which requirement, and which

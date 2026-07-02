@@ -46,6 +46,7 @@ jobs:
           python projects/agentic-harness/tools/test_d7_autospawn.py
           python projects/agentic-harness/tools/test_analyst_guard_e2e.py
           python review_tests/test_traceability.py
+          python review_tests/test_regression_proof.py
           # test_pin_deps_e2e.py needs a live local model endpoint - run locally, not in CI
 
       - name: Reproducibility — pinned demo rebuilds offline, zero model calls

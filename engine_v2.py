@@ -454,6 +454,27 @@ except Exception:
     _pin_stale_by_deps = None            # module absent -> legacy behavior (no transitive invalidation)
 _fresh_fn_names = []                     # functions regenerated THIS run (the dirty seeds; closure via plan order)
 
+# REGRESSION-PROOF GATE (enforcement mechanism #1): with LATHE_REGRESSION_PROOF=1 (the bug-fix mode), a
+# CHANGED function whose new tests ALL pass on the OLD accepted implementation is REFUSED — the change
+# ships no test that reproduces the bug, so a green rebuild would prove nothing. Decision + old-def
+# extraction are harness-built (tools/regression_proof.py); the tests-vs-old-code run uses the engine's
+# own validate() (same sandbox as the gate itself).
+_rp_extract, _rp_gate = None, None
+try:
+    _rp = importlib.util.spec_from_file_location("regression_proof", os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "regression_proof.py"))
+    _rpm = importlib.util.module_from_spec(_rp); _rp.loader.exec_module(_rpm)
+    _rp_extract, _rp_gate = _rpm.extract_def, _rpm.proof_gate
+except Exception:
+    pass                                 # module absent -> legacy behavior (gate is opt-in anyway)
+_OLD_MODULE_SRC = ""
+try:
+    _omp = os.path.join(_pre_out, plan.MODULE_NAME + ".py") if getattr(plan, "MODULE_NAME", "") else ""
+    if _omp and os.path.exists(_omp):
+        _OLD_MODULE_SRC = open(_omp, encoding="utf-8", errors="replace").read()
+except Exception:
+    _OLD_MODULE_SRC = ""
+
 # FAILURE-AS-ASSET for FUNCTIONS (mirrors the artifact preservation below): a failed candidate and
 # the EXACT failing test are banked to disk so the analyst can sharpen the spec from real feedback.
 _FN_FAILDIR = os.path.join(_pre_out, "_fn_fails")
@@ -508,6 +529,18 @@ for f in plan.FUNCTIONS:
     if not _dep_stale and pkey in pins and validate(pins[pkey], name, tests, solved_ns):
         winner, source = pins[pkey], "pinned"
     else:
+        # REGRESSION-PROOF (mechanism #1, opt-in): this unit CHANGED — do the new tests actually catch a
+        # bug in the OLD accepted implementation? If every new test passes on the old code, refuse before
+        # spending a single generation token: the change ships no reproducing test.
+        if _rp_gate is not None:
+            _old = _rp_extract(_OLD_MODULE_SRC, name) if _rp_extract else ""
+            _blocked, _rp_why = _rp_gate(os.environ.get("LATHE_REGRESSION_PROOF"), _old,
+                                         bool(_old) and validate(_old, name, tests, solved_ns))
+            if _blocked:
+                print(f"  {name:16} REGRESSION-PROOF GATE — {_rp_why}")
+                solved_src[name] = None
+                report.append((name, False, 0, None))
+                continue
         candidates = []
         for k in range(N):
             tries += 1
