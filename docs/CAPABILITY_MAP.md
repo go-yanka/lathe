@@ -1,11 +1,19 @@
 # Lathe — Capability Map (bucketed + prioritized)
 
-An exhaustive inventory of Lathe's capabilities (v2.1.3), grouped into buckets and prioritized within each.
+An exhaustive inventory of Lathe's capabilities (**refreshed to v2.2.0**), grouped into buckets and
+prioritized within each.
 **Provenance (two separate channels):** the capability *list* was drawn from the code plus
 `LATHE_CAPABILITIES.md` / `LATHE_COMMANDS.md`; every *status label* below was **verified against the
 executable source** (`engine_v2.py`, `run_gates.py`, `lathe.py`, `lathe_mcp.py`, `tools/*`) — the code is the
 oracle, not the sibling docs. Status legend: **✅ wired** (on the autonomous path) · **🔌 available**
-(built/tested, not autonomous) · **🧠 analyst** (premium/human front-end).
+(built/tested, not autonomous) · **🧠 analyst** (premium/human front-end) · **⚙️ opt-in gate** (built +
+reproduced, off by default / STRICT-forced — no autonomous-path change unless enabled).
+**v2.2.0 refresh note:** the five methodology-enforcement mechanisms shipped over v2.1.4→v2.2.0 —
+requirement→test traceability, regression-proof, mutation-*score*, STRICT umbrella, and SDLC/RTM authoring —
+were added below (Buckets C & D) and each was **independently reproduced** by the review (see
+`METHODOLOGY_ENFORCEMENT_VALIDATION.md`, scorecard 3/6 done + #4-partial). They are **opt-in / STRICT-forced**
+(default off), so they carry a ⚙️ marker: *gated capability, off by default, no autonomous-path behavior
+change unless enabled*.
 Priority: **P0** = flagship differentiator · **P1** = important/core · **P2** = supporting. **The priority axis
 (P0/P1/P2) is independent of the status axis (✅/🔌/🧠)** — a P0 flagship can still be 🔌 (built but not yet on
 the autonomous path); the two must be read together, not conflated.
@@ -33,7 +41,22 @@ the autonomous path); the two must be read together, not conflated.
 ## Bucket C — Verification & quality gates (the acceptance layer)
 - **P0** Hard test gate — code is **accepted only if its tests pass** (acceptance, not a repair loop). ✅
 - **P0** Isolated sandbox with an **unforgeable nonce verdict** (subprocess / docker / docker-ssh tiers). ✅
-- **P0** Test-quality linter — **mutation probe**: flags tests a trivial stub could satisfy. 🔌
+- **P0** Test-quality linter — **mutation probe** (single-stub): flags tests a trivial stub could satisfy. 🔌
+- **P0** **Mutation-*score* threshold** (methodology #3, v2.2.0) — deterministic AST mutants of accepted code
+  (arith/compare/int-const) must be killed at ≥ `LATHE_MUTATION_SCORE`; a suite that can't discriminate the
+  code from its mutants is BLOCKED before pinning. Fails **closed** on malformed inputs. ⚙️ (reproduced 9/9 +
+  17/17 pure logic)
+- **P0** **Requirement→test traceability, enforced** (methodology #2, v2.1.5) — a plan's declared `CRITERIA`
+  must each map to ≥1 named test; the validator refuses unmapped criteria / dangling refs / dup ids; `lathe
+  trace` emits the criterion→test→pin→model matrix (the compliance artifact). ⚙️ (reproduced 12/12)
+- **P0** **Regression-proof** (methodology #1, v2.1.6; generalized to enhancements under STRICT v2.1.7) —
+  `LATHE_REGRESSION_PROOF=1`: a changed function whose new tests all pass on the OLD accepted impl is REFUSED
+  before a token is spent (no reproducing test = no build). ⚙️ (reproduced 8/8 + 6/6 pure logic)
+- **P0** **Test-ack gate** (methodology #4-partial, v2.1.4) — `LATHE_TEST_ACK=1` / `lathe ack`: refuses to
+  build until a human has acknowledged this exact test set; any rewrite (incl. repair loop) re-forces it. ⚙️
+- **P0** **STRICT / SDLC umbrella** (v2.1.7, +#3 in v2.2.0) — `LATHE_STRICT=1` composes traceability +
+  test-ack + regression-proof + lint-block + mutation-score, forcing all development (new + enhancement)
+  through every proof; explicit env vars still win. ⚙️ (reproduced 7/7 + 8/8 pure logic)
 - **P1** Six standing gates: stale · resource-dups · registry · pristine · real-bug-lint · docs-drift. ✅
 - **P1** Functional/behavioral gate — live headless browser (Playwright) checks the real DOM. 🔌
 - **P1** Structural gate — asserts against generated artifact `content`. 🔌
@@ -49,11 +72,18 @@ the autonomous path); the two must be read together, not conflated.
 - **P1** Analyst plan authoring — premium model (or human) writes spec+tests; pluggable. 🧠
 - **P1** CE review personas — multi-lens (correctness/adversarial/security/data/reliability/perf/api/
   maintainability/testing/ui), vendored, injected as real reviewer lenses. 🧠
-- **P1** Review decider — `review auto` auto-selects, from the **vendored** personas, those that fit the
-  code's domain (catalog *fetch* of a non-vendored persona is manual — see below). ✅
+- **P1** Review decider — `review auto` auto-selects personas fitting the code's domain, and (v2.1.4, D7
+  fixed) **auto-fetches a missing expert** from the catalog when the decider needs one no longer vendored. ✅
 - **P1** Planner lens injection — a goal auto-injects expert lenses into the analyst's thinking prompt. ✅
-- **P2** On-demand persona catalog — license-gated fetch of expert personas. 🔌 (mechanism works; NOT yet
-  auto-triggered by the decider — see `LATHE_REVIEW_V2.md` §15, defect D7)
+- **P1** On-demand persona catalog — license-gated fetch of expert personas; **auto-triggered by the decider**
+  as of v2.1.4 (was defect D7, now closed). Catalog grown to **~143** with documented sources/licenses
+  (`PERSONAS.md`). ✅
+- **P2** Persona matching — word-overlap + name-weighted + synonym expansion (D8, v2.1.4). 🔌
+- **P2** Empirical persona ratings — `lathe agent rate`: field-probe + independent judge scores a persona. 🔌
+- **P2** Persona priority/mandatory config — user pins which experts are always/never consulted. 🔌
+- **P2** **SDLC authoring** — `lathe sdlc "<goal>"` (v2.2.0): analyst authors UC→BR→FR→TS with stable IDs; the
+  RTM gate refuses orphans/dangling refs; the `sdlc` workflow chains it into ack → STRICT build → trace →
+  review. ⚙️ (RTM gate reproduced — orphans/dangling refs refused, refusal writes nothing)
 - **P2** Select-K quality judge — collect K passing candidates, pick the cleanest. 🔌
 - **P2** Grounding pre-step — cite real `file:symbol` before authoring a plan. 🧠
 
@@ -121,6 +151,11 @@ shipped-autonomous surface.
 7. **Runs anywhere: standalone ✅ / inside your agent via MCP 🔌 / any model ✅** (I) — adoption path.
    (MCP is built + tested but not on the autonomous path yet — don't promise "run it in Claude Code today"
    as shipped-autonomous.)
+8. **Methodology enforcement stack** (C) — traceability #2 · regression-proof #1 · mutation-*score* #3,
+   composed by STRICT (v2.1.4→v2.2.0). ⚙️ The positioning centerpiece: *the SDLC process is enforced by the
+   build, not left to discipline.* Scope guard: opt-in/STRICT-forced, and comprehensiveness is measured
+   **per gated function, not whole-program** (#5 kind-of-test, #6 glue still open). See
+   `METHODOLOGY_ENFORCEMENT_VALIDATION.md`.
 
 ## Infographic set — grounded in the prioritized buckets
 A constructive, trustworthy, intuitive set. Each maps to buckets/flagships above; each states status honestly
@@ -147,10 +182,13 @@ first tier; proposed additions cover the under-sold P0/P1 strengths surfaced thi
 10. **"The safety spine"** (H) — plan validator (data-only) + nonce sandbox (unforgeable verdict) + isolation
     tiers. *Why running model-written code here is trustworthy.*
 
-Design rules for the set (carried from the review's trust standard): every graphic shows real status (✅/🔌),
-never implies a 🔌 capability is shipped-autonomous; the "cheap local model" economics are framed as the
-default + an invitation to test (not a proven result — see `LATHE_REVIEW_V2.md` §4/§14); and any capability
-the code doesn't yet wire (e.g. decider auto-fetch, §15 D7) is omitted until it lands.
+Design rules for the set (carried from the review's trust standard): every graphic shows real status
+(✅/🔌/⚙️), never implies a 🔌 capability is shipped-autonomous or a ⚙️ opt-in gate is on by default; the
+"cheap local model" economics are framed as the default + an invitation to test (not a proven result — see
+`LATHE_REVIEW_V2.md` §4/§14). The v2.1.3-era omissions have since landed (decider auto-fetch / §15 D7 fixed
+in v2.1.4) and the methodology-enforcement gates (#1/#2/#3) are now real — a graphic on them must carry the
+⚙️ *opt-in / STRICT-forced* scope and the *per-gated-function, not whole-program* comprehensiveness caveat
+(see `METHODOLOGY_ENFORCEMENT_VALIDATION.md`).
 
 ## Question for the harness reviewer
 Is this inventory COMPLETE (any shipped capability missing?) and are the buckets + P0/P1/P2 priorities
