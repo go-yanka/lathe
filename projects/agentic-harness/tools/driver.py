@@ -29,6 +29,12 @@ def run_plan(plan_path: str, repo: str, model: str = "openai:g26b", n: int = 8, 
         r = subprocess.run([sys.executable, "hrun.py", plan_path, model, str(n)],
                            cwd=repo, capture_output=True, text=True, timeout=timeout)
         out = (r.stdout or "") + (r.stderr or "")
+        if "Traceback (most recent call last)" in out:            # B7: a crash -> one-line summary, never a raw traceback dump
+            try:
+                from spine_helpers import summarize_failure
+                return "[build error] " + summarize_failure(out)
+            except Exception:
+                pass
         return out[-1500:] if out else f"[hrun produced no output, rc={r.returncode}]"
     except subprocess.TimeoutExpired:
         return f"[hrun TIMEOUT after {timeout}s on {plan_path}]"

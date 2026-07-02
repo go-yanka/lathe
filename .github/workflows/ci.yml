@@ -1,0 +1,53 @@
+name: ci
+
+# Verifiable, offline, no model endpoint required. Proves three load-bearing claims:
+#   1. every module parses,
+#   2. the security validator accepts data-plans and rejects code,
+#   3. the pinned demo rebuilds deterministically with ZERO model calls (the reproducibility story).
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Syntax — every module compiles
+        run: |
+          python - <<'PY'
+          import ast, glob
+          for f in glob.glob("**/*.py", recursive=True):
+              ast.parse(open(f, encoding="utf-8").read())
+          print("all modules parse")
+          PY
+
+      - name: Security — validator accepts data-plans, rejects code
+        run: |
+          cd projects/agentic-harness
+          python - <<'PY'
+          import sys; sys.path.insert(0, "tools")
+          from plan_validator import is_valid_plan
+          assert is_valid_plan(open("../../examples/hello.py", encoding="utf-8").read())["ok"] is True, "good plan rejected"
+          assert is_valid_plan('import os\nos.system("x")\nFUNCTIONS=[]\n')["ok"] is False, "malicious plan accepted"
+          print("plan_validator: good accepted, malicious rejected")
+          PY
+
+      - name: Reproducibility — pinned demo rebuilds offline, zero model calls
+        run: |
+          python lathe.py build examples/hello.py > out.txt 2>&1 || true
+          python - <<'PY'
+          import re, json, io
+          s = io.open("out.txt", encoding="utf-8", errors="ignore").read()
+          m = re.search(r"METRICS_JSON_BEGIN===\s*(\{.*?\})\s*===METRICS_JSON_END", s, re.S)
+          assert m, "no metrics emitted:\n" + s[-800:]
+          d = json.loads(m.group(1))
+          assert d["build_ok"] and d["by_pinned"] >= 1 and d["tok_total"] == 0, d
+          print("offline reproduce: pinned, zero model calls — OK")
+          PY

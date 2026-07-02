@@ -18,12 +18,13 @@ except Exception:
     BeautifulSoup = None
 
 PLAN_PATH = sys.argv[1]
-MODEL = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("HARNESS_MODEL", "gemma2:12b")  # published default; model-agnostic, override via HARNESS_MODEL
+MODEL = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("HARNESS_MODEL", "gemma2:12b")
 N = int(sys.argv[3]) if len(sys.argv) > 3 else 12
 
 # structured per-run logging so a reported bug is self-diagnosing (best-effort — a logging failure must NEVER
 # break a build). Appended to sys.path so it never shadows stdlib.
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools"))
+from spine_helpers import resolve_out_dir, integration_label  # harness-built fix-logic (B1/B5)
 try:
     import run_logger
 except Exception:
@@ -73,10 +74,11 @@ if os.environ.get("LATHE_VALIDATE_PLAN") == "1" and os.environ.get("LATHE_TRUST_
     # itest.py with cwd=OUT_DIR. Containment can't be a string check on the source (it's data) — enforce it
     # here on the engine itself, not only in lathe.py, so a direct `engine_v2.py <plan>` is covered too.
     _eroot = os.path.realpath(os.path.dirname(os.path.abspath(__file__)))
-    _eod = os.path.realpath(os.path.join(_eroot, getattr(plan, "OUT_DIR", "")))
+    _od = resolve_out_dir(getattr(plan, "OUT_DIR", ""), PLAN_PATH)   # B1: default to the plan's own dir, not a placeholder
+    _eod = os.path.realpath(os.path.join(_eroot, _od))
     if not (_eod == _eroot or _eod.startswith(_eroot + os.sep)):
         sys.exit("engine: REFUSING to build — OUT_DIR escapes the working tree (%r). Set LATHE_TRUST_PLAN=1 to override."
-                 % getattr(plan, "OUT_DIR", ""))
+                 % _od)
 
 # Optional plan attrs: the validator accepts ARTIFACTS-only plans (no FUNCTIONS/HEADER/GLUE), so normalize
 # defaults once here instead of `plan.FUNCTIONS` AttributeError-ing deep in the build.
@@ -365,7 +367,7 @@ if _lint_mode in ("warn", "block"):
         print("  [spec-lint skipped: %s]" % _le)
 # PRELUDE: exec already-built modules into solved_ns so this pass can call their functions
 # during validation (they're imported by the assembled module's HEADER at runtime).
-_pre_out = getattr(plan, "OUT_DIR", r"<LATHE_ROOT>\game_out")
+_pre_out = resolve_out_dir(getattr(plan, "OUT_DIR", ""), PLAN_PATH)   # B1
 
 
 def _within(path, root):
@@ -700,8 +702,8 @@ by_local = sum(1 for r in report if r[3] == "local")
 by_claude = sum(1 for r in report if r[3] == "claude")
 by_pinned = sum(1 for r in report if r[3] == "pinned")
 failed = [r[0] for r in report if not r[1]]
-integration = "SKIPPED (not all functions solved)"
-out_dir = getattr(plan, "OUT_DIR", r"<LATHE_ROOT>\game_out")
+integration = integration_label(bool(getattr(plan, "INTEGRATION", "")), passed == len(plan.FUNCTIONS))   # B5
+out_dir = resolve_out_dir(getattr(plan, "OUT_DIR", ""), PLAN_PATH)   # B1
 module = getattr(plan, "MODULE_NAME", "game")
 module_ok = (passed == len(plan.FUNCTIONS) and (bool(plan.FUNCTIONS) or bool(getattr(plan, "GLUE", "").strip()))
              and _prelude_ok)   # a missing/failed required PRELUDE dep makes the build untrusted, never green

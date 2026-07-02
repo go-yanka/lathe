@@ -3,8 +3,6 @@
 Run: `python benchmark/bench.py` (harness + task set are checked in; reproducible). First run 2026-07-01.
 
 ## Setup (read this before the numbers)
-> **Model note (reconciling the docs):** the *shipped default* implementer is a **12B Gemma** (8 GB GPU — the whitepaper's story). This run pointed the implementer at the **rig's 35B**. Both are "the local model" — Lathe is model-agnostic; the size is the machine that ran, not a requirement.
-
 - **5 tasks**, small pure functions (`parse_duration`, `slugify`, `dedupe_keep_order`, `roman_to_int`, `clamp`).
 - Each tool gets the **same natural-language spec** and operates **naturally**. None of them sees the
   **held-out acceptance tests** used for scoring — so this measures real correctness, not teaching-to-the-test.

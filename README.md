@@ -45,6 +45,14 @@ Reproducible demo (no model needed — proves the pinning story):
 python lathe.py build examples/hello.py    # rebuilds a pinned, test-gated module deterministically, offline
 ```
 
+Multi-plan demo (real composition — see [`examples/ledger/`](examples/ledger/)): three ordered plans build
+`ledger_core` → `ledger_stats` → `ledger` (which composes them), each function gated. Then keep the tree
+pristine locally *and* on your remote with the gated check-in:
+
+```bash
+python lathe.py checkin -m "my change" --push   # refuses unless gates green, no relics, not behind remote
+```
+
 ## Workflows
 
 Lathe ships named, transparent end-to-end **workflows** — so you (or an agent) can see exactly how a job is
@@ -84,10 +92,12 @@ $ python lathe.py flow code-review --run   # execute the automatable steps
 - [SECURITY.md](SECURITY.md) — the threat model and isolation tiers
 - [DATA_QUALITY.md](DATA_QUALITY.md) — gating "unit-green but wrong on real data"
 - [VENDORING.md](VENDORING.md) — one canonical copy; projects vendor, don't fork
+- [CHANGELOG.md](CHANGELOG.md) — release notes (current: v2.1.0)
+- [BENCHMARK.md](BENCHMARK.md) — an honest (warts-included) benchmark vs Aider/raw-Claude
 
 ## Status & honesty
 
-Lathe has been used **privately** to build internal modules; those apps are not in this public repo, so treat the track record here as unverified-from-this-repo. The harness is security-conscious and disciplined, but
+Lathe is used internally to build real modules for real projects; it is disciplined and hardened, but it is
 young. It depends on model endpoints you provide. Independent benchmarks vs. other tools are still to come. If
 you try it, file issues — the feedback loop is part of the design.
 

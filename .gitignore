@@ -10,3 +10,5 @@ metrics/
 runs/
 harness.db
 *.db
+lathe.config.json
+*.db-journal

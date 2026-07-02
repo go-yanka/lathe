@@ -6,7 +6,7 @@ Usage:  python hrun.py <plan_path> [model] [N]        (model default: openai:g26
 """
 import subprocess, sys, re, json, os, urllib.request
 
-ENGINE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "engine_v2.py")
+ENGINE = r"<LATHE_ROOT>\engine_v2.py"
 APP = os.environ.get("LATHE_APP", "http://127.0.0.1:5058")
 PY = sys.executable
 
@@ -19,7 +19,8 @@ def _log(kind, title, detail, status):
                                      headers={"Content-Type": "application/json"}, method="POST")
         urllib.request.urlopen(req, timeout=5).read()
     except Exception as e:
-        print("(activity log skipped: %s)" % e)
+        if "refused" not in str(e).lower():                # B7: optional activity feed — swallow connection-refused noise
+            print("(activity log skipped: %s)" % e)
 
 
 def main():

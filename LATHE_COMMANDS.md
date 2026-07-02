@@ -51,17 +51,27 @@ $ python lathe.py lint-spec projects/agentic-harness/plans/auto_070.py
 
 ### `lathe flow [<name>] [--run <targets>]`  *(workflows)*
 Named, transparent end-to-end **workflows** — `code-review`, `bug-fix`, `enhancement`, `doc-review`,
-`new-project`. `lathe flow` lists them; `lathe flow <name>` shows the exact ordered steps (so you know how the
-harness handles a job *before* running it); `--run` executes the automatable `[AUTO]`/`[GATE]` steps in order,
-halting on failure, and flags the human-judgment `[YOU]` steps. Definitions are data (`tools/workflows.py`).
+`new-project`. `lathe flow` lists them; `lathe flow <name>` prints an up-front **contract** (when to use it,
+entry criteria, the deliverable, and definition-of-done) followed by the exact ordered steps — so you know
+what to expect *before* running. `--run` executes the automatable `[AUTO]`/`[GATE]` steps in order (reusing
+the real `lathe` commands — no duplicated logic), flags the human-judgment `[YOU]` steps, then prints a
+**transparent run report** and a **fail-loud `PASS`/`BLOCKED` verdict** (a step that can't do its job — e.g. a
+missing target — is `BLOCKED` with a non-zero exit, never a false "green"). Definitions are data
+(`tools/workflows.py`); the report/verdict logic is itself harness-built (`tools/flow_report.py`).
 ```
 $ python lathe.py flow bug-fix
 workflow: bug-fix — Reproduce -> diagnose -> fix the SPEC -> verify -> review -> release.
+  when:        A build/behavior is wrong and you need it corrected at the source, not patched.
+  entry:       You can name the failing plan and reproduce it.
+  deliverable: The SPEC/tests pin the correct behavior; a green rebuild; the fix reviewed.
+  done when:   Rebuild green, tree clean, review clear, issue resolved + released.
+
   1. [AUTO] Reproduce: rebuild the failing plan  ->  lathe build {plan}
   2. [AUTO] Diagnose: read the full run trace     ->  lathe logs --tail
   3. [AUTO] Are the tests even GOOD?              ->  lathe lint-spec {plan}
   4. [YOU]  Fix the SPEC/tests (never hand-edit generated code), then rebuild
   ...
+$ python lathe.py flow doc-review --run <file>     # ... ends in: verdict: PASS
 ```
 
 ## Quality — gates and review
@@ -171,6 +181,20 @@ $ python lathe.py logs --tail
 ### `lathe clean [--dry]`
 Bring the tree to a **pristine** state, git-independently: quarantine unparseable/corrupt files to `_archive/`,
 cap the failure bank. `--dry` previews.
+
+### `lathe checkin [-m "msg"] [--push]`
+**Gated check-in** — extends the pristine model to the remote so local *and* remote stay clean and in sync. It
+**refuses** to commit/push unless the standing gates are green, the tree has **no relics** (caches, logs,
+`_fn_fails`, journals), and you're **not behind** the upstream; otherwise it lists the blockers. `-m` sets the
+message; `--push` also pushes (a secret scan runs first, and it's skipped safely if no upstream is configured).
+Decision logic is harness-built (`tools/checkin_logic.py`).
+```
+$ python lathe.py checkin -m "add feature X" --push
+checkin BLOCKED — tree/remote not pristine:
+  - relics: 2
+  relics: tools/__pycache__/x.pyc, build.log
+  (fix: run `lathe clean`, get the gates green, or pull the remote — then retry)
+```
 
 ### `lathe report "<title>"` / `lathe issues`
 `report` files an issue into the shared queue (`~/.lathe/issues`) for the maintainer; `issues` is the

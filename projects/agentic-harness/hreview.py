@@ -61,7 +61,8 @@ def _log(title, detail, status):
         urllib.request.urlopen(urllib.request.Request(APP + "/api/admin/activity", data=body,
                                headers={"Content-Type": "application/json"}, method="POST"), timeout=5).read()
     except Exception as e:
-        print("(activity log skipped: %s)" % e)
+        if "refused" not in str(e).lower():                # B7: the activity feed is optional — swallow connection-refused noise
+            print("(activity log skipped: %s)" % e)
 
 
 def main():
@@ -97,23 +98,48 @@ def main():
     os.makedirs(os.path.join(ROOT, "docs", "ce"), exist_ok=True)
     out = os.path.join(ROOT, "docs", "ce", "review_%s.txt" % lens)
     _log("CE review: " + lens, "%d file(s)" % len(files), "wip")
-    # Windows: `claude` is an npm .CMD shim — invoke via shell=True and feed the prompt on stdin (claude -p reads stdin).
-    import tempfile
-    _pf = tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8")
-    _pf.write(prompt); _pf.close()
-    try:
-        r = subprocess.run('claude -p --model opus --permission-mode plan --max-budget-usd 6 < "%s"' % _pf.name,
-                           shell=True, capture_output=True, text=True, cwd=_root)
-    finally:
-        try: os.unlink(_pf.name)
-        except Exception: pass
-    txt = (r.stdout or "") + (r.stderr or "")
+    # B3: prefer the `claude` CLI when present (opus, plan-mode) WITH a hard timeout; otherwise fall back to the
+    # pluggable HARNESS_CLAUDE_URL analyst (reusing request_spec). Never hang; always produce a clear result.
+    import tempfile, shutil
+    _timeout = int(os.environ.get("CLAUDE_TIMEOUT", "180"))
+    txt, rc = "", 0
+    if shutil.which("claude") and os.environ.get("LATHE_REVIEW_USE_CLI", "1") != "0":
+        # Windows: `claude` is an npm .CMD shim — shell=True, prompt on stdin (claude -p reads stdin).
+        _pf = tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8")
+        _pf.write(prompt); _pf.close()
+        try:
+            r = subprocess.run('claude -p --model opus --permission-mode plan --max-budget-usd 6 < "%s"' % _pf.name,
+                               shell=True, capture_output=True, text=True, cwd=_root, timeout=_timeout)
+            txt, rc = (r.stdout or "") + (r.stderr or ""), r.returncode
+        except subprocess.TimeoutExpired:
+            sys.stderr.write("hreview: `claude` CLI timed out after %ss — falling back to HARNESS_CLAUDE_URL\n" % _timeout)
+            txt, rc = "", 1
+        finally:
+            try: os.unlink(_pf.name)
+            except Exception: pass
+    if not txt.strip():                                      # no CLI, or it timed out/failed -> pluggable analyst endpoint
+        try:
+            _td = os.path.join(ROOT, "tools")
+            if _td not in sys.path:
+                sys.path.insert(0, _td)
+            from request_spec import request_spec
+            _blobs = []                                       # endpoint models can't read files — embed contents inline
+            for _f in abs_files:
+                try:
+                    _blobs.append("### FILE: %s\n```\n%s\n```" % (_f, open(_f, encoding="utf-8", errors="replace").read()))
+                except Exception as _e:
+                    _blobs.append("### FILE: %s (unreadable: %s)" % (_f, _e))
+            _eprompt = prompt + "\n\n## FILE CONTENTS (review THESE directly — do not ask for access)\n" + "\n\n".join(_blobs)
+            txt = request_spec(_eprompt) or ""
+            rc = 0 if txt.strip() else 1
+        except Exception as e:
+            txt, rc = "[review unavailable: no `claude` CLI and analyst endpoint failed: %s]" % e, 1
     with open(out, "w", encoding="utf-8") as f:
         f.write(txt)
     print(txt[-4000:])
     print("\n[hreview] %s review -> %s" % (lens, out))
     _log("CE review done: " + lens, "-> docs/ce/review_%s.txt" % lens, "ok")
-    return r.returncode
+    return rc
 
 
 sys.exit(main())

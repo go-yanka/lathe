@@ -670,7 +670,12 @@ def cmd_selftest(_args):
         except Exception as e:
             rec("orchestration: %s" % t, False, str(e)[:40])
     base = os.environ.get("LOCAL_OPENAI_URL", "http://127.0.0.1:8090/v1/chat/completions").replace("/chat/completions", "")
-    rec("rig 35B reachable (do/auto/judged)", "up" in str(_probe(base + "/models")))
+    try:                                                  # B6: label reflects the CONFIGURED model, not a hardcoded "35B"
+        sys.path.insert(0, TOOLS); from spine_helpers import model_label
+        _ml = model_label(os.environ.get("HARNESS_MODEL", ""))
+    except Exception:
+        _ml = "local"
+    rec("implementer reachable [%s] (do/auto/judged)" % _ml, "up" in str(_probe(base + "/models")))
     rec("analyst proxy reachable (plan/repair)", "up" in str(_probe("http://127.0.0.1:8787/health")))
 
     n = sum(1 for ok in results if ok)
@@ -779,7 +784,8 @@ def cmd_flow(args):
     import shlex
     sys.path.insert(0, TOOLS)
     try:
-        from workflows import list_workflows, get_workflow
+        from workflows import list_workflows, get_workflow, get_contract
+        from flow_report import classify_step, workflow_verdict, render_report   # harness-built (gated+pinned)
     except Exception as e:
         print("flow: unavailable (%s)" % e); return 1
     if not args:
@@ -793,29 +799,119 @@ def cmd_flow(args):
         print("unknown workflow '%s'. available: %s" % (name, ", ".join(n for n, _ in list_workflows()))); return 2
     run = "--run" in args
     tgt = " ".join(a for a in args[1:] if a != "--run")
-    print("workflow: %s — %s\n" % (name, wf["desc"]))
+    print("workflow: %s — %s" % (name, wf["desc"]))
+    _c = get_contract(name)                               # up-front EXPECTATIONS (contract) before any step runs
+    if _c:
+        print("  when:        %s" % _c.get("when", "—"))
+        print("  entry:       %s" % _c.get("entry", "—"))
+        print("  deliverable: %s" % _c.get("deliverable", "—"))
+        print("  done when:   %s" % _c.get("done", "—"))
+    print()
+    rows = []                                              # (label, status) rows for the transparent run-report
     for i, (kind, label, action) in enumerate(wf["steps"], 1):
         act = action.replace("{files}", tgt).replace("{plan}", tgt)
         if kind == "you":
-            print("  %d. [YOU]  %s" % (i, label)); continue
+            print("  %d. [YOU]  %s" % (i, label))
+            rows.append((label, classify_step("you", 0, "")))     # human-judgment step -> 'todo'
+            continue
         tag = "GATE" if kind == "gate" else "AUTO"
         shown = "lathe gate" if kind == "gate" else ("lathe " + act)
         print("  %d. [%s] %s  ->  %s" % (i, tag, label, shown))
         if not run:
             continue
         if kind != "gate" and ("{files}" in action or "{plan}" in action) and not tgt:
-            print("       (needs a target — pass files/plan after --run — skipped)"); continue
-        rc = cmd_gate([]) if kind == "gate" else main(shlex.split(act))   # re-enter the CLI for the sub-step
-        if rc != 0:
-            print("       -> step FAILED (rc=%s) — stopping the workflow" % rc); return 1
-    print("\n" + ("workflow complete: automatable steps green — now finish the [YOU] steps." if run
-                  else "(dry view — add `--run <targets>` to execute the [AUTO]/[GATE] steps)"))
+            print("       (needs a target — pass files/plan after --run)")
+            rows.append((label, "blocked"))                       # a missing target is BLOCKED, never a silent pass
+            break
+        rc = cmd_gate([]) if kind == "gate" else main(shlex.split(act))   # re-enter the CLI (reuse the real command)
+        status = classify_step(kind, rc, "")                      # harness-built classifier (rc-driven; steps now fail loud)
+        rows.append((label, status))
+        print("       -> step [%s]" % status.upper())
+        if status == "blocked":
+            print("       -> BLOCKED — stopping the workflow"); break
+    if run:
+        print("\n" + render_report(name, rows))                   # transparent report + fail-loud PASS/BLOCKED verdict
+        return 0 if workflow_verdict([s for _, s in rows]) == "PASS" else 1
+    print("\n(dry view — add `--run <targets>` to execute the [AUTO]/[GATE] steps)")
     return 0
+
+
+def cmd_checkin(args):
+    """Gated check-in — extends the pristine model to the remote: refuse to commit/push unless the standing gates
+    are green, the tree has NO relics (caches, logs, _fn_fails, journals), and you're not behind the upstream.
+    `lathe checkin -m "msg"` commits; add `--push` to also push (a secret scan runs first; skipped if no upstream).
+    Decision logic is harness-built (tools/checkin_logic.py); this wires the git I/O around it."""
+    import subprocess, re
+    do_push = "--push" in args
+    rest = [a for a in args if a != "--push"]
+    msg = " ".join(rest[1:]) if (rest and rest[0] == "-m") else (" ".join(rest) or "checkin")
+    sys.path.insert(0, TOOLS)
+    from checkin_logic import is_relic, checkin_blockers
+    g = lambda a: subprocess.run(["git", "-C", ROOT] + a, capture_output=True, text=True)
+    gate_green = (cmd_gate([]) == 0)
+    paths = [ln[3:].strip().strip('"') for ln in g(["status", "--porcelain", "-uall"]).stdout.splitlines() if ln.strip()]
+    relics = [p for p in paths if is_relic(p)]
+    behind = 0
+    u = g(["rev-list", "--count", "HEAD..@{u}"])
+    if u.returncode == 0 and u.stdout.strip().isdigit():
+        behind = int(u.stdout.strip())
+    blockers = checkin_blockers(gate_green, behind, relics)
+    if blockers:
+        print("checkin BLOCKED — tree/remote not pristine:")
+        for b in blockers:
+            print("  - " + b)
+        if relics:
+            print("  relics: " + ", ".join(relics[:12]))
+        print("  (fix: run `lathe clean`, get the gates green, or pull the remote — then retry)")
+        return 1
+    g(["add", "-A"])
+    c = g(["commit", "-m", msg])
+    print(("committed: " + msg) if c.returncode == 0 else ((c.stdout + c.stderr).strip()[:200] or "nothing to commit"))
+    if do_push:
+        if g(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"]).returncode != 0:
+            print("checkin: no upstream configured — committed locally, not pushed."); return 0
+        if re.search(r'ghp_[A-Za-z0-9]{20}|sk-[A-Za-z0-9]{20}|AKIA[0-9A-Z]{16}|-----BEGIN', g(["show", "HEAD"]).stdout):
+            print("checkin: REFUSING to push — a secret-like token is in the commit."); return 1
+        from lathe_config import pick
+        remote = pick(os.environ.get("LATHE_REMOTE", ""), (_lathe_config().get("checkin") or {}).get("remote") or "", "")
+        p = g(["push"] + ([remote, "HEAD"] if remote else []))   # configured remote, else the tracked upstream
+        print((p.stdout + p.stderr).strip()[:300]); return p.returncode
+    print("(committed locally — add --push to push to the upstream)")
+    return 0
+
+
+def _lathe_config():
+    """Load the optional single config file: env LATHE_CONFIG, else ./lathe.config.json, else ~/.lathe/config.json.
+    Parsing is harness-built (lathe_config.parse_config, gated+pinned)."""
+    for p in (os.environ.get("LATHE_CONFIG"), os.path.join(ROOT, "lathe.config.json"),
+              os.path.join(os.path.expanduser("~"), ".lathe", "config.json")):
+        if p and os.path.exists(p):
+            try:
+                sys.path.insert(0, TOOLS)
+                from lathe_config import parse_config
+                return parse_config(open(p, encoding="utf-8").read())
+            except Exception:
+                return {}
+    return {}
+
+
+def _apply_config_env(cfg):
+    """Map config -> env with setdefault so an explicit env var ALWAYS overrides the file (env > config > default).
+    Secrets (e.g. a push token) are NEVER read from the file — use env / the git credential helper."""
+    _m = {("analyst", "url"): "HARNESS_CLAUDE_URL", ("analyst", "model"): "HARNESS_ANALYST_MODEL",
+          ("implementer", "url"): "LOCAL_OPENAI_URL", ("implementer", "model"): "HARNESS_MODEL",
+          ("tries", None): "LATHE_TRIES"}
+    for (sec, key), env in _m.items():
+        node = cfg.get(sec)
+        v = node if key is None else (node.get(key) if isinstance(node, dict) else None)
+        if isinstance(v, (str, int)) and str(v):
+            os.environ.setdefault(env, str(v))
 
 
 def main(argv):
     os.environ["LATHE_VALIDATE_PLAN"] = "1"    # FORCE (not setdefault): a stale/hostile env var must not disable plan-as-data validation — same reason the validator path below is forced
     os.environ["LATHE_VALIDATOR_PY"] = os.path.join(TOOLS, "plan_validator.py")   # FORCE the trusted validator (a stale/hostile env var must not redirect it)
+    _apply_config_env(_lathe_config())         # config file -> env defaults (an explicit env var still overrides)
     if not argv or argv[0] in ("help", "-h", "--help"):
         print(__doc__); return 0
     cmd, rest = argv[0], argv[1:]
@@ -827,7 +923,7 @@ def main(argv):
         "metrics": cmd_metrics, "plans": cmd_plans, "dups": cmd_dups, "whatis": cmd_whatis,
         "clean": cmd_clean, "wait": cmd_wait, "resume": cmd_resume, "waiting": cmd_waiting,
         "report": cmd_report, "issues": cmd_issues, "logs": cmd_logs, "lint-spec": cmd_lint_spec,
-        "flow": cmd_flow, "map": cmd_map,
+        "flow": cmd_flow, "map": cmd_map, "checkin": cmd_checkin,
     }
     if cmd in table:
         return table[cmd](rest)

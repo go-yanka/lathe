@@ -296,10 +296,17 @@ plans.** Treat a plan file like a build script. Details: `LATHE_CAPABILITIES.md`
 
 ## 10. Configuration reference (environment variables)
 
+**Config file (optional).** Instead of exporting these one by one, copy `lathe.config.example.json` to
+`lathe.config.json` (gitignored) and set your `analyst`/`implementer` `{url, model}`, `tries`, and `checkin.remote`
+there. Precedence is **env var > config file > built-in default** — an explicit env var always wins. Point
+`analyst.url` at `claude_proxy.py` to drive the *thinking* from a Claude subscription ($0/token) while a local
+`implementer` does the bulk; set `implementer.model` to a strong model too for max correctness. **Never** put a
+push token in the file — use an env var or the git credential helper. (Parsing is harness-built: `lathe_config`.)
+
 | Var | Role | Default |
 |---|---|---|
 | `HARNESS_CLAUDE_URL` | **analyst** endpoint (OpenAI‑compatible) | `http://127.0.0.1:8787/v1/chat/completions` |
-| `HARNESS_MODEL` | default **implementer** model | `qwen2.5-coder` |
+| `HARNESS_MODEL` | default **implementer** model | `gemma2:12b` |
 | `LOCAL_OPENAI_URL` | endpoint for `openai:*` implementer models | llama‑server `:8089` |
 | `OLLAMA_URL` | endpoint for bare‑name (ollama) models | `http://localhost:11434` |
 | `LATHE_MODEL` / `LATHE_TRIES` | CLI default implementer / best‑of‑N | `openai:local` / `3` |
@@ -307,6 +314,8 @@ plans.** Treat a plan file like a build script. Details: `LATHE_CAPABILITIES.md`
 | `CLAUDE_TIMEOUT` / `CLAUDE_RETRIES` | analyst call bounds | `120` / `2` |
 | `FUNC_GATE_TIMEOUT` / `ITEST_TIMEOUT` / `REGRESSION_TIMEOUT` | gate timeouts (s) | `360` / `360` / `300` |
 | `SKIP_REGRESSION` / `RUN_GATES_PATH` | regression gate control | — |
+| `LATHE_AUTO_COMMIT` | opt-in: let autonomy (`auto`/`do`/`run`) commit green builds to git | unset (**off** — no commits) |
+| `LATHE_REVIEW_USE_CLI` | use the `claude` CLI for `review` when present; `0` forces the `HARNESS_CLAUDE_URL` endpoint | `1` |
 
 ---
 

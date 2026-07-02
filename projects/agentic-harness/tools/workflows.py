@@ -76,6 +76,42 @@ WORKFLOWS = {
 }
 
 
+# Per-workflow CONTRACT — the up-front EXPECTATIONS shown by `lathe flow <name>` before you run:
+# when to reach for it, what must be true to start (entry), what you get (deliverable), and definition-of-done.
+CONTRACTS = {
+    "code-review": {
+        "when": "A change is ready and you want ONLY verified fixes landed.",
+        "entry": "The changed files exist and build; you know which plan owns them.",
+        "deliverable": "Real findings folded UPSTREAM into the owning plans + rebuilt + gated — nothing hand-edited.",
+        "done": "Gates green, touched specs pass lint-spec, canonical re-cut if this was a shipped fix."},
+    "bug-fix": {
+        "when": "A build/behavior is wrong and you need it corrected at the source, not patched.",
+        "entry": "You can name the failing plan and reproduce it.",
+        "deliverable": "The SPEC/tests pin the correct behavior; a green rebuild; the fix reviewed.",
+        "done": "Rebuild green, tree clean, adversarial+correctness review clear, issue resolved + released."},
+    "enhancement": {
+        "when": "You want a NEW capability, built the disciplined way (dogfooded through the harness).",
+        "entry": "The idea is scoped as harness-framework vs project-specific (vendoring boundary).",
+        "deliverable": "Small pure functions + strong tests, built by the harness, reviewed, documented.",
+        "done": "Built+gated, tests pin behavior, all-lens review clear, documented with an example, released."},
+    "doc-review": {
+        "when": "You need docs/plans checked for accuracy and proven not-drifted from the code.",
+        "entry": "The docs/plans to review exist.",
+        "deliverable": "A coherence/accuracy review + a passing docs-drift gate.",
+        "done": "Review clear, docs-drift gate green (every command documented with a runnable example)."},
+    "new-project": {
+        "when": "You're onboarding a fresh project onto Lathe.",
+        "entry": "You have a project repo and access to an implementer + analyst endpoint.",
+        "deliverable": "A vendored, configured, verified Lathe install with a first gated build landed.",
+        "done": "selftest passes, tree clean, first `do` build pinned, product data-quality gates added."},
+}
+
+
+def get_contract(name):
+    """The up-front contract (when/entry/deliverable/done) for a workflow, or {} if none."""
+    return CONTRACTS.get(name, {})
+
+
 def list_workflows():
     """(name, desc) for each workflow, sorted."""
     return sorted((n, w["desc"]) for n, w in WORKFLOWS.items())

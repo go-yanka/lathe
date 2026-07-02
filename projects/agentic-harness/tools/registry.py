@@ -43,6 +43,7 @@ def audit(path=None):
     if _HERE not in sys.path:
         sys.path.insert(0, _HERE)
     from registry_violations import registry_violations       # the harness-BUILT pure auditor
+    from spine_helpers import treat_missing_as_uninitialized   # B2: harness-built — a missing runtime DB is uninitialized, not divergence
     reg = load(path)
     if isinstance(reg, dict) and "__error__" in reg:
         return ["registry: " + reg["__error__"]]                # broken file -> ONE loud violation, not a false-clean
@@ -54,6 +55,6 @@ def audit(path=None):
                 probs.append("%s: %s without a canonical artifact" % (name, entry.get("status")))
                 continue
             full = can if os.path.isabs(can) else os.path.join(_INNER, can)
-            if not os.path.exists(full):
+            if not os.path.exists(full) and not treat_missing_as_uninitialized(can):   # B2: a runtime DB (e.g. harness.db) just isn't created yet
                 probs.append("%s: canonical missing on disk (%s)" % (name, can))
     return sorted(probs)
