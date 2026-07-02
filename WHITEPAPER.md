@@ -184,7 +184,12 @@ Three plain reasons, and the research happens to back each one:
    vote. For a UI, that judge is a real headless browser — it loads the page, clicks a button, and checks
    the live DOM did the right thing (e.g., *clicking Save fired a `PUT /api/config` with the correct
    payload*). "Looks done" can't pass for "works." (Reliably catching wrong AI output is a *named open
-   problem* in the literature; a real test is a blunt, effective answer.)
+   problem* in the literature; a real test is a blunt, effective answer.) And because a test is only as
+   honest as it is strong, a strict mode makes the *rigor* non-optional: a change must ship a test that
+   fails on the old code, trivial mutants of the accepted code must be killed, declared test kinds
+   (property/edge) are required, and every acceptance criterion must map to a named test. Honest scope:
+   these bound *test quality per gated function* — a tripwire against vacuous tests, not a proof of
+   whole-program correctness.
 3. **A lockfile makes a build reproducible.** Nothing exotic — it's how every package manager already
    works.
 

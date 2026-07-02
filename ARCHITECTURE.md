@@ -58,6 +58,39 @@ if it's wrong, you fix the spec and rebuild.
   via git: no stale/backup/duplicate files, one canonical DB, one `live` implementation per capability
   (registry), no corrupt files, no real-bug lint. Divergence is a **build failure**, not a latent trap.
 
+## The enforcement layer (methodology, not just a test-gate)
+
+Beyond "code must pass its tests," a stack of **opt-in gates** makes the *kind and comprehensiveness* of
+testing a property of the process, not the model's discretion. Each is harness-built (a pinned pure function
+in `tools/`) with its own acceptance test in `review_tests/`, and `LATHE_STRICT=1` composes all of them:
+
+1. **Traceability** (`CRITERIA` + `lathe trace`) — a plan's declared acceptance criteria must each map to a
+   named, existing test, or the validator refuses it; `lathe trace` emits the criterion→test→pin→model matrix.
+2. **Regression-proof** (`LATHE_REGRESSION_PROOF=1`) — a *changed* function (fix or enhancement) whose new
+   tests all pass on the old accepted code is refused: a change must ship a test that proves the new behavior.
+3. **Mutation-score** (`LATHE_MUTATION_SCORE=<0..1>`) — deterministic AST mutants of the accepted code must be
+   killed by the suite before it may pin; provably-equivalent mutants are excluded (no false blocks). A bounded
+   tripwire for vacuous tests, honestly *not* exhaustive mutation coverage.
+4. **Test-ack** (`LATHE_TEST_ACK=1`, `lathe ack`) — the analyst's tests define truth, so a human acknowledges
+   the exact test set (keyed by digest) before the build certifies it; any rewrite re-forces it.
+5. **Test-kind** (`LATHE_TEST_KIND=1`) — a function can require the *shape* of test it needs
+   (`'kinds': ['property','edge']`); a unit missing a declared kind is refused.
+6. **Gate-the-glue** (`LATHE_GATE_GLUE=1`) — hand-written `GLUE` wiring must be exercised by an `INTEGRATION`
+   test or the module is refused — so *no code* ships untested, not just no function.
+
+## Thinking first: clarify → decide → build
+
+- **Requirements liaison** (`lathe clarify`) — before any design, a liaison persona *interrogates the user*
+  to remove ambiguity (inputs, outputs, success criteria, constraints, edge cases, non-goals) and writes a
+  `CLARIFIED_GOAL.md` brief with testable acceptance criteria. It's step 0 of the `sdlc` workflow.
+- **The decider / persona market** — a *decider* selects expert personas before code is written: a catalog of
+  143 (12 vendored Compound-Engineering reviewers + 129 permissive fetch-on-demand), matched by
+  synonym/stemming, reweighted by **measured ratings** (`lathe agent rate`) and your config
+  (`personas.priority`/`mandatory`), with a guaranteed **CE-reviewer floor** in every call. Absent experts are
+  fetched license-gated and their body injected. See `PERSONAS.md`.
+- **SDLC authoring** (`lathe sdlc`) — the analyst writes layered, ID-traced requirements (UC→BR→FR→TS) and an
+  RTM gate refuses orphans/dangling refs, emitting `REQUIREMENTS.md` + a criteria-mapped plan.
+
 ## Autonomy
 
 A SQLite **board** (kanban) + a **DAG** of dependencies + a **planner** (asks the analyst for the next spec

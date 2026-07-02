@@ -95,8 +95,8 @@ python lathe.py map projects/<you>/runtime/
 ```
 
 ## 10. Named, transparent WORKFLOWS  ⭐ (new)
-**What:** end-to-end processes — `code-review`, `bug-fix`, `enhancement`, `doc-review`, `new-project` — as
-ordered steps (`[AUTO]` runs, `[GATE]` checks, `[YOU]` judgment). See exactly how the harness handles a job
+**What:** end-to-end processes — `code-review`, `bug-fix`, `enhancement`, `doc-review`, `sdlc`, `new-project` —
+as ordered steps (`[AUTO]` runs, `[GATE]` checks, `[YOU]` judgment). See exactly how the harness handles a job
 before running it.
 **Use it when:** you want a predictable, repeatable process.
 ```
@@ -104,7 +104,26 @@ python lathe.py flow bug-fix                 # show the steps
 python lathe.py flow bug-fix --run <plan>    # execute the automatable steps
 ```
 
-## 11. Keep your tree clean + know what's live
+## 11. Force the METHODOLOGY, not just green tests  ⭐ (new)
+**What:** one switch, `LATHE_STRICT=1`, makes the *kind and rigor* of testing non-optional on a build:
+a change must ship a test that fails on the old code (regression-proof); trivial AST mutants must be killed
+(mutation-score, a bounded tripwire — not exhaustive); a human acks the test set (`lathe ack`); declared
+test kinds (`property`/`edge`) are required; hand-written glue must have an integration test; and every
+acceptance criterion must map to a named test (`lathe trace`). Each is also switchable on its own.
+**Use it when:** the code matters and "unit-green but under-tested" is unacceptable. The `bug-fix`,
+`enhancement`, and `sdlc` workflows already build under STRICT.
+```
+LATHE_STRICT=1 python lathe.py build <plan>     # all six gates on
+python lathe.py trace <plan>                     # criterion → test → pin → model matrix
+```
+
+## 12. Sharpen the requirement before any code  ⭐ (new)
+**What:** `lathe clarify "<goal>"` runs a **requirements liaison** that interrogates you (inputs, outputs,
+success criteria, constraints, edge cases, non-goals) and writes a `CLARIFIED_GOAL.md` brief with testable
+acceptance criteria — *before* the harness starts designing. It's step 0 of the `sdlc` workflow.
+**Use it when:** the goal is fuzzy and you'd rather resolve ambiguity up front than debug a confidently-wrong build.
+
+## 13. Keep your tree clean + know what's live
 - `python lathe.py gate` — the standing gates (no stale/dup files, one canonical DB, no corrupt files, real-bug
   lint, docs-not-drifted). Run every build.
 - `python lathe.py whatis <capability>` — the source of truth for "which artifact is LIVE" (kills the

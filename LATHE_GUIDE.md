@@ -142,8 +142,13 @@ field reference: `LATHE_CAPABILITIES.md` §2.
 | `lathe decompose` · `lathe run` | seed the board from plans · drive the whole board to green |
 | `lathe checkpoint [list\|snapshot\|restore <sha> --yes]` | git rollback points |
 | `lathe metrics [N]` · `lathe plans` · `lathe selftest` | run history · list plans · confirm every capability |
+| `lathe clarify "<goal>"` · `lathe sdlc "<goal>"` | liaison interrogates for a clear brief · author RTM-gated requirements |
+| `lathe ack <plan>` · `lathe trace <plan>` | ack the test set · emit the criterion→test→pin→model matrix |
+| `lathe agent <find\|rate\|bucket> …` | the persona market (match / rate / bucket experts) |
 
-Full reference + the "always review through Lathe" rules: `LATHE_COMMANDS.md`.
+Strict methodology in one switch: `LATHE_STRICT=1 lathe build <plan>` forces all six enforcement gates
+(regression-proof, mutation-score, test-ack, test-kind, glue, traceability). Full reference + the "always
+review through Lathe" rules: `LATHE_COMMANDS.md`.
 
 ---
 

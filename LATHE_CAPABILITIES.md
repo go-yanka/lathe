@@ -28,8 +28,21 @@ canonical `2026-07-01q`. Project-facing how-to-use: **`FOR_PROJECTS.md`**; every
 | **Cassette (record/replay)** | deterministic offline LLM-pipeline e2e gates | `tools/cassette_proxy.py` |
 | **Real CE review** | vendored Compound-Engineering personas (v3.17.0) + Lathe doctrine | `lathe review`, `ce_personas/`, `hreview.py` |
 | **Repo-map** | multi-language code structure via universal-ctags | `lathe map`, `tools/repomap.py` |
-| **Workflows** | named ordered processes (review/bug-fix/enhancement/…) | `lathe flow`, `tools/workflows.py` |
+| **Workflows** | named ordered processes (review/bug-fix/enhancement/sdlc/…) | `lathe flow`, `tools/workflows.py` |
 | **Non-functional + docs gates** | ruff real-bug lint + docs-drift, in `run_gates` | `qa/lint_gate.py`, `qa/docs_drift_gate.py` |
+| **Enforcement stack (STRICT)** | 6 opt-in methodology gates, all composed by `LATHE_STRICT=1` (see below) | `engine_v2.py` + `tools/{strict_mode,regression_proof,mutation_score,test_ack,test_kind,glue_gate}.py` |
+| **Traceability matrix** | criterion→test→pin→model; validator refuses a criterion with no test | `lathe trace`, `tools/trace_logic.py` |
+| **Requirements liaison** | interrogates the user for clarity → `CLARIFIED_GOAL.md` before design | `lathe clarify`, `tools/clarify_logic.py` |
+| **SDLC authoring + RTM gate** | UC→BR→FR→TS layered requirements, orphans/dangling refs refused | `lathe sdlc`, `tools/sdlc_rtm.py` |
+| **Persona market** | 143-agent catalog, synonym match + ratings + CE-floor + config overrides | `lathe agent`, `PERSONAS.md`, `tools/{persona_market,agent_router,persona_ratings}.py` |
+
+**The enforcement stack** (each a pinned pure function with its own `review_tests/` acceptance test; `LATHE_STRICT=1` turns all six on):
+`LATHE_REGRESSION_PROOF` (a change must ship a test that fails on the old code) ·
+`LATHE_MUTATION_SCORE=<0..1>` (AST mutants must be killed; equivalent mutants excluded — a bounded tripwire, **not** exhaustive coverage) ·
+`LATHE_TEST_ACK` (`lathe ack` — a human acknowledges the test set that defines "correct") ·
+`LATHE_TEST_KIND` (a function can require the *shape* of test it needs, e.g. `property`/`edge`) ·
+`LATHE_GATE_GLUE` (hand-written wiring must be exercised by an integration test — no code ships untested) ·
+plus **traceability** (`CRITERIA` mapped to named tests). Honest scope: these bound *test quality per gated function*, not whole-program correctness.
 
 Also since the original catalog: engine hardening (atomic writes, pin rollback, prelude fail-loud), a
 MODULE_NAME path-traversal guard, cross-platform fixes, and a full self-review pass (Lathe reviewing its own code).
