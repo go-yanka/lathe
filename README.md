@@ -83,14 +83,38 @@ reliability for network code). Beyond the vendored personas, `lathe agent "<need
 — "load the program" for whatever capability a problem needs. All model-agnostic: a persona is just prompt text
 injected into whatever endpoint you configured.
 
-## Use it inside your existing agent (MCP)
+## Ways to run it
 
-`lathe_mcp.py` is a stdio MCP server exposing `build / verify / gate / review / do` as tools, so Claude Code,
-Cursor, or Copilot get Lathe's hard test-gate + content-hash pinning + provenance **inside the agent you already
-use**. There's also a Claude **skill** (`skills/lathe/`) and a **plugin** manifest for one-step install.
-```json
-{ "mcpServers": { "lathe": { "command": "python", "args": ["lathe_mcp.py"] } } }
-```
+Lathe talks to two OpenAI-compatible endpoints — an **analyst** (spec + tests) and an **implementer** (code) —
+so it's model- and host-agnostic and drops into several setups:
+
+- **Standalone tool** — drive it yourself: `lathe do "<goal>"` for a one-shot spec→build→pin, `lathe chat` for
+  an interactive REPL, `lathe build <plan>` to rebuild a pinned module deterministically. Nothing else required.
+- **Autonomous loop** — `lathe auto` drains a standing task board unattended, building and gating each item.
+  Commits are opt-in (`LATHE_AUTO_COMMIT=1`) and off by default, so it never surprises your branch.
+- **Inside an agent you already use (MCP)** — `lathe_mcp.py` is a stdio MCP server exposing
+  `build / verify / gate / review / do` as tools, so Claude Code, Cursor, or Copilot get Lathe's hard test-gate,
+  content-hash pinning, and provenance **beneath the agent**: the model proposes, Lathe gates and pins. A Claude
+  **skill** (`skills/lathe/`) and a **plugin** manifest give one-step install.
+  ```json
+  { "mcpServers": { "lathe": { "command": "python", "args": ["lathe_mcp.py"] } } }
+  ```
+- **Driven by any OpenAI-compatible client** — point a desktop LLM client's custom-provider base URL at the
+  bundled proxy (`claude_proxy.py`, serves `/v1`); the client drives builds through Lathe, and the proxy can back
+  a role with a **Claude subscription at $0/token** (`claude login`, no API key) instead of a metered endpoint.
+
+**Pick a model per role, mix freely:**
+
+| Setup | Analyst (spec+tests) | Implementer (code) | Note |
+|---|---|---|---|
+| Local-first *(default)* | frontier, or subscription proxy | local model | cheapest; implementer runs on a small local model |
+| All-subscription | Claude via `claude_proxy.py` | Claude fallback | $0/token, no API key |
+| All-frontier | API model | API model | max quality, metered |
+| Offline rebuild | — | — | pinned plans rebuild with **zero** model calls |
+
+> **Independence, honestly:** rebuilds (pins) and *implementation* can run fully local; the **analyst still
+> defaults to a frontier model**. A fully-local analyst is wireable (point both endpoints at local models) but
+> not yet proven — so "no cloud at all" is a configuration, not yet a validated claim.
 
 ## What makes it trustworthy (not just fast)
 
