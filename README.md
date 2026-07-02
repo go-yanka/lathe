@@ -74,6 +74,14 @@ $ python lathe.py flow bug-fix        # show the steps
 $ python lathe.py flow code-review --run   # execute the automatable steps
 ```
 
+## Clarify before you build (the requirements liaison)
+
+Most goals arrive underspecified — and an LLM handed an ambiguous goal produces *confidently wrong* code.
+So Lathe can **interrogate you first**: `lathe clarify "<goal>"` runs a **requirements-liaison** persona that
+asks the fewest, sharpest questions (inputs, outputs, success criteria, constraints, edge cases, non-goals),
+takes your answers, and writes a `CLARIFIED_GOAL.md` brief with **testable acceptance criteria** — *before*
+the harness designs anything. It's step 0 of the `sdlc` workflow; a clear goal is passed straight through.
+
 ## Expert agents on demand (the decider)
 
 Lathe starts with **thinking**: a *decider* selects the right expert personas for the task before any code is

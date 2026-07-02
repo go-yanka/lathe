@@ -2,6 +2,20 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.3.0 — 2026-07-02
+
+**Requirements liaison — interrogate for clarity before the harness thinks** (owner idea). A goal handed to
+an LLM with hidden ambiguity produces confidently-wrong code; now there's a step that drags the ambiguity
+out with the user, up front.
+- `lathe clarify "<goal>"`: a **requirements-liaison persona** (`ce_personas/requirements-liaison.md`) asks
+  the fewest, sharpest clarifying questions (inputs/outputs/success criteria/constraints/edge cases/
+  non-goals), you answer (interactive or `--answers` file), and it writes `CLARIFIED_GOAL.md` — a refined
+  goal + assumptions + **testable acceptance criteria** + non-goals + open questions — to feed `do`/`sdlc`.
+- A goal that already states inputs+outputs is passed through (no busywork). It's now **step 0 of the
+  `sdlc` workflow**. Pure logic harness-built (`tools/clarify_logic.py` — goal_vagueness + parse_questions);
+  acceptance `review_tests/test_clarify.py` ALL PASS; proven live (Fable asked 5 real questions, synthesized
+  the brief, and honestly refused to invent answers when the scripted answers were offset).
+
 ## v2.2.4 — 2026-07-02
 
 Enforcement mechanism **#5 — required KIND of test per contract**. This completes the reviewer's 6/6 stack.

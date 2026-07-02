@@ -35,6 +35,8 @@ Usage:
                                plan whose declared CRITERIA aren't each mapped to a named test
   lathe agent bucket [name]    the persona library grouped by when-to-invoke bucket
   lathe agent rate --all [N]   grade every agent (field probe + judge -> 0-10; resumable, skips rated)
+  lathe clarify "<goal>"       requirements LIAISON: interrogate you for clarity (inputs/outputs/success/
+                               edge/non-goals) BEFORE thinking; emits CLARIFIED_GOAL.md to feed do/sdlc
   lathe sdlc "<goal>" [--out]  SDLC authoring: analyst writes UC->BR->FR->TS (ID-traced); the RTM gate
                                refuses orphans/dangling refs; emits REQUIREMENTS.md + a CRITERIA block
   lathe selftest               exercise every capability and report PASS/FAIL
@@ -1092,6 +1094,83 @@ def cmd_ack(args):
     return 0
 
 
+def cmd_clarify(args):
+    """Requirements LIAISON (thinking-BEFORE-thinking): interrogate the user for clarity before the harness
+    designs anything. `lathe clarify "<goal>"` -> the liaison persona asks clarifying questions; you answer
+    (interactively, or `--answers <file>` / stdin for scripted use); it synthesizes a CLARIFIED_GOAL.md brief
+    (refined goal + assumptions + constraints + acceptance criteria + non-goals). That brief feeds `do`/`sdlc`.
+    A goal that's already clear (has inputs+outputs) is passed straight through with a note."""
+    import importlib.util
+    _VALUE_FLAGS = {"--answers", "--out"}                  # flags that consume the NEXT arg (its value)
+    goal_parts, _i = [], 0
+    while _i < len(args):
+        _a = args[_i]
+        if _a in _VALUE_FLAGS:
+            _i += 2; continue                              # skip the flag AND its value (path) — not part of the goal
+        if _a.startswith("-"):
+            _i += 1; continue
+        goal_parts.append(_a); _i += 1
+    goal = " ".join(goal_parts).strip()
+    if not goal:
+        print('usage: lathe clarify "<goal>" [--answers <file>] [--out <dir>]'); return 2
+    out_dir = os.path.abspath(args[args.index("--out") + 1]) if "--out" in args else INNER
+    ans_file = args[args.index("--answers") + 1] if "--answers" in args else None
+    if TOOLS not in sys.path:
+        sys.path.insert(0, TOOLS)
+    from clarify_logic import goal_vagueness, parse_questions
+    from request_spec import request_spec
+    needs, missing = goal_vagueness(goal)
+    if not needs:
+        print("clarify: the goal already states inputs + outputs — clear enough to design. (missing niceties: %s)"
+              % (", ".join(missing) or "none"))
+    _persona = ""
+    for _p in (os.path.join(INNER, "ce_personas", "requirements-liaison.md"),):
+        try:
+            _persona = open(_p, encoding="utf-8").read()
+        except OSError:
+            pass
+    q_prompt = ("%s\n\n--- GOAL FROM THE USER ---\n%s\n\nProduce your clarifying questions now (numbered, "
+                "one per line, only what you cannot safely assume; at most 7). If the goal is already "
+                "unambiguous, reply with the single line: NO QUESTIONS." % (_persona, goal))
+    raw_q = request_spec(q_prompt) or ""
+    if "no questions" in raw_q.lower()[:40]:
+        questions = []
+    else:
+        questions = parse_questions(raw_q)
+    print("\n=== REQUIREMENTS LIAISON — %d clarifying question(s) ===" % len(questions))
+    answers = []
+    scripted = None
+    if ans_file:
+        try:
+            scripted = [l.rstrip("\n") for l in open(ans_file, encoding="utf-8")]
+        except OSError as e:
+            print("clarify: --answers file unreadable: %s" % e); return 2
+    for i, q in enumerate(questions, 1):
+        print("  Q%d. %s" % (i, q))
+        if scripted is not None:
+            a = scripted[i - 1] if i - 1 < len(scripted) else ""
+            print("     > %s" % a)
+        else:
+            try:
+                a = input("     > ").strip()
+            except (EOFError, KeyboardInterrupt):
+                a = ""
+        answers.append("Q: %s\nA: %s" % (q, a))
+    brief_prompt = ("%s\n\n--- GOAL ---\n%s\n\n--- CLARIFYING Q&A ---\n%s\n\nNow SYNTHESIZE the brief: a one-line "
+                    "'Refined goal:', then bulleted Assumptions, Constraints, Acceptance criteria (each testable), "
+                    "Non-goals, and Open questions. Concrete enough to write tests from."
+                    % (_persona, goal, "\n\n".join(answers) or "(no answers provided)"))
+    brief = request_spec(brief_prompt) or ""
+    if not brief.strip() or "API Error" in brief:
+        print("clarify: the liaison endpoint returned no brief (analyst unavailable)."); return 1
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, "CLARIFIED_GOAL.md")
+    open(path, "w", encoding="utf-8").write("# Clarified goal (requirements liaison)\n\n> Original: %s\n\n%s\n"
+                                            % (goal, brief.strip()))
+    print("\nbrief -> %s  (feed it to: lathe do / lathe sdlc)" % path)
+    return 0
+
+
 def cmd_sdlc(args):
     """SDLC authoring (#41): from a goal, the analyst writes LAYERED, ID-TRACED requirements —
     UC (use case) -> BR (business req) -> FR (functional req) -> TS (technical spec) — and the harness-built
@@ -1299,7 +1378,7 @@ def main(argv):
         "metrics": cmd_metrics, "plans": cmd_plans, "dups": cmd_dups, "whatis": cmd_whatis,
         "clean": cmd_clean, "wait": cmd_wait, "resume": cmd_resume, "waiting": cmd_waiting,
         "report": cmd_report, "issues": cmd_issues, "logs": cmd_logs, "lint-spec": cmd_lint_spec,
-        "flow": cmd_flow, "map": cmd_map, "checkin": cmd_checkin, "agent": cmd_agent, "ack": cmd_ack, "trace": cmd_trace, "sdlc": cmd_sdlc,
+        "flow": cmd_flow, "map": cmd_map, "checkin": cmd_checkin, "agent": cmd_agent, "ack": cmd_ack, "trace": cmd_trace, "sdlc": cmd_sdlc, "clarify": cmd_clarify,
     }
     if cmd in table:
         return table[cmd](rest)

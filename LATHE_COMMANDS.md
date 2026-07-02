@@ -266,6 +266,22 @@ AC-2     add2               8c41d2a90b7f   openai:local   assert add2(-2) == 0
 2 criteria, 2 covered, 0 unresolved; 3 matrix rows.
 ```
 
+### `lathe clarify "<goal>" [--answers <file>] [--out <dir>]`
+**Requirements liaison — thinking BEFORE thinking.** Before the harness designs anything, a **liaison
+persona interrogates you** to remove ambiguity: it asks the fewest, sharpest clarifying questions (inputs,
+outputs, success criteria, constraints, edge cases, non-goals), you answer (interactively, or `--answers`
+for scripted runs), and it synthesizes a `CLARIFIED_GOAL.md` brief — a refined goal + assumptions +
+**testable acceptance criteria** + non-goals + open questions. Feed that brief to `lathe do` / `lathe sdlc`.
+A goal that already states its inputs+outputs is passed through with a note (no busywork questions). It is
+step 0 of the `sdlc` workflow. Enforceable for teams via a require-clarify policy.
+```
+$ python lathe.py clarify "build a tool to combine some data files"
+=== REQUIREMENTS LIAISON — 5 clarifying question(s) ===
+  Q1. Deduplication key: entire row byte-identical, or a specific key column?
+  ...
+brief -> projects/agentic-harness/CLARIFIED_GOAL.md  (feed it to: lathe do / lathe sdlc)
+```
+
 ### `lathe sdlc "<goal>" [--out <dir>]`
 **SDLC authoring, enforced.** The analyst writes LAYERED, ID-traced requirements — UC (use case) → BR
 (business requirement) → FR (functional requirement) → TS (technical spec) — and the harness-built **RTM

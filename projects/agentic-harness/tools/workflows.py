@@ -65,7 +65,8 @@ WORKFLOWS = {
     "sdlc": {
         "desc": "Full SDLC: requirements (UC->BR->FR->TS, RTM-gated) -> criteria-mapped plan -> STRICT build -> trace -> review -> release.",
         "steps": [
-            ("auto", "Author LAYERED, ID-traced requirements; the RTM gate refuses orphans/dangling refs", "sdlc {goal}"),
+            ("auto", "CLARIFY FIRST: the requirements liaison interrogates the user (inputs/outputs/success/edge/non-goals) before any design", "clarify {goal}"),
+            ("auto", "Author LAYERED, ID-traced requirements from the clarified brief; the RTM gate refuses orphans/dangling refs", "sdlc {goal}"),
             ("you",  "Review REQUIREMENTS.md; turn the suggested CRITERIA block into a plan (each TS -> criterion -> named tests)", ""),
             ("auto", "Acknowledge the test set (the tests define 'correct')", "ack {plan}"),
             ("auto", "Build under STRICT mode - criteria+ack+stub-proof+change-proof+mutation-score all forced (LATHE_STRICT=1)", "build {plan}"),
