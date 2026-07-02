@@ -48,4 +48,22 @@ FUNCTIONS = [
         "assert proof_gate('YES', 'def f(): pass', False) == [False, 'proof present: >=1 new test fails on the old code']",
         "assert proof_gate(' true ', 'def f(): pass', True)[0] is True",
      ]},
+    {"name": "rename_candidates",
+     "prompt": ("Write rename_candidates(module_src, current_names) -> list of [name, source] pairs. E4 "
+                "(rename-bypass guard): find the top-level function definitions in the Python module source "
+                "string module_src whose names are NOT in current_names (a list of the plan's current function "
+                "names; None is treated as an empty list) — these are DISAPPEARED defs, i.e. rename candidates "
+                "for a changed unit. Use ast: parse module_src; for each top-level ast.FunctionDef or "
+                "AsyncFunctionDef whose .name is not in current_names, emit [name, "
+                "ast.get_source_segment(module_src, node)]. Preserve definition order. Nested defs and class "
+                "methods excluded. module_src not a str / unparseable -> []. Never raise." + "\n" + _ONLY),
+     "tests": [
+        "src = 'def old_parse(x):\\n    return x\\n\\ndef keep(y):\\n    return y'",
+        "r = rename_candidates(src, ['keep', 'new_parse']); assert len(r) == 1 and r[0][0] == 'old_parse' and r[0][1].startswith('def old_parse')",
+        "assert rename_candidates(src, ['old_parse', 'keep']) == []",
+        "assert rename_candidates('class C:\\n    def m(self):\\n        return 1', []) == []",
+        "assert rename_candidates('not python ((', ['a']) == []",
+        "assert rename_candidates(None, ['a']) == []",
+        "r = rename_candidates(src, None); assert [x[0] for x in r] == ['old_parse', 'keep']",
+     ]},
 ]

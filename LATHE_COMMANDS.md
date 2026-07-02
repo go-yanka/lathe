@@ -32,6 +32,15 @@ $ python lathe.py build projects/agentic-harness/plans/auto_070.py
 unless ≥1 of its new tests FAILS on the old accepted implementation (a change must ship a test that proves
 the new behavior; refused before any generation; new functions and unchanged pins unaffected; default off).
 
+**Mutation-score gate (`LATHE_MUTATION_SCORE=<0..1>`):** after a function passes its tests, the engine
+seeds deterministic single-fault mutants of the accepted code (arithmetic/comparison/boolean/membership/
+identity operators + int and string constants) and requires the suite to kill ≥ that fraction before pinning.
+**Equivalent mutants** (no input can distinguish them — e.g. slack in a guard constant) are detected by a
+deterministic differential probe and **excluded** from the score, so a complete suite is never falsely
+blocked. A function with **no mutable nodes** is reported `unmeasurable` (a ledger flag), never silently
+passed. Scope, stated honestly: this is a bounded tripwire for vacuous tests (a small operator set, capped
+per function via `LATHE_MUTATION_LIMIT`), **not** exhaustive mutation coverage.
+
 **STRICT / SDLC mode (`LATHE_STRICT=1`):** the enforcement umbrella — forces **all** proof mechanisms for
 **all** development, no picking and choosing: declared `CRITERIA` (requirement→test traceability) required
 on every plan, tests must be acknowledged (`lathe ack`), new code's tests must survive the stub probe

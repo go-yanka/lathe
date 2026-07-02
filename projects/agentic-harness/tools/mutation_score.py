@@ -7,42 +7,77 @@ def mutate_code(code, limit):
     try:
         if not isinstance(code, str):
             return []
-        if not isinstance(limit, (int, float)) or isinstance(limit, bool) or limit <= 0:
+        if not isinstance(limit, int) or isinstance(limit, bool) or limit <= 0:
             return []
         tree = ast.parse(code)
-        binop_map = {ast.Add: ast.Sub, ast.Sub: ast.Add, ast.Mult: ast.Add, ast.Div: ast.Mult}
-        cmp_map = {ast.Lt: ast.LtE, ast.LtE: ast.Lt, ast.Gt: ast.GtE,
-                   ast.GtE: ast.Gt, ast.Eq: ast.NotEq, ast.NotEq: ast.Eq}
 
-        def is_mutable(node):
+        binop_map = {ast.Add: ast.Sub, ast.Sub: ast.Add,
+                     ast.Mult: ast.Add, ast.Div: ast.Mult}
+        cmp_map = {ast.Lt: ast.LtE, ast.LtE: ast.Lt, ast.Gt: ast.GtE,
+                   ast.GtE: ast.Gt, ast.Eq: ast.NotEq, ast.NotEq: ast.Eq,
+                   ast.In: ast.NotIn, ast.NotIn: ast.In,
+                   ast.Is: ast.IsNot, ast.IsNot: ast.Is}
+        bool_map = {ast.And: ast.Or, ast.Or: ast.And}
+
+        def is_transformable(node):
             if isinstance(node, ast.BinOp) and type(node.op) in binop_map:
                 return True
-            if isinstance(node, ast.Compare) and len(node.ops) == 1 and type(node.ops[0]) in cmp_map:
+            if (isinstance(node, ast.Compare) and len(node.ops) == 1
+                    and type(node.ops[0]) in cmp_map):
                 return True
-            if isinstance(node, ast.Constant) and isinstance(node.value, int) and not isinstance(node.value, bool):
+            if isinstance(node, ast.Constant):
+                if isinstance(node.value, bool):
+                    return False
+                if isinstance(node.value, int):
+                    return True
+                if isinstance(node.value, str):
+                    return True
+                return False
+            if isinstance(node, ast.BoolOp) and type(node.op) in bool_map:
+                return True
+            if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.Not):
                 return True
             return False
 
-        results = []
-        nodes = list(ast.walk(tree))
-        for i, node in enumerate(nodes):
-            if not is_mutable(node):
-                continue
-            try:
-                tree_copy = copy.deepcopy(tree)
-                target = list(ast.walk(tree_copy))[i]
-                if isinstance(target, ast.BinOp):
-                    target.op = binop_map[type(target.op)]()
-                elif isinstance(target, ast.Compare):
-                    target.ops[0] = cmp_map[type(target.ops[0])]()
+        def apply_transform(t, node):
+            if isinstance(node, ast.BinOp):
+                node.op = binop_map[type(node.op)]()
+                return
+            if isinstance(node, ast.Compare):
+                node.ops[0] = cmp_map[type(node.ops[0])]()
+                return
+            if isinstance(node, ast.Constant):
+                if isinstance(node.value, int):
+                    node.value = node.value + 1
                 else:
-                    target.value = target.value + 1
-                results.append(ast.unparse(tree_copy))
+                    node.value = node.value + '_' if node.value else 'x'
+                return
+            if isinstance(node, ast.BoolOp):
+                node.op = bool_map[type(node.op)]()
+                return
+            replacement = node.operand
+            for parent in ast.walk(t):
+                for field, value in ast.iter_fields(parent):
+                    if value is node:
+                        setattr(parent, field, replacement)
+                    elif isinstance(value, list):
+                        for j, item in enumerate(value):
+                            if item is node:
+                                value[j] = replacement
+
+        indices = [i for i, n in enumerate(ast.walk(tree)) if is_transformable(n)]
+        variants = []
+        for i in indices:
+            if len(variants) >= limit:
+                break
+            try:
+                t2 = copy.deepcopy(tree)
+                target = list(ast.walk(t2))[i]
+                apply_transform(t2, target)
+                variants.append(ast.unparse(t2))
             except Exception:
                 continue
-            if len(results) >= limit:
-                break
-        return results
+        return variants
     except Exception:
         return []
 

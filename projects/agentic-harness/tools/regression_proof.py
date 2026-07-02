@@ -27,3 +27,26 @@ def proof_gate(env_value, old_code, old_passes_all):
     except Exception:
         return [False, 'regression-proof not required']
 
+def rename_candidates(module_src, current_names):
+    import ast
+    if not isinstance(module_src, str):
+        return []
+    try:
+        tree = ast.parse(module_src)
+    except Exception:
+        return []
+    if current_names is None:
+        current_names = []
+    result = []
+    try:
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name not in current_names:
+                try:
+                    seg = ast.get_source_segment(module_src, node)
+                except Exception:
+                    seg = None
+                result.append([node.name, seg])
+    except Exception:
+        return []
+    return result
+

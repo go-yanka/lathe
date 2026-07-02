@@ -23,12 +23,15 @@ def strict_defaults(env_value, existing):
         result.append([key, value])
     return result
 
-def strict_plan_gaps(env_value, has_functions, criteria):
+def strict_plan_gaps(env_value, has_functions, criteria, has_artifacts):
     if not isinstance(env_value, str):
         return []
     if env_value.strip().lower() not in ('1', 'true', 'yes', 'on'):
         return []
+    problems = []
     if has_functions and (criteria is None or criteria == []):
-        return ['strict mode requires declared CRITERIA (requirement->test traceability) for every FUNCTIONS plan']
-    return []
+        problems.append('strict mode requires declared CRITERIA (requirement->test traceability) for every FUNCTIONS plan')
+    if has_artifacts and not has_functions:
+        problems.append('strict mode cannot gate an ARTIFACTS-only plan (artifact/glue coverage is not yet enforceable) - build it outside STRICT or add gated FUNCTIONS')
+    return problems
 

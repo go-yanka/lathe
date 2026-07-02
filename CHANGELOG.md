@@ -2,6 +2,28 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.2.1 — 2026-07-02
+
+Adversarial edge-case pass on the v2.2.0 mutation gate (independent review §16, E1–E4) — all four
+reproduced and fixed, each with an acceptance test in `review_tests/`.
+
+- **E2 (High) — equivalent mutants no longer falsely block correct code.** A mutant no input can
+  distinguish from the accepted code (e.g. slack in a guard constant) is unkillable; counting it made a
+  *complete* suite score < threshold. New deterministic differential probe (`tools/mutation_equiv.py`)
+  excludes provably-equivalent mutants from the denominator. Verified: the reviewer's `scale` repro builds
+  green; a genuinely weak `square` suite still blocks.
+- **E1 (Med-High) — the gate no longer fails OPEN on "no mutants".** Operators broadened (boolean and/or,
+  `not`-drop, `in`/`is`, string constants) so string/collection/boolean leaf functions are actually
+  measured; a function with no mutable nodes is reported `unmeasurable` (ledger flag + loud warning), not
+  silently passed.
+- **E3 (Med) — STRICT no longer silently ignores ARTIFACTS-only plans**: it now refuses them with an
+  explicit "cannot gate an ARTIFACTS-only plan" message (wording matches code; the #6 glue gap is stated,
+  not hidden).
+- **E4 (Low-Med) — regression-proof rename bypass closed**: a fix that renames the changed function is
+  matched against the disappeared old def and still refused if it ships no reproducing test.
+- **Docs**: the mutation-score scope is now stated honestly wherever comprehensiveness is claimed — a
+  bounded tripwire for vacuous tests, not exhaustive mutation coverage.
+
 ## v2.2.0 — 2026-07-02
 
 The full enforcement + persona-market release. Every mechanism built THROUGH the harness with an

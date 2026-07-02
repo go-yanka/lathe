@@ -99,7 +99,8 @@ try:
     for _k, _v in _smm.strict_defaults(_strict, dict(os.environ)):
         os.environ[_k] = _v
         print("engine: STRICT mode -> %s=%s" % (_k, _v))
-    _gaps = _smm.strict_plan_gaps(_strict, bool(plan.FUNCTIONS), getattr(plan, "CRITERIA", None))
+    _gaps = _smm.strict_plan_gaps(_strict, bool(plan.FUNCTIONS), getattr(plan, "CRITERIA", None),
+                                  bool(plan.ARTIFACTS))          # E3: ARTIFACTS-only plans are not gateable
     if _gaps:
         sys.exit("engine: STRICT MODE — " + "; ".join(_gaps) + " (plan: %s)" % os.path.basename(PLAN_PATH))
 except SystemExit:
@@ -486,6 +487,7 @@ try:
         os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "regression_proof.py"))
     _rpm = importlib.util.module_from_spec(_rp); _rp.loader.exec_module(_rpm)
     _rp_extract, _rp_gate = _rpm.extract_def, _rpm.proof_gate
+    _rp_renames = getattr(_rpm, "rename_candidates", None)   # E4: rename-bypass guard
 except Exception:
     pass                                 # module absent -> legacy behavior (gate is opt-in anyway)
 _OLD_MODULE_SRC = ""
@@ -508,6 +510,15 @@ try:
     _mut_code, _mut_gate = _msm.mutate_code, _msm.mutation_gate
 except Exception:
     pass                                 # module absent -> legacy behavior (gate is opt-in anyway)
+_mut_equiv = None
+try:                                     # E2: equivalent-mutant filter (deterministic differential probe)
+    _me = importlib.util.spec_from_file_location("mutation_equiv", os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "mutation_equiv.py"))
+    _mem = importlib.util.module_from_spec(_me); _me.loader.exec_module(_mem)
+    _mut_equiv = _mem.equivalent_over_samples
+except Exception:
+    _mut_equiv = None
+_mutation_unmeasured = []                # E1: functions the mutation gate could not measure (no mutable nodes)
 
 # FAILURE-AS-ASSET for FUNCTIONS (mirrors the artifact preservation below): a failed candidate and
 # the EXACT failing test are banked to disk so the analyst can sharpen the spec from real feedback.
@@ -570,6 +581,19 @@ for f in plan.FUNCTIONS:
             _old = _rp_extract(_OLD_MODULE_SRC, name) if _rp_extract else ""
             _blocked, _rp_why = _rp_gate(os.environ.get("LATHE_REGRESSION_PROOF"), _old,
                                          bool(_old) and validate(_old, name, tests, solved_ns))
+            # E4: rename-bypass guard — a "new" function under an armed gate may be a RENAMED changed unit.
+            # If any DISAPPEARED def from the old module passes every new test (def-line renamed for the
+            # probe), the change proves nothing and is refused the same way.
+            if (not _blocked and not _old and _rp_renames is not None
+                    and str(os.environ.get("LATHE_REGRESSION_PROOF") or "").strip().lower() in ("1", "true", "yes", "on")):
+                _cur = [c.get("name", "") for c in plan.FUNCTIONS]
+                for _cn, _cs in (_rp_renames(_OLD_MODULE_SRC, _cur) or []):
+                    _probe = re.sub(r"def\s+%s\s*\(" % re.escape(_cn), "def %s(" % name, _cs, count=1)
+                    if validate(_probe, name, tests, solved_ns):
+                        _blocked = True
+                        _rp_why = ("REFUSED: possible rename of '%s' — every new test PASSES on the old "
+                                   "implementation; ship a reproducing test (rename is not a proof)" % _cn)
+                        break
             if _blocked:
                 print(f"  {name:16} REGRESSION-PROOF GATE — {_rp_why}")
                 solved_src[name] = None
@@ -595,9 +619,20 @@ for f in plan.FUNCTIONS:
             # MUTATION-SCORE GATE (mechanism #3): before this code may PIN, the suite must kill enough
             # deterministic mutants of it — otherwise the tests can't distinguish right from nearly-right.
             if winner is not None and _mut_gate is not None:
+                _mut_env = os.environ.get("LATHE_MUTATION_SCORE")
                 _muts = _mut_code(winner, int(os.environ.get("LATHE_MUTATION_LIMIT", "8"))) if _mut_code else []
-                _killed = sum(1 for _m in _muts if not validate(_m, name, tests, solved_ns))
-                _mblocked, _mwhy = _mut_gate(os.environ.get("LATHE_MUTATION_SCORE"), _killed, len(_muts))
+                if not _muts and _mut_env and str(_mut_env).strip():
+                    # E1: no mutable nodes — do NOT silently pass an armed gate; warn loudly + record the gap
+                    print(f"  {name:16} MUTATION: unmeasurable (no mutable nodes) — not gated; recorded")
+                    _mutation_unmeasured.append(name)
+                _survivors = [_m for _m in _muts if validate(_m, name, tests, solved_ns)]
+                _killed = len(_muts) - len(_survivors)
+                # E2: exclude provably-equivalent survivors (no sampled input distinguishes them from the
+                # accepted code) from the denominator — an unkillable mutant must not fail a perfect suite.
+                _equiv = sum(1 for _m in _survivors if _mut_equiv and _mut_equiv(winner, _m, name))
+                if _equiv:
+                    print(f"  {name:16} mutation: {_equiv} equivalent mutant(s) excluded from the score")
+                _mblocked, _mwhy = _mut_gate(_mut_env, _killed, len(_muts) - _equiv)
                 if _mblocked:
                     print(f"  {name:16} MUTATION-SCORE GATE — {_mwhy}")
                     _save_fn_fail(name, fmodel, 0, winner, "mutation gate: " + _mwhy)
@@ -1029,6 +1064,7 @@ _metrics = {
     "tok_per_s": round(tok["e"] / elapsed, 1) if (elapsed > 0 and tok["e"]) else 0,
     "integration": (integration.splitlines()[0] if integration else ""),
     "regression": (regression.splitlines()[0] if regression else ""), "module_ok": module_ok, "retired": len(retired),
+    "mutation_unmeasured": _mutation_unmeasured,   # E1: gated build, but these fns had no mutable nodes — visible, not hidden
     "artifacts_total": artifacts_total, "artifacts_passed": artifacts_passed, "build_ok": build_ok,
     "per_function": [{"name": nm, "ok": ok, "tries": tries, "src": src} for nm, ok, tries, src in report],
 }

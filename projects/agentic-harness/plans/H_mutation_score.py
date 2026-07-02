@@ -9,13 +9,20 @@ GLUE = ""
 _ONLY = "Output ONLY the Python function code — no prose, no markdown, no tests. Import inside the function."
 FUNCTIONS = [
     {"name": "mutate_code",
-     "prompt": ("Write mutate_code(code, limit) -> list of mutated Python source strings. Deterministic AST "
-                "mutation: parse `code` with ast (import ast, copy inside). Walk the tree in ast.walk order; for "
-                "each mutable node, produce ONE variant where ONLY that node is changed (use copy.deepcopy of the "
-                "whole tree each time, mutate the corresponding node found by identical walk position, then "
-                "ast.unparse). Mutations: (a) ast.BinOp: Add -> Sub, Sub -> Add, Mult -> Add, Div -> Mult; "
+     "prompt": ("CONTEXT: this implements MUTATION TESTING — the standard software-QA technique (Lipton/DeMillo) "
+                "that measures a TEST SUITE's adequacy by seeding small single-fault variants of a function and "
+                "checking the suite detects them. It runs inside our build gate on our own accepted code.\n"
+                "Write mutate_code(code, limit) -> list of seeded-fault variant source strings for test-adequacy "
+                "measurement. Deterministic AST transformation: parse `code` with ast (import ast, copy inside). "
+                "Walk the tree in ast.walk order; for "
+                "each transformable node, produce ONE variant where ONLY that node is changed (use copy.deepcopy of the "
+                "whole tree each time, change the corresponding node found by identical walk position, then "
+                "ast.unparse). Transformations: (a) ast.BinOp: Add -> Sub, Sub -> Add, Mult -> Add, Div -> Mult; "
                 "(b) ast.Compare with exactly one op: Lt -> LtE, LtE -> Lt, Gt -> GtE, GtE -> Gt, Eq -> NotEq, "
-                "NotEq -> Eq; (c) ast.Constant whose value is an int and not a bool: value -> value + 1. Collect "
+                "NotEq -> Eq, In -> NotIn, NotIn -> In, Is -> IsNot, IsNot -> Is; (c) ast.Constant whose value "
+                "is an int and not a bool: value -> value + 1; (d) ast.BoolOp: And -> Or, Or -> And; (e) "
+                "ast.UnaryOp with op Not: replace the whole UnaryOp node with its operand (drop the `not`); (f) "
+                "ast.Constant whose value is a non-empty str: value -> value + '_'; empty str value -> 'x'. Collect "
                 "variants in walk order, return at most `limit` (limit <= 0 -> []). Skip variants whose unparse "
                 "fails. code None/non-str/unparseable -> []. Never raise." + "\n" + _ONLY),
      "tests": [
@@ -28,6 +35,11 @@ FUNCTIONS = [
         "assert mutate_code('def f(x):\\n    return x * x', 0) == []",
         "v = mutate_code('def f(x):\\n    return x + x - x * x', 2); assert len(v) == 2",
         "v = mutate_code('def f(x):\\n    return True', 10); assert all('return 2' not in m for m in v)",
+        "v = mutate_code('def f(a, b):\\n    return a and b', 10); assert any('a or b' in m for m in v)",
+        "v = mutate_code('def f(x, s):\\n    return x in s', 10); assert any('not in' in m for m in v)",
+        "v = mutate_code('def f(x):\\n    return x is None', 10); assert any('is not None' in m for m in v)",
+        "v = mutate_code('def f(x):\\n    return not x', 10); assert any(m.strip().endswith('return x') for m in v)",
+        "v = mutate_code('def f():\\n    return \\'a\\'', 10); assert any('a_' in m for m in v)",
      ]},
     {"name": "mutation_gate",
      "prompt": ("Write mutation_gate(env_value, killed, total) -> list [blocked(bool), reason(str)]. If env_value "

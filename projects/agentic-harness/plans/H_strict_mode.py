@@ -32,18 +32,25 @@ FUNCTIONS = [
         "assert strict_defaults(' TRUE ', {'LATHE_TEST_ACK':'1','LATHE_REGRESSION_PROOF':'1','LATHE_LINT_SPEC':'block','LATHE_MUTATION_SCORE':'0.5'}) == []",
      ]},
     {"name": "strict_plan_gaps",
-     "prompt": ("Write strict_plan_gaps(env_value, has_functions, criteria) -> list of problem strings (empty = "
-                "plan is strict-compliant). If env_value is None, not a str, or its stripped lowercased form is "
-                "NOT one of '1','true','yes','on' -> [] (strict off). If has_functions is truthy and criteria is "
-                "None or an empty list -> return ['strict mode requires declared CRITERIA (requirement->test "
-                "traceability) for every FUNCTIONS plan']. Otherwise []. Never raise." + "\n" + _ONLY),
+     "prompt": ("Write strict_plan_gaps(env_value, has_functions, criteria, has_artifacts) -> list of problem "
+                "strings (empty = plan is strict-compliant). If env_value is None, not a str, or its stripped "
+                "lowercased form is NOT one of '1','true','yes','on' -> [] (strict off). Then collect problems: "
+                "if has_functions is truthy and criteria is None or an empty list -> add 'strict mode requires "
+                "declared CRITERIA (requirement->test traceability) for every FUNCTIONS plan'. If has_artifacts "
+                "is truthy and has_functions is falsy -> add 'strict mode cannot gate an ARTIFACTS-only plan "
+                "(artifact/glue coverage is not yet enforceable) - build it outside STRICT or add gated "
+                "FUNCTIONS'. Return the list. Never raise." + "\n" + _ONLY),
      "tests": [
-        "assert strict_plan_gaps(None, True, None) == []",
-        "assert strict_plan_gaps('1', True, None) != []",
-        "assert strict_plan_gaps('1', True, []) != []",
-        "assert 'CRITERIA' in strict_plan_gaps('1', True, None)[0]",
-        "assert strict_plan_gaps('1', True, [{'id':'AC-1'}]) == []",
-        "assert strict_plan_gaps('1', False, None) == []",
-        "assert strict_plan_gaps('yes', True, None) != []",
+        "assert strict_plan_gaps(None, True, None, False) == []",
+        "assert strict_plan_gaps('1', True, None, False) != []",
+        "assert strict_plan_gaps('1', True, [], False) != []",
+        "assert 'CRITERIA' in strict_plan_gaps('1', True, None, False)[0]",
+        "assert strict_plan_gaps('1', True, [{'id':'AC-1'}], False) == []",
+        "assert strict_plan_gaps('1', False, None, False) == []",
+        "assert strict_plan_gaps('yes', True, None, False) != []",
+        "assert strict_plan_gaps('1', False, None, True) != []",
+        "assert 'ARTIFACTS-only' in strict_plan_gaps('1', False, None, True)[0]",
+        "assert strict_plan_gaps(None, False, None, True) == []",
+        "assert strict_plan_gaps('1', True, [{'id':'A'}], True) == []",
      ]},
 ]
