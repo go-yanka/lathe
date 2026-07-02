@@ -608,6 +608,24 @@ this publish call, especially 14d item 1, before it drives a launch decision.*
 
 ---
 
+## 15. Open defects — consolidated fix list for the maintainer
+
+Everything below is currently **not working as one would expect it to**, verified against the shipped tree.
+Grouped here so it can be fixed in one pass. D7–D8 are new from the persona/capability investigation
+(round-6); D5–D6 were surfaced earlier and remain open.
+
+| ID | Sev | What's wrong (verified) | Fix |
+|---|---|---|---|
+| **D7** | **High if intended, else feature-gap** | **The persona decider never auto-fetches a missing expert.** The fetch-and-create *mechanism* works (`review_tests/test_persona_fetch.py`, 6/6, GitHub call mocked because api.github.com is 403 here). But no decider triggers it: `review auto` (`lathe.py` ~line 250) selects from a **hardcoded 7-capability list mapped to vendored lenses only**; the planner (`planner_prompt.py:_expert_lenses`) injects a non-vendored expert's **name+capability as a text hint** but never fetches/instantiates the body; the only real pull-and-create is the **user-invoked `lathe agent --spawn`**. So "a decider that needs an absent expert taps the library, pulls the code, and creates the persona" is **mechanism-present but not auto-wired**. | When a decider selects a catalog capability with no vendored persona, call the license-gated `_spawn_one` and inject the fetched persona **body** (not just its name) — reusing the existing permissive-license gate and fail-closed behavior. Wire it for both `review auto` and the planner. |
+| **D8** | Medium | **Persona/decider matching is exact-token word-overlap** (`agent_router.score_match`/`pick_best`/`select_agents_for_goal`) — no stemming/synonyms/embeddings. Verified: `"auth vulnerability"` matches the security persona, but `"authentication bug"` → **no match**, `"login credentials"` → **no match**. So the "right expert, automatically" claim silently misfires on reasonable phrasings and won't scale past a tiny catalog. | Add lightweight stemming + a synonym map (cheap, deterministic, keeps the LLM-independence), or an optional embedding match; at minimum expand each catalog entry's capability string with common synonyms. |
+| **D5b** | Medium | **A well-formed-but-wrong 200 from the analyst endpoint is undetectable.** `review`'s D3 fallback triggers only on connection error / non-2xx / empty completion, so a stale-but-reachable proxy returning a syntactically valid but semantically wrong 200 is **accepted → silent junk verdict**. | Content/schema-validate the analyst response (or add a second-opinion check); at minimum document that a wrong-200 is undetectable and don't claim the fallback covers it. |
+| **D5a** | Low | **Both-backends-dead path is unspecified.** `HARNESS_CLAUDE_URL` set but returning non-2xx/empty, **and** no `claude` CLI present (the air-gapped niche) → URL rejected → fallback to CLI → CLI absent. Terminal behavior isn't defined/tested. | Fail loud: "no usable analyst backend", rc≠0; add the case to the test matrix. |
+| **D6** | Low | **`should_auto_commit` silently disables on an unrecognized non-empty value** (`LATHE_AUTO_COMMIT=enabled`, `=2`, …). Direction is safe (fails closed), but a user who thinks they enabled commits gets no signal. | Warn-log on any non-empty value outside `{1,true,yes,on}`: "unrecognized LATHE_AUTO_COMMIT value '<x>' — treating as disabled". |
+
+None of these block the green sweep (they're edge/wiring/quality issues, not core-path breakage), but each is a case where the *stated or expected* behavior and the *actual* behavior diverge — the class of gap this review exists to surface. Fix order suggestion: **D7** (it's the "personification" feature the project is actively promoting), then **D8** (same subsystem), then **D5b/D5a/D6**.
+
+---
+
 ## Appendix — reproducing this review
 
 ```bash
