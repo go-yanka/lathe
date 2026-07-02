@@ -75,6 +75,12 @@ def _expert_lenses(goal):
         cat = json.load(open(os.path.join(os.path.dirname(_here), "agents", "catalog.json"), encoding="utf-8"))
         ents = cat.get("agents", [])
         names = select_agents_for_goal(goal, [[e["name"], e.get("capability", "")] for e in ents], 3)
+        try:                                    # CE FLOOR (owner directive): the Compound-Engineering reviewers
+            from persona_market import ensure_ce_floor        # are the strongest — guarantee >=1 in every selection
+            _ce = [e["name"] for e in ents if e.get("source", "").startswith("EveryInc")]
+            names = ensure_ce_floor(names, _ce, "correctness-reviewer")
+        except Exception:
+            pass
         if not names:
             return ""
         by = {e["name"]: e for e in ents}

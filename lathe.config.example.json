@@ -15,11 +15,12 @@
   "_notes": {
     "subscription": "Point analyst.url at claude_proxy.py (wraps the Claude subscription as an OpenAI endpoint, $0/token) for the thinking; keep implementer local for the bulk. That is the cost leverage.",
     "higher+higher": "For max correctness (no cost constraint), set implementer.model to 'claude' too \u2014 both roles then use the strong model.",
-    "personas": "priority: name->weight multiplier on the decider's match score (user preference beats raw overlap). mandatory: persona names injected on EVERY review/planning invocation - vendored lens names (e.g. 'testing') or catalog personas (fetched license-gated)."
+    "personas": "priority: name->weight multiplier on the decider's score (CE reviewers are boosted here by default - they're the strongest). mandatory: YOUR default agent(s) injected into EVERY review/planning call (1-2 names: vendored lens names or catalog personas). The decider ALSO guarantees >=1 CE reviewer in every selection regardless of config (the CE floor). Ratings (lathe agent rate) reweight the market by measured performance; buckets (lathe agent bucket) show when to invoke which."
   },
   "personas": {
     "priority": {
-      "security-reviewer": 2.0
+      "correctness-reviewer": 1.5,
+      "adversarial-reviewer": 1.5
     },
     "mandatory": []
   }

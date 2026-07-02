@@ -33,6 +33,8 @@ Usage:
                                refuses to build un-acked or rewritten tests — the tests define 'correct')
   lathe trace <plan> [model]   requirement->test->pin->model traceability matrix; the validator refuses a
                                plan whose declared CRITERIA aren't each mapped to a named test
+  lathe agent bucket [name]    the persona library grouped by when-to-invoke bucket
+  lathe agent rate --all [N]   grade every agent (field probe + judge -> 0-10; resumable, skips rated)
   lathe sdlc "<goal>" [--out]  SDLC authoring: analyst writes UC->BR->FR->TS (ID-traced); the RTM gate
                                refuses orphans/dangling refs; emits REQUIREMENTS.md + a CRITERIA block
   lathe selftest               exercise every capability and report PASS/FAIL
@@ -901,6 +903,59 @@ def cmd_agent(args):
         entries = json.load(open(os.path.join(INNER, "agents", "catalog.json"), encoding="utf-8")).get("agents", [])
     except Exception as ex:
         print("agent: catalog unavailable (%s)" % ex); return 1
+    if args and args[0] == "bucket":                          # organize the library by when-to-invoke
+        from collections import defaultdict
+        want = args[1] if len(args) > 1 else None
+        by_b = defaultdict(list)
+        for e in entries:
+            by_b[e.get("bucket", "specialized")].append(e["name"])
+        for b in sorted(by_b):
+            if want and b != want:
+                continue
+            print("== %s (%d) ==" % (b, len(by_b[b])))
+            print("   " + ", ".join(sorted(by_b[b])))
+        return 0
+    if args and args[0] == "rate" and "--all" in args:        # #39 batch: grade EVERY agent (resumable)
+        from persona_spawn import spawn_one, load_ratings, save_rating
+        from persona_ratings import parse_judge_score
+        from agent_router import license_ok
+        sys.path.insert(0, TOOLS)
+        from request_spec import request_spec
+        cap = next((int(a) for a in args[2:] if a.isdigit()), 0)
+        done = load_ratings()
+        todo = [e for e in entries if e["name"] not in done and (e.get("vendored") or license_ok(e.get("license", "")))]
+        if cap:
+            todo = todo[:cap]
+        print("rating %d agent(s) (%d already done; resumable — reruns skip the rated)..." % (len(todo), len(done)))
+        rated = 0
+        for e in todo:
+            name = e["name"]
+            if e.get("vendored"):
+                try:
+                    body = open(os.path.join(ROOT, e["path"]), encoding="utf-8").read()
+                except OSError:
+                    body = e.get("capability", "")
+            else:
+                md, _how = spawn_one(e)
+                if not md:
+                    print("  %-28s fetch failed — skipped" % name); continue
+                body = open(md, encoding="utf-8", errors="replace").read()
+            probe = ("You are this specialist:\n%s\n\nTASK: list the 3 most critical, CONCRETE checks you would "
+                     "run in your domain (%s). Number them; one line each; be specific." % (body[:1400], e.get("capability", "")[:80]))
+            ans = request_spec(probe) or ""
+            judge = request_spec("Rate 0-10 how specific/actionable/domain-expert this answer is (10=precise "
+                                 "expert checks; 0=generic). Reply exactly 'SCORE: <n>'.\n\nANSWER:\n%s" % ans[:1800]) or ""
+            _bad = lambda t: (not t) or len(t.strip()) < 40 or "API Error" in t or "usage policy" in t.lower()
+            if _bad(ans) or _bad(judge):        # a filtered/errored endpoint response must NOT become a false 0
+                print("  %-28s unmeasurable (endpoint filtered/errored) — skipped" % name); continue
+            s = parse_judge_score(judge)
+            if s >= 0:
+                save_rating(name, s, "batch:" + e.get("bucket", ""))
+                print("  %-28s %.1f  [%s]" % (name, s, e.get("bucket", ""))); rated += 1
+            else:
+                print("  %-28s no score — skipped" % name)
+        print("rated %d (total now %d) -> agents/ratings.json" % (rated, len(load_ratings())))
+        return 0 if rated else 1
     if args and args[0] == "ratings":                         # #39: show the measured persona ratings
         from persona_spawn import load_ratings
         r = load_ratings()

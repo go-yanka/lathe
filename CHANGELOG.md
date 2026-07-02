@@ -2,6 +2,18 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.2.2 — 2026-07-02
+
+Persona library governance (owner directive: get the expert library right).
+- **Buckets** — all 143 agents tagged with a when-to-invoke bucket (`persona_market.bucket_of`); browse
+  with `lathe agent bucket`. Advisory heuristic.
+- **CE floor** — the decider now guarantees at least one Compound-Engineering reviewer in every selection
+  (review always runs correctness+adversarial; the planner floors correctness-reviewer). Governance rule.
+- **Your default agents** — `personas.mandatory` (1-2 names in every call), and the shipped config boosts
+  the CE reviewers' priority by default.
+- **Batch grading** — `lathe agent rate --all [N]`: grade every agent (field probe + independent judge →
+  0-10), resumable, feeds the decider's rating factor.
+
 ## v2.2.1 — 2026-07-02
 
 Adversarial edge-case pass on the v2.2.0 mutation gate (independent review §16, E1–E4) — all four

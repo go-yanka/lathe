@@ -51,6 +51,7 @@ jobs:
           python review_tests/test_mutation_score.py
           python review_tests/test_mutation_equiv.py
           python review_tests/test_mutation_coverage.py
+          python review_tests/test_persona_market.py
           python review_tests/test_persona_overrides.py
           python review_tests/test_persona_ratings.py
           python review_tests/test_sdlc.py

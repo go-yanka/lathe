@@ -16,6 +16,24 @@ The full inventory is `projects/agentic-harness/agents/catalog.json` (143 entrie
 gate**: auto-fetch only for MIT/Apache/BSD/ISC/Unlicense/CC0 (`agent_router.license_ok`, fail-closed).
 A persona is prompt text — **LLM-independent**: it injects into whatever endpoint you configured.
 
+## Buckets — when to invoke which (organized library)
+
+Every one of the 143 agents is tagged with a **when-to-invoke bucket** (`persona_market.bucket_of`, a
+deterministic heuristic over name + capability): `review · security · testing-qa · data-ai · devops-cloud ·
+frontend-mobile · language · architecture · docs-content · specialized`. Browse with `lathe agent bucket`
+(or `lathe agent bucket security`). Buckets are advisory metadata for orientation — the decider still ranks
+by match × rating within/across buckets.
+
+## The CE floor + your default agents
+
+- **CE floor (always on):** the vendored Compound-Engineering reviewers are the strongest personas, so the
+  decider **guarantees at least one in every selection** — `review auto` always runs correctness +
+  adversarial (both CE); the planner floors `correctness-reviewer` even for a non-CE goal. This is not
+  configurable-off — it's a governance rule.
+- **Your default agents:** `personas.mandatory` in `lathe.config.json` — one or two names injected into
+  **every** review/planning call (vendored lens names like `testing`, or catalog personas fetched
+  license-gated). The shipped config also **boosts the CE reviewers' priority** by default.
+
 ## How the decider decides (the exact pipeline)
 
 For a goal/need `N`, every catalog entry is scored, then reweighted, then ranked:
