@@ -1,0 +1,46 @@
+Findings on `/home/user/lathe/LATHE_REVIEW_V2.md` (a review document — I attacked its internal logic, evidence chains, and the reproduction/remediation steps it tells a reader to run):
+
+---
+
+**HIGH | LATHE_REVIEW_V2.md:273 (Appendix reproduction steps) — documented cleanup command does not undo the damage and destroys unrelated work**
+The doc states the sweep (`python review_tests/run_all.py`, line 266) intentionally creates 4 real commits on the working branch (§3, lines 91–92), then tells the reader to run bare `git reset --hard` to clean up ("reset away after testing", "`git reset --hard` afterwards").
+Concrete failure: bare `git reset --hard` == `git reset --hard HEAD`, and HEAD is now the 4th autonomy commit. So it (a) does **not** remove any of the 4 `autonomy: task` commits — they remain in history — and (b) discards any uncommitted working-tree/index changes the reader had, with no confirmation. A reader who cloned to inspect and had local edits loses them *and* still has a polluted branch, believing the doc's promise that it was "reset away."
+Fix: document the exact ref (`git reset --hard <pre-sweep-SHA>` captured before the run, or `git reset --hard HEAD~4`), and make `run_all.py` capture the original SHA and restore it itself rather than leaving destructive cleanup to a hand-typed command; warn that uncommitted work must be stashed first.
+
+---
+
+**MEDIUM | LATHE_REVIEW_V2.md:149 (§6) — "repair loop … verified end-to-end" contradicts the review's own stated method**
+§1 (line 55) establishes the only implementer is the reviewing model, which "returns correct code on the first try." §6 lists "the repair loop" among things "Verified end-to-end in this review."
+Concrete failure: if every completion passes the sandbox gate on the first attempt, the repair path is never entered — there is no failed verdict to trigger a repair. The evidence described cannot exercise the loop, so the "verified" claim is unsupported by the method. This is exactly the phantom-verification failure mode the review indicts in §3 (artifact exists, path never reached), now present in the review's own claims.
+Fix: either inject deliberate first-attempt failures to force the repair path and report that separately, or downgrade the repair loop from "verified end-to-end" to "present but not exercised (stand-in never fails)."
+
+---
+
+**MEDIUM | LATHE_REVIEW_V2.md:249 (Rec #1) — the recommended B4 wiring passes an input the function's tests never covered**
+Rec #1 (and the §3 lesson, line 100) prescribes `should_auto_commit(os.environ.get("LATHE_AUTO_COMMIT"))`. When the variable is unset, `os.environ.get(...)` returns `None`. §3 (line 84) says the function was spec'd with 7 tests over `env_value`, but the review never confirms `None` is among them — and the desired behavior is precisely "HEAD unchanged unless `=1`" (the unset/None case is the critical one).
+Concrete failure: if the 7 tests only exercise string values ("1", "0", "true", …), the recommended one-liner ships the one input (`None`) whose behavior is unverified — reintroducing the "gated-green function, unverified integration" defect the review is fixing. If `should_auto_commit(None)` happens to be truthy or raises, autonomy commits (or crashes) exactly when it must not.
+Fix: before wiring, confirm a test asserts `should_auto_commit(None) is False`; if absent, add it. Prefer `os.environ.get("LATHE_AUTO_COMMIT", "0")` so the callee never receives `None`, and gate the recommendation on the new end-to-end HEAD-unchanged test the doc already proposes.
+
+---
+
+**LOW | LATHE_REVIEW_V2.md:254 (Recs #2 vs #3 ordering) — following the numbered recommendations in order turns CI red**
+Rec #2 says "run the repo's own `test_*.py` in CI (they'd have caught D2)"; Rec #3 then fixes the D2 portability failure in `test_safe_write.py`. The list is numbered as a priority sequence.
+Concrete failure: a maintainer who implements #2 before #3 wires a known-failing test (`test_safe_write.py`, red on Linux per line 110) into CI, immediately breaking the green build the doc elsewhere treats as the baseline.
+Fix: reorder — fix `test_safe_write.py` (#3) before enabling the suite in CI (#2), or state the dependency explicitly.
+
+---
+
+**LOW | LATHE_REVIEW_V2.md:46 (§1 test-system table) — the security-battery counts don't sum, undercutting a review that markets itself as "verifiable, one command"**
+Line 46 claims "**33** adversarial cases across the plan validator (24), sandbox (8), and spec-lint mutation probe (2)"; 24 + 8 + 2 = **34**, and §4 (lines 106–108) reports 24/24 + 8/8 + 2/2 = 34. The headline "33" is off by one against the review's own breakdown.
+Fix: correct the total to 34 (or fix the sub-counts). Trivial, but an arithmetic slip in the one table the reader uses to trust the numbers is worth zero cost to fix.
+
+---
+
+**LOW | LATHE_REVIEW_V2.md:255 (Rec #4, D3) — "make explicit config win" removes the fallback that made the B3 fix work**
+Rec #4 says `review` should always prefer `HARNESS_CLAUDE_URL` when the user set it. B3 (line 70) is verified fixed precisely because review can route through that URL; but the current CLI-preference also provides a working path when the configured URL endpoint is down or misconfigured.
+Concrete failure: after this change, a user with a stale/broken `HARNESS_CLAUDE_URL` set and a working `claude` CLI on PATH now fails `review` where it previously succeeded via the CLI.
+Fix: prefer the configured URL but fall back to the CLI on connection failure, rather than making the URL an unconditional hard preference.
+
+---
+
+Nothing else rises to material. The document is internally coherent and honest about its central limitations (implementer-quality untested, no docker/display); the findings above are the places where its instructions or evidence claims break when actually executed or traced.

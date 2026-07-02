@@ -1,0 +1,294 @@
+# Lathe — Independent Review v2: Full Re-Analysis of v2.1.0
+
+**Reviewer:** an independent AI agent (Claude), acting as both tester and stand-in model endpoints.
+**Date:** 2026-07-02 · **Commit reviewed:** `ca4d8d1` (v2.1.0) · previous review: `b75eddf` (v2.0.0), see `LATHE_REVIEW_FINDINGS.md`.
+**Test system:** `review_tests/` (in this repo) — reusable, one command: `python review_tests/run_all.py`.
+
+---
+
+## TL;DR verdict
+
+Lathe v2.1.0 is a **substantially improved, largely honest, genuinely working harness** whose author
+responded to independent review faster and more completely than most established projects would —
+**6 of the 7 reported bugs are verifiably fixed**, the overclaims were retracted in plain language, CI was
+added, and a real multi-plan demo now makes the composition claim falsifiable.
+
+Two blunt truths temper this:
+
+1. **One "fixed" bug is a phantom (B4).** The fix function was spec'd, generated, test-gated, pinned —
+   and **never wired into the code path it was supposed to gate**. `lathe auto` still silently commits to
+   your git branch, and the changelog's claim that it no longer stages `harness.db` is also false. This is
+   a textbook instance of the exact failure mode Lathe's own doctrine says it prevents: the *function* is
+   gated green, but nothing gates the *integration*, and the docs drifted from reality on day one.
+2. **The core empirical claim remains untested at its intended scale.** The harness plumbing is now solid;
+   whether a quantized ~12B local model can really carry the implementer role on non-toy work is still
+   undemonstrated in anything shipped.
+
+On the market question: five independent research sweeps (sources cited in §8) found that Lathe's exact
+combination — per-function spec+test data files, a hard sandbox test gate as the acceptance condition,
+content-hash-pinned byte-identical rebuilds, no-hand-edit discipline, refuse-to-escalate, local-first —
+**is offered by no shipping tool**, while the *category* around it (spec-driven development) has explosive,
+verified demand. There is a real place for this project — narrow today, plausibly widening through 2027 —
+if it survives its two structural risks (single-maintainer bus factor and category absorption by
+Spec Kit/Kiro/Tessl).
+
+---
+
+## 1. Method (and its honesty boundary)
+
+Per the review protocol, the latest `main` was pulled (`b75eddf` → `ca4d8d1`, three releases) and the
+entire analysis was redone against it with a purpose-built, reusable test system committed at
+`review_tests/`:
+
+| Component | What it does |
+|---|---|
+| `mock_models.py` | Dual-role OpenAI-compatible HTTP server; **the reviewing model authors every completion** (implementer on :8089, analyst on :8787), every prompt logged |
+| `battery_security.py` | 34 adversarial cases across the plan validator (24), sandbox (8), and spec-lint mutation probe (2)* |
+| `unit_functions.py` | Direct unit tests of every pure toolchain function + the generated ledger modules (9 groups) |
+| `cli_matrix.py` | All 27+ CLI commands, all 5 workflows, and the exact B1–B7 repros from review v1 (46 checks) |
+| `run_all.py` | Orchestrator: 6 phases incl. the repo's own tests, the ledger offline rebuild, and the CI steps run locally |
+
+*counted by assertions executed; see the files for the case lists.*
+
+**What this validates:** the harness — validator, sandbox verdict path, pinning, gates, board, dispatcher,
+repair loop, CLI, workflows. **What it cannot validate:** implementer-model quality. The stand-in
+implementer returns correct code on the first try, so pass rates say nothing about a real local 12B.
+Docker sandbox tiers and Playwright UI gates were untestable in this container (no docker; no display).
+
+---
+
+## 2. The author's response to review v1 — fix verification
+
+Every fix was re-tested with the original repro. The fixes themselves were built *through the harness*
+(plans `B_fixes_spine_helpers.py` etc. → generated, gated, pinned modules) — a credible dogfooding claim
+that is verifiable in the tree.
+
+| Bug (from v1) | Claimed | Verified | Evidence |
+|---|---|---|---|
+| B1 — OUT_DIR placeholder dir | Fixed | ✅ **HOLDS** | calc plan builds into its own dir; no `<LATHE_ROOT>\game_out` created; `resolve_out_dir` wired at `engine_v2.py:76,369,706` |
+| B2 — gate red on fresh clone | Fixed | ✅ **HOLDS** | registry gate green with `harness.db` absent; `treat_missing_as_uninitialized` wired in `registry.py:46,58`; `selftest` now 11/11 |
+| B3 — `review` hangs w/o claude CLI | Fixed | ✅ **HOLDS** (with a nuance) | with no CLI (or `LATHE_REVIEW_USE_CLI=0`) review routes through `HARNESS_CLAUDE_URL` and completed rc=0 in seconds. Nuance: when a `claude` CLI **is** present it is preferred silently even if you configured the URL endpoint — see D3 |
+| B4 — silent git commits by autonomy | Fixed | ❌ **PHANTOM** | see §3 — gate function exists but has **no call site**; `lathe auto` moved HEAD in both sweep runs; `harness.db` is still explicitly staged (`autonomy_live.py:281`) |
+| B5 — misleading integration label | Fixed | ✅ **HOLDS** | `n/a (no INTEGRATION defined)` printed; `integration_label` wired at `engine_v2.py:705` |
+| B6 — hardcoded "qwen"/"35B" labels | Fixed | ✅ **HOLDS** | run reports say `PASS (local)`; selftest labels the configured model; docs reconciled (verified in diffs) |
+| B7 — dispatcher tracebacks | Fixed | ✅ **HOLDS** | no raw tracebacks in `lathe run` output; `summarize_failure` wired in `driver.py:34` |
+
+Also verified from v2.0.1's "curb overclaims" commit: the whitepaper now explicitly flags the flagship
+app as private/unverifiable from this repo, and "gets better as it ages" was reframed as design intent —
+both edits are real and worded honestly.
+
+## 3. The B4 phantom — the most instructive finding in this review
+
+The evidence chain, fully reproducible:
+
+1. `plans/B_fixes_spine_helpers.py:36-47` specs `should_auto_commit(env_value)` with 7 tests.
+2. `tools/spine_helpers.py:25` contains the generated, gated, pinned implementation. It passes all its
+   tests (my `unit_functions.py` re-verifies it).
+3. `grep -rn should_auto_commit` across the repo: **the only references are the plan, the generated
+   module, and the changelog/docs.** No caller exists.
+4. `autonomy_live.py:276-292` — `commit()` is unguarded, and line 281 stages `harness.db` by name,
+   directly contradicting `CHANGELOG.md:16` ("never stage harness.db").
+5. Empirically: `lathe auto` with `LATHE_AUTO_COMMIT` unset created 4 commits (`autonomy: task`) on the
+   working branch during each sweep. (They were reset away after testing.)
+
+Why this matters more than an ordinary bug: **Lathe's whole thesis is that gates make LLM output
+trustworthy.** Here the LLM author produced a gated-green function, an updated changelog, an updated env-var
+table in the guide — and no wiring. Every artifact *around* the fix exists; the fix doesn't. The harness's
+gates (function tests, six tree gates, docs-drift gate) all passed because none of them checks that a
+claimed behavior is actually reachable. The doctrine says "docs can't drift"; the docs drifted. The lesson
+for the roadmap is concrete: **claims need end-to-end tests, not just units** — e.g., a regression test
+that runs `lathe auto` in a scratch repo and asserts HEAD is unchanged unless `LATHE_AUTO_COMMIT=1`.
+
+## 4. Full test-system results (v2.1.0)
+
+| Phase | Result | Detail |
+|---|---|---|
+| Security battery — validator | ✅ 24/24 | accepts 4 legitimate plan shapes; rejects all 20 escape classes (imports, dunders, getattr, f-string/concat non-literals, tuple-unpack & subscript scan-then-swap, bytes tests, `dict()` smuggling, traversal names, untested functions, `types`, `attrgetter`…) |
+| Security battery — sandbox | ✅ 8/8 | honest pass/fail; hang killed in ~6s; **forged nonce-less verdict rejected**; `os._exit` fails closed; `SystemExit` contained; stdout spam harmless |
+| Security battery — spec-lint | ✅ 2/2 | stub-satisfiable tests flagged; strong tests pass the mutation probe |
+| Unit tests — toolchain + ledger | ✅ 9/9 groups | incl. all five v2.1.0 fix helpers, config precedence, board/DAG dependency flow, and the generated ledger modules |
+| Repo's own tests | ⚠️ 9/10 | `test_safe_write.py` **fails on Linux** (asserts Windows `C:\…` paths are denied; they aren't on POSIX) — defect D2 |
+| Ledger multi-plan rebuild | ✅ 3/3 plans | offline, pinned, zero model calls; cross-module composition (`ledger` imports `ledger_core`+`ledger_stats`) verified by direct unit test |
+| CI steps (run locally) | ✅ 3/3 | parse-all, validator accept/reject, offline pinned rebuild |
+| CLI + workflows matrix | ⚠️ 45/46 | every command works or degrades gracefully; all 5 workflows show contracts and fail-loud verdicts; `flow --run` without a target is BLOCKED (no false green); **the single red is B4** |
+| End-to-end `lathe do` | ✅ | analyst(me) → plan → validator → implementer(me) → sandbox gate → pin → green, in one shot |
+| `lathe checkin` (new) | ✅ | correctly refused: reported gate/relic/behind-remote blockers with remediation |
+| `selftest` | ✅ 11/11 | was 10/11 on a fresh clone in v2.0.0 |
+
+**New defects found in v2.1.0 (all minor except D1):**
+- **D1 (High):** B4 phantom fix — §3. Autonomy still commits silently; changelog claim false.
+- **D2 (Medium):** `test_safe_write.py` fails on Linux — the repo's own test suite is red out of the box
+  on the OS its CI runs on (the new CI only compiles/validates/rebuilds; it doesn't run these tests —
+  which is why it stays green).
+- **D3 (Low/design):** `lathe review` silently prefers the `claude` CLI whenever one exists on PATH, even
+  if the user configured `HARNESS_CLAUDE_URL` (`hreview.py:106`, default `LATHE_REVIEW_USE_CLI=1`).
+  Least-surprise says an explicitly configured endpoint should win.
+- **D4 (Observation):** the harness's gates verify functions and tree hygiene but nothing verifies
+  *claims* (see §3). The docs-drift gate checks that commands are documented, not that documentation is true.
+
+## 5. Documentation-claims audit
+
+| Claim | Status at v2.0.0 | Status at v2.1.0 |
+|---|---|---|
+| "12B on an 8GB GPU" vs "35B" contradiction | Contradictory across 4 docs | ✅ Reconciled ("local model", model-agnostic; changelog discloses the benchmark used a 35B) |
+| Flagship 23-plan private app | Presented as proof of scaling | ✅ Flagged as private/unverifiable, public demo promised — and `examples/ledger/` now exists (3 plans, 6 functions, real cross-module imports, integration test). Honest but modest: it proves *composition works*, not *scale* |
+| "Gets better as it ages" | Asserted as fact | ✅ Reframed as design intent |
+| "Every fix built through the harness itself" | — | ✅ Verifiable in-tree (plans → pinned modules) and credible; but see §3 for what the harness didn't catch |
+| CHANGELOG B4 entry | — | ❌ **False on both halves** (not opt-in; still stages `harness.db`) |
+| BENCHMARK.md | Honest null result | Unchanged (still 5 trivial tasks; the promised harder benchmark hasn't landed) |
+
+The documentation culture is genuinely above-average in honesty — overclaims were retracted in explicit,
+almost self-flagellating language — but the B4 changelog entry shows the failure mode is *unverified
+claims*, not dishonesty.
+
+## 6. Functionality — what demonstrably works now
+
+Verified end-to-end in this review: the plan validator (closed-rule, all probed escape classes rejected) ·
+the nonce-authenticated sandbox verdict (unforgeable under every forgery attempted) · content-hash pinning
+with byte-stable offline rebuilds · the six standing tree gates · spec-quality mutation probing ·
+the two-tier analyst/implementer split over plain OpenAI-compatible HTTP · the repair loop (exercised in
+review v1, where v2.0.0's red gate drove `spec_repaired` cycles; **not** re-exercised in the v2.1.0 sweep,
+where the stand-in implementer never fails — a gap the harness's own reviewer caught, see Appendix) · the SQLite
+board, DAG scheduling, dispatcher and dormancy (wait/resume) · all five named workflows with up-front
+contracts and fail-loud verdicts · structured per-run logs and honest metrics · the gated `checkin` ·
+config-file precedence · CI. That is a **complete, working implementation of the design** — with the
+single exception documented in §3.
+
+## 7. Usefulness and real potential
+
+**Who this genuinely serves today:**
+- Developers generating **well-scoped pure functions/modules** who want provable correctness and free
+  regeneration — especially on private code where cloud tools are unacceptable (the privacy pull is real:
+  81% of surveyed developers worry about AI-tool data handling).
+- Anyone who needs **AI-generated code to be reproducible** — a property literally no mainstream tool
+  offers (§8).
+- As a **reference architecture**: the validator/sandbox/pinning trio is publishable-quality security
+  engineering that other harness builders could vendor or imitate.
+
+**Where it will frustrate:**
+- The unit of work is a single function with assert-string tests. Real backends (I/O, state, async,
+  frameworks) don't decompose that cleanly; `GLUE` is hand-written; the analyst does the decomposition,
+  and decomposition quality *is* the product. This is the same "sledgehammer for a nut" critique the
+  community levels at spec-driven tools generally.
+- Writing per-function specs+tests is real work. Lathe converts "review the AI's code" into "specify
+  precisely up front" — a trade many developers will refuse (and the "a spec precise enough to determine
+  code *is* code" objection applies at this granularity more than any other).
+- Single-maintainer project, no community, no packaging (not on PyPI), Windows-first residue in places
+  (D2 is exactly that).
+
+**The technical bet is independently supported.** The clearest external evidence found: small models score
+~88% on scoped function synthesis (HumanEval, Qwen2.5-Coder-7B) yet **8–16%** on open-ended repo editing
+(Aider polyglot, even at 32B). Decomposing to fully-specified single functions moves the task into the
+regime where cheap local models are strong — Lathe's core design converts exactly the capability that
+small models have into exactly the guarantee (test-gated, pinned) that users lack. A 2026 study (TDAD)
+independently found verification structure beats model scale for small-model codegen.
+
+## 8. Market comparison — is anyone already doing this?
+
+Summary of five research sweeps (2025–26 landscape; sources in the reports, key ones linked here):
+
+**Spec-driven development is now a mass-market category — without Lathe's mechanics.**
+GitHub **Spec Kit**: 117k stars in 10 months (verified via GitHub API) — feature-level Markdown specs,
+TDD by *prompt instruction*, no gate, no pinning. AWS **Kiro**: GA Nov 2025, 100k+ waitlist, EARS
+acceptance criteria + spec-derived property testing — advisory verification, cloud-only, no pinning.
+**Tessl** ($125M raised, ~$500-750M valuation): the closest philosophical neighbor — spec-as-source,
+"GENERATED FROM SPEC - DO NOT EDIT" headers — but file-level, JS-only, closed beta, and its own reviewers
+flag **non-deterministic regeneration** as the thesis-breaking gap. That named gap is precisely what
+Lathe's content-hash pinning answers.
+
+**Coding agents run tests as behavior; none gate on them.** Across Aider, Cline, Cursor, Claude Code,
+Codex, Copilot's coding agent, Devin, OpenHands: test loops are repair behavior, not acceptance
+conditions (Aider even auto-commits *before* tests run). No surveyed product offers reproducible
+regeneration. All escalate to bigger models as the remedy; none refuses. The nearest thing to a hard gate
+anywhere is Claude Code's opt-in Stop-hooks.
+
+**Test-gated generation has one dormant near-miss.** BuilderIO's Micro Agent (generate test → iterate
+until pass) is the only shipped product with Lathe's acceptance semantics — unmaintained since Nov 2024,
+single-file, unsandboxed. Industrial hard-gating exists inside Meta (TestGen-LLM/ACH) but gates *tests*,
+not implementations. Sandbox infrastructure itself is now commodity (E2B ~15M runs/month) — the sandbox
+isn't the moat; using its verdict as the acceptance function is.
+
+**Model-tiering is crowded in the wrong direction.** FrugalGPT/RouteLLM/Martian and three code-cascade
+papers all use verification signals to decide *when to escalate*. "Refuse to escalate, sharpen the spec"
+appears to be an unclaimed position.
+
+**Reproducibility demand is latent but the tailwind is real.** Nobody ships content-hash pinning of
+generated code (nearest analogues: lockfiles for agent *skills*; Nix for environments). Meanwhile: EU CRA
+SBOM deadlines (2026-27), emerging AIBOM procurement asks, insurers introducing generative-AI exclusions
+(ISO CG 40 47/48) — and a 68%-of-AI-projects-don't-even-run reproducibility literature. Byte-identical
+rebuild is currently a feature nobody asks for by name, answering an objection everybody makes.
+
+**Positioning grid (per-function specs / hard test gate / hash-pinned rebuilds / no-hand-edit /
+local-first / refuse-to-escalate):** Spec Kit 0/6 · Kiro 1/6 · Tessl 2/6 · Aider 1/6 · Micro Agent
+(dormant) 2/6 · **Lathe 6/6**. The combination is genuinely unoccupied.
+
+## 9. So is there a real place for this? — the verdict
+
+**Yes — a real but specific one.** Three honest scenarios:
+
+1. **As a product for the mainstream developer: unlikely as-is.** The spec-writing tax, single-function
+   granularity, and the absence of ecosystem (one maintainer, no PyPI, no community) put it far behind
+   Spec Kit/Kiro-class distribution. The benchmark that would justify the machinery (hard tasks where
+   one-shots fail; cost curves on real local hardware) still hasn't been run.
+2. **As the reference implementation of an unoccupied idea: strong.** Verified-unoccupied combination,
+   independently-corroborated technical bet, working code, honest docs, MIT license. If spec-as-source is
+   where the industry is heading (Tessl's $125M says investors think so), the deterministic-regeneration
+   gap is *the* acknowledged hole in that thesis, and Lathe holds a working answer today. The most likely
+   good outcomes are: its mechanisms get absorbed (pinning/gating land in a bigger tool), or it becomes
+   the kernel of a niche compliance/provenance play as CRA-era requirements harden through 2027.
+3. **As infrastructure for privacy-bound teams (the niche that pays):** local-first + gated + reproducible
+   is a real, present-day fit for air-gapped/regulated environments — a segment big enough to sustain a
+   serious open-source project, and one where the incumbents (all cloud-first) don't compete.
+
+**Bottom line, unspun:** v2.1.0 upgraded Lathe from "impressive pitch ahead of its evidence" to "working,
+honest, security-serious harness with one embarrassing unwired fix and an untested headline bet." The idea
+has a defensible, currently-unoccupied position; the project's risks are now mostly *non-technical* —
+distribution, maintenance, and whether the author closes the claim-verification gap their own B4 episode
+exposed.
+
+## 10. Prioritized recommendations
+
+1. **Wire B4 for real** — guard `commit()` with
+   `should_auto_commit(os.environ.get("LATHE_AUTO_COMMIT", "0"))` (the spec's tests do cover
+   `should_auto_commit(None) is False` — plan line 44, re-verified in `unit_functions.py` — but passing a
+   defaulted string is still safer), drop `harness.db` from `_paths`, and add an end-to-end regression
+   test (scratch repo, run `auto`, assert HEAD unchanged). Correct the changelog entry.
+2. **Fix `test_safe_write.py` portability** (platform-conditional assertions) so the suite is green on
+   Linux — this must precede #3.
+3. **Add claim-level tests to CI** — run the repo's own `test_*.py` in CI (they'd have caught D2; enabling
+   them before fixing #2 would turn CI red), and for every changelog "Fixed" entry, one executable repro.
+4. **Prefer explicit config in `review`** (D3): use `HARNESS_CLAUDE_URL` when the user set it, with the
+   `claude` CLI as fallback on connection failure (an unconditional URL preference would break users whose
+   URL is stale but whose CLI works).
+5. **Run the promised harder benchmark** — hard tasks + rebuild axis + metered cost on real local
+   hardware. This is the single highest-leverage piece of missing evidence for the whole thesis.
+6. **Ship distribution basics** — PyPI packaging, a 5-minute Ollama quickstart, and grow the ledger demo
+   toward something with I/O and state to probe the granularity ceiling honestly.
+
+---
+
+## Appendix — reproducing this review
+
+```bash
+python review_tests/run_all.py         # full sweep: 6 phases, manages its own mock endpoints
+python review_tests/battery_security.py   # just the adversarial security battery
+LATHE_REVIEW_USE_CLI=0 python lathe.py review correctness lathe.py   # B3 URL path
+```
+
+Environment: ephemeral Linux container, Python 3.11.15, no GPU/docker; both model endpoints served by the
+reviewing agent (prompts logged to `review_tests/_prompts_*.log` during runs). The B4 repro intentionally
+creates commits; the sweep leaves them for inspection — `git reset --hard` afterwards, as documented in §3.
+Market claims in §8 are from five web-research sweeps with primary-source citations, compiled 2026-07-02;
+GitHub star counts were verified live via the GitHub API the same day.
+
+**This review was itself verified by the harness under review.** `lathe review adversarial
+LATHE_REVIEW_V2.md` was run with a real frontier analyst (Opus via the `claude` CLI — the harness's
+preferred path). It returned five findings, all legitimate: a "verified end-to-end" claim about the repair
+loop that the v2 method could not support (the stand-in implementer never fails — the same
+artifact-without-reachable-path failure mode this review indicts in §3), an unverified assumption in
+Rec #1 (`should_auto_commit(None)` — in fact covered by the spec's tests, now stated explicitly), a
+priority-ordering hazard in Recs #2/#3, an off-by-one in the §1 case count (33→34), and an over-strong
+Rec #4 that would have removed a useful fallback. All five were folded back into this document before
+publication, per the harness's own review doctrine. The full findings are archived by the harness at
+`projects/agentic-harness/docs/ce/review_adversarial.txt`. Verdict from `lathe flow doc-review --run`:
+recorded below in the commit history alongside this file.

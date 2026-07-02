@@ -1,0 +1,10 @@
+This file is a prose review report (`LATHE_REVIEW_V2.md`, 295 lines of Markdown), not source code. The maintainability heuristics I apply — file-size regressions, moved-not-removed complexity, thin wrappers, type holes, premature abstraction, coupling — target executable code and have no purchase on a narrative document. I read it in full to confirm there is no embedded code, config, or structural artifact under review here.
+
+Nothing material to flag.
+
+For completeness, the only maintainability-adjacent observations (all far below the reporting bar, and none a code-structure regression):
+
+- **low | LATHE_REVIEW_V2.md (doc self-consistency)** — The document asserts its own claims were verified but contains a self-referential loop: §3/§5/D4 indict the harness for shipping "artifacts without a reachable path," and the Appendix admits the review itself repeated that exact failure mode (a "verified end-to-end" repair-loop claim the method couldn't support). This is disclosed rather than hidden, so it is honest, not a defect — no fix needed.
+- **low | LATHE_REVIEW_V2.md:106,51** — Case-count arithmetic (24+8+2=34) is now internally consistent and the Appendix notes the prior 33→34 off-by-one was already folded in; no action.
+
+If you intended a maintainability review of the Lathe *codebase* referenced by this document (e.g. `autonomy_live.py`, `engine_v2.py`, `tools/spine_helpers.py`, `hreview.py`), point me at those source files and I'll review them directly.
