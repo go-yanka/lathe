@@ -177,6 +177,39 @@ assemble — it's a property of the artifact".
 *Status: pin binding (spec+tests+model+hash) ✅ verified; `lathe trace` chain ✅ verified. Scopes: requirement
 needs declared criteria; verdict is proven-by-pin, not stored attestation — both in the band, mandatory.*
 
+### 15 — "Determinism you can prove" (the two-claims split; 16:9) — GENERATED & FINAL
+*File: `15_determinism_two_claims.png`. Sharpens #04. The trust move is showing the "NOT CLAIMED" lane
+proudly. Lane A (pinned = byte-identical, 0 tokens) reproduced by the review; Lane B (regeneration
+byte-different but green) is the honest counterpart, measured in `REPRODUCIBILITY.md`. Grounded in that file
+verbatim.*
+```
+[style guide]. Title: "Determinism you can prove". Subtitle: "the rebuild is deterministic — the model
+isn't". Two side-by-side lanes. LEFT (sage-green header "GUARANTEED — pinned rebuild", padlock+replay icon):
+three green-checked lines — "same plan + same pins", "0 model calls · 0 tokens", "byte-identical output —
+even on a clean checkout". RIGHT (muted-amber header "NOT CLAIMED — regeneration", dice/shuffle icon): three
+lines — "evict the cache → the model runs again", "byte-DIFFERENT code", "…but still passes the same gate
+(green)". Center medallion between the lanes: "determinism is a property of the BUILD — pin + replay — not
+the model". Footer ribbon: "a lockfile for AI code".
+```
+*Status: Lane A ✅ reproduced (0 tokens, byte-identical); Lane B stated as NOT guaranteed — the honesty is
+the point. Keep the right lane; never soften it.*
+
+### 16 — "A library of experts, on tap" (the persona market; 16:9) — PROMPT READY (AUTO-FETCHED = ○)
+*The persona/agent market. Honesty badges (per the review's reproduced-by-me standard): AUTO-SELECTED ● and
+LICENSE-GATED ● (verified); AUTO-FETCHED ○ (shipped + maintainer-proven-live, but the live GitHub pull is
+sandbox-blocked for the reviewer, so conservatively ○); EMPIRICALLY RATED ○ (tool present, manual step).
+143 catalog count verified.*
+```
+[style guide]. Title: "A library of experts, on tap". Subtitle: "the right reviewer for the code — picked,
+not configured". Center-left: a large sage-green circle with big number "143" and under it "expert review
+personas". Right: a vertical list of four small cards, each icon + short label + one line + a status dot —
+● "AUTO-SELECTED" "the decider matches personas to the code's domain"; ○ "AUTO-FETCHED" "pulls a missing
+expert from the catalog on demand"; ● "LICENSE-GATED" "permissive licenses only — refuses unknown-license
+sources"; ○ "EMPIRICALLY RATED" "field-probe + an independent judge score each expert". Legend "● live  ○
+available". Footer ribbon: "a growing catalog — the decider brings the expert to the code".
+```
+*Status: 143 ● , auto-select ● , license-gate ● , auto-fetch ○ (conservative), ratings ○ .*
+
 ---
 
 ## Recommended order to generate
