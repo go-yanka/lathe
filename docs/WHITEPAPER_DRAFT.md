@@ -60,6 +60,10 @@ by moving it off willpower and onto the machine: the gate refuses red, the pin l
 rejects a dirty commit, and — the compiler contract, extended to LLMs — you never hand-edit the output;
 wrong code means a wrong spec, so you fix the spec and rebuild.
 
+![The discipline you already believe in — enforced](infographics/11_discipline_enforced.png)
+*Four practices every working developer already trusts — test-first, never merge red, locked builds, don't
+hand-patch the compiler — moved from "runs on willpower" to "enforced by the build."*
+
 There is an older, deeper ancestor for the specific shape of this — IBM's Cleanroom Software Engineering
 (Mills, 1980s: implementers who don't debug, an independent team that certifies, statistical quality
 control). It's the honest intellectual lineage and it's in `PRIOR_ART.md` for the people who care. But you
@@ -109,6 +113,13 @@ The loop, in one breath: *analyst writes spec+tests → local model implements �
 accepted code is pinned → failures flow back as sharper specs.* Big model for judgment, small model for
 volume, machine for discipline.
 
+![The build loop](infographics/01_build_loop.png)
+*Goal → analyst → implementer → gate → pin, with the failure path looping back to a sharper spec.*
+
+![Division of labour: analyst versus implementer](infographics/02_division_of_labor.png)
+*Big model or human for judgment; a cheap local model for volume; the gate for discipline — pluggable at
+both ends.*
+
 ## 5. What it looks like
 
 A real plan entry — this shipped:
@@ -130,6 +141,10 @@ compose into modules, modules into ordered plans, integration tests guard the se
 code and rebuild: for pinned plans it comes back byte-identical without a model call; cold-rebuild it and
 every function regenerates and re-passes its gate. The code was never the source.
 
+![Determinism you can prove](infographics/15_determinism_two_claims.png)
+*Guaranteed: a pinned rebuild is byte-identical at zero tokens. Not claimed: regeneration may differ — but
+still passes the same gate. Determinism is a property of the build, not the model.*
+
 ## 6. A new number: provenance coverage
 
 Test coverage told the 2000s how much of the code was exercised. The AI era needs a different number:
@@ -140,12 +155,20 @@ Copilot-style tools score 0% by construction: there is no artifact linking a gen
 acceptance criterion. Lathe-built modules score 100% by construction. Most real repos will sit in between
 — and the number is honest about the boundary: hand-written glue is hand-written, and says so.
 
+![Provenance, by construction](infographics/14_provenance_chain.png)
+*The chain each function carries — requirement → spec → tests → gate → model → hash — machine-generated at
+build time. (Requirement link when criteria are declared; the verdict is proven by the pin.)*
+
 We hold ourselves to the same metric, and today the honest number for Lathe's own tree is low — the engine
 that enforces the gate was not itself built through the gate. That's the ceiling of the current method
 (it industrializes well-specified functions, not stateful plumbing), and we'd rather publish the
 embarrassing number and make it climb than pretend. Track ours in the repo.
 
 ## 7. Evidence — and the limits, stated against interest
+
+![The methodology, enforced by the build](infographics/13_methodology_enforced.png)
+*The three enforcement gates — traceability, regression-proof, mutation-score — composed by `LATHE_STRICT=1`.
+The bottom band states the scope against interest: a bounded tripwire, per function, not whole-system.*
 
 What's demonstrated, reproducibly, in this repo:
 - **Reproducibility:** pinned rebuilds are byte-identical with zero model calls (CI proves it on every
