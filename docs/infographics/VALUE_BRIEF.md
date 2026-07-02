@@ -46,6 +46,17 @@ E. **The harness runs in multiple MODES, not just "build"** — named, transpare
    - `new-project` — vendor Lathe → configure endpoints → verify → first gated build.
    VALUE: the same harness reviews, fixes bugs, and enhances — all under the same gate/pin discipline. Absent
    from the graphics.
+> **TESTED FINDING (persona auto-fetch scenario, `review_tests/test_persona_fetch.py`, 6/6):** the
+> fetch-and-create *mechanism* works — a decider can pick a NON-vendored persona, the license gate allows a
+> permissive one, and `_spawn_one` pulls the body, decodes it, stores it + its LICENSE + attribution, and
+> instantiates it; it refuses NOASSERTION and is fail-closed when the source is unreachable (network was
+> mocked because api.github.com returns 403 in this sandbox). **BUT no decider AUTO-triggers this:**
+> `review auto` selects vendored lenses only; the planner injects a non-vendored expert's *name+capability*
+> as a hint but does **not** fetch/create it; the only real fetch-create is the user-invoked
+> `lathe agent --spawn`. So "decider needs a missing persona → auto-pulls the code → creates it" is
+> **mechanism-present but not auto-wired** — a graphic must say "run `lathe agent`", not "the decider does it
+> automatically", until that wiring is confirmed/added.
+
 F. **A review-persona library (multi-lens) + on-demand persona decider** — vendored Compound-Engineering
    reviewer personas (correctness, adversarial, security, data, reliability, performance, api,
    maintainability, testing, ui); `lathe review auto` fires a decider that picks the personas applicable to
