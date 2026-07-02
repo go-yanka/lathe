@@ -194,7 +194,10 @@ the model". Footer ribbon: "a lockfile for AI code".
 *Status: Lane A ✅ reproduced (0 tokens, byte-identical); Lane B stated as NOT guaranteed — the honesty is
 the point. Keep the right lane; never soften it.*
 
-### 16 — "A library of experts, on tap" (the persona market; 16:9) — PROMPT READY (AUTO-FETCHED = ○)
+### 16 — "A library of experts, on tap" (the persona market; 16:9) — GENERATED & FINAL (AUTO-FETCHED = ○)
+*File: `16_expert_library.png`. Badge split verified on the render: AUTO-SELECTED ● · AUTO-FETCHED ○ ·
+LICENSE-GATED ● · EMPIRICALLY RATED ○ (the two ○ are the pieces the reviewer couldn't reproduce
+end-to-end).*
 *The persona/agent market. Honesty badges (per the review's reproduced-by-me standard): AUTO-SELECTED ● and
 LICENSE-GATED ● (verified); AUTO-FETCHED ○ (shipped + maintainer-proven-live, but the live GitHub pull is
 sandbox-blocked for the reviewer, so conservatively ○); EMPIRICALLY RATED ○ (tool present, manual step).
