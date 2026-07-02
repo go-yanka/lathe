@@ -291,6 +291,36 @@ $ python lathe.py clarify "import records from a feed"
 brief -> projects/agentic-harness/CLARIFIED_GOAL.md  (feed it to: lathe do / lathe sdlc)
 ```
 
+### `lathe assume <plan.py> [--confirm] [--policy high|high+med] [--yes]`
+**Assumption gate — surface the silent guesses before they ship.** An LLM handed an underspecified goal
+doesn't stop; it fills every gap with a "reasonable default" and proceeds — and when told to ask, it rates
+its own guesses as "common enough" and skips. So an **adversarial `assumption-auditor` persona** re-reads
+the plan's spec *against the goal* and emits a **materiality-ranked ledger** of the choices the goal never
+specified (`ASSUMPTIONS.md` + `.assumptions.json`). With `LATHE_ASSUMPTION_GATE=1` (**on under STRICT**) the
+engine **refuses to build while any HIGH-materiality assumption is unconfirmed**. `--confirm` walks the
+blockers so you confirm each (or flag it for correction — make the choice explicit in the spec and re-audit).
+Confirmations are keyed to a spec digest, so any spec change re-opens the audit. Decision logic is the pinned
+`tools/assumption_logic.py`.
+
+**Scrutiny is user-governed** (a default you can dial). Set it per-run with `--scrutiny <level>`, or globally
+via `LATHE_ASSUMPTION_POLICY` / config `assumptions.scrutiny` (env > config > default). Levels:
+`all` (block on any unstated assumption) · `high+med` (block on high **and** medium) · **`high` — default**
+(block on high-materiality only) · `off` / `advisory` (never block — the ledger is emitted for the record but
+the build proceeds). So a team that finds the gate too aggressive lowers it to `off` without abandoning STRICT;
+one that wants maximum rigor raises it to `all`.
+```json
+// lathe.config.json
+{ "assumptions": { "scrutiny": "high" } }
+```
+```
+$ python lathe.py assume projects/agentic-harness/plans/H_importer.py
+=== ASSUMPTION AUDIT — 3 assumption(s), 2 blocking (policy=high) ===
+  [high | data] Input CSV is UTF-8; other encodings raise.  BLOCKS
+  [high | behavior] The first row is treated as a header.   BLOCKS
+  [low | behavior] Output preserves input row order.
+confirm the blocking ones before build:  lathe assume H_importer.py --confirm
+```
+
 ### `lathe sdlc "<goal>" [--out <dir>]`
 **SDLC authoring, enforced.** The analyst writes LAYERED, ID-traced requirements — UC (use case) → BR
 (business requirement) → FR (functional requirement) → TS (technical spec) — and the harness-built **RTM

@@ -1094,6 +1094,130 @@ def cmd_ack(args):
     return 0
 
 
+def cmd_assume(args):
+    """ASSUMPTION GATE: surface the unstated choices before the build makes them silently.
+    `lathe assume <plan>` runs an ADVERSARIAL auditor persona over the plan's spec, emits a materiality-ranked
+    assumption ledger (`ASSUMPTIONS.md` + `.assumptions.json`), and — with LATHE_ASSUMPTION_GATE=1 (forced by
+    STRICT) — the engine refuses to build while any HIGH-materiality assumption is unconfirmed.
+    `lathe assume <plan> --confirm` walks the blockers so you confirm (or flag for correction) each one.
+    `--policy high|high+med` sets what blocks (default: high). Auditor output is parsed by the pinned
+    tools/assumption_logic.py; confirmations are keyed to a spec digest, so any spec change re-opens the audit."""
+    import importlib.util, json
+    confirm = "--confirm" in args
+    yes = "--yes" in args
+    # scrutiny: --scrutiny/--policy flag > config/env (LATHE_ASSUMPTION_POLICY) > default 'high'
+    if "--scrutiny" in args:
+        policy = args[args.index("--scrutiny") + 1]
+    elif "--policy" in args:
+        policy = args[args.index("--policy") + 1]
+    else:
+        policy = os.environ.get("LATHE_ASSUMPTION_POLICY", "high")
+    _VALUE_FLAGS = {"--policy", "--scrutiny"}
+    pos, _i = [], 0
+    while _i < len(args):
+        _a = args[_i]
+        if _a in _VALUE_FLAGS:
+            _i += 2; continue
+        if _a.startswith("-"):
+            _i += 1; continue
+        pos.append(_a); _i += 1
+    if not pos:
+        print('usage: lathe assume <plan.py> [--confirm] [--policy high|high+med] [--yes]'); return 2
+    plan_path = os.path.abspath(pos[0])
+    if not os.path.exists(plan_path):
+        print("assume: no such plan: %s" % plan_path); return 2
+    spec = importlib.util.spec_from_file_location("plan", plan_path)
+    plan = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(plan)
+    except Exception as e:
+        print("assume: plan does not load: %s" % e); return 1
+    fns = getattr(plan, "FUNCTIONS", []) or []
+    if not fns:
+        print("assume: plan has no FUNCTIONS (nothing to audit)"); return 0
+    if TOOLS not in sys.path:
+        sys.path.insert(0, TOOLS)
+    from assumption_logic import spec_digest, parse_assumptions, unconfirmed_blockers
+    asm_file = os.path.join(os.path.dirname(plan_path), ".assumptions.json")
+    try:
+        data = json.loads(open(asm_file, encoding="utf-8").read())
+    except Exception:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    key = os.path.basename(plan_path)
+    entry = data.get(key) if isinstance(data.get(key), dict) else None
+    digest = spec_digest(fns)
+
+    # ---- CONFIRM MODE: walk the still-unconfirmed blockers of the CURRENT ledger ----
+    if confirm:
+        if not entry or entry.get("digest") != digest:
+            print("assume: no current audit for this spec — run `lathe assume %s` first." % key); return 2
+        pol = entry.get("policy", "high")
+        blockers = unconfirmed_blockers(entry.get("ledger"), entry.get("confirmed"), pol)
+        if not blockers:
+            print("assume: all blocking assumptions are already confirmed. (build may proceed)"); return 0
+        confirmed = list(entry.get("confirmed") or [])
+        print("=== CONFIRM %d blocking assumption(s) — say whether each is the REAL intent ===" % len(blockers))
+        for b in blockers:
+            print("\n  [%s | %s] %s" % (b.get("materiality"), b.get("category"), b.get("text")))
+            if yes:
+                resp = "y"; print("     > y (--yes)")
+            else:
+                try:
+                    resp = input("     correct? [y]es / [n]o, needs change / [s]kip > ").strip().lower()
+                except (EOFError, KeyboardInterrupt):
+                    resp = "s"
+            if resp in ("y", "yes"):
+                confirmed.append(b.get("text"))
+            elif resp in ("n", "no"):
+                print("     -> make it explicit: edit the plan spec so this choice is stated, then re-run "
+                      "`lathe assume %s` (the audit will re-open on the changed spec)." % key)
+            # 's'/anything else: leave unconfirmed (still blocks)
+        entry["confirmed"] = confirmed
+        data[key] = entry
+        open(asm_file, "w", encoding="utf-8").write(json.dumps(data, indent=1))
+        remaining = unconfirmed_blockers(entry.get("ledger"), confirmed, pol)
+        print("\nconfirmed %d; %d blocking assumption(s) still open%s"
+              % (len(confirmed), len(remaining), " — build is UNBLOCKED" if not remaining else ""))
+        return 0 if not remaining else 1
+
+    # ---- AUDIT MODE: run the adversarial auditor, (re)generate the ledger ----
+    _persona = ""
+    try:
+        _persona = open(os.path.join(INNER, "ce_personas", "assumption-auditor.md"), encoding="utf-8").read()
+    except OSError:
+        pass
+    from request_spec import request_spec
+    _spec_txt = "GOAL / INTENT:\n%s\n\nSPEC — the functions to be built:\n" % ((plan.__doc__ or getattr(plan, "MODULE_NAME", key)).strip())
+    for f in fns:
+        _spec_txt += "- %s: %s\n  acceptance tests: %s\n" % (f.get("name", "?"), (f.get("prompt", "") or "").strip(), f.get("tests", []))
+    raw = request_spec("%s\n\n--- ARTIFACT TO AUDIT ---\n%s\n\nList the unstated assumptions now, one per line "
+                       "in your exact format. If there are genuinely none, output: NO ASSUMPTIONS." % (_persona, _spec_txt)) or ""
+    ledger = [] if "no assumptions" in raw.lower()[:40] else parse_assumptions(raw)
+    prior = entry.get("confirmed") if (entry and entry.get("digest") == digest) else []   # keep confirmations if spec unchanged
+    data[key] = {"digest": digest, "policy": policy, "ledger": ledger, "confirmed": list(prior or [])}
+    open(asm_file, "w", encoding="utf-8").write(json.dumps(data, indent=1))
+    # human-readable artifact
+    md = ["# Unstated assumptions (adversarial auditor)\n", "> plan: %s\n" % key]
+    if not ledger:
+        md.append("\n_No consequential unstated assumptions found._\n")
+    else:
+        for b in ledger:
+            md.append("- **[%s | %s]** %s\n" % (b.get("materiality"), b.get("category"), b.get("text")))
+    md_path = os.path.join(os.path.dirname(plan_path), "ASSUMPTIONS.md")
+    open(md_path, "w", encoding="utf-8").write("".join(md))
+    blockers = unconfirmed_blockers(ledger, prior, policy)
+    print("=== ASSUMPTION AUDIT — %d assumption(s), %d blocking (policy=%s) ===" % (len(ledger), len(blockers), policy))
+    for b in ledger:
+        mark = "  BLOCKS" if b in blockers else ""
+        print("  [%s | %s] %s%s" % (b.get("materiality"), b.get("category"), b.get("text"), mark))
+    print("\nledger -> %s   (%s)" % (md_path, asm_file))
+    if blockers:
+        print("confirm the blocking ones before build:  lathe assume %s --confirm" % key)
+    return 0
+
+
 def cmd_clarify(args):
     """Requirements LIAISON (thinking-BEFORE-thinking): interrogate the user for clarity before the harness
     designs anything. `lathe clarify "<goal>"` -> the liaison persona asks clarifying questions; you answer
@@ -1179,10 +1303,30 @@ def cmd_clarify(args):
     brief = request_spec(brief_prompt) or ""
     if not brief.strip() or "API Error" in brief:
         print("clarify: the liaison endpoint returned no brief (analyst unavailable)."); return 1
+    # ASSUMPTION PASS (advisory at the clarify stage; the hard gate runs pre-build). An adversarial auditor
+    # re-reads the brief against the goal and surfaces the choices it still leaves unstated — so ambiguity the
+    # Q&A missed is visible now, not after code exists.
+    _asm_section = ""
+    try:
+        from assumption_logic import parse_assumptions
+        _auditor = open(os.path.join(INNER, "ce_personas", "assumption-auditor.md"), encoding="utf-8").read()
+        _araw = request_spec("%s\n\n--- ARTIFACT TO AUDIT (a clarified brief) ---\nGOAL: %s\n\n%s\n\nList the "
+                             "unstated assumptions now in your exact format, or output NO ASSUMPTIONS."
+                             % (_auditor, goal, brief.strip())) or ""
+        _led = [] if "no assumptions" in _araw.lower()[:40] else parse_assumptions(_araw)
+        if _led:
+            _asm_section = "\n\n## Unstated assumptions (adversarial auditor — confirm the HIGH ones)\n" + \
+                "".join("- **[%s | %s]** %s\n" % (b.get("materiality"), b.get("category"), b.get("text")) for b in _led)
+            _nhigh = sum(1 for b in _led if b.get("materiality") == "high")
+            print("\n=== ASSUMPTION AUDITOR — %d unstated assumption(s), %d high-materiality ===" % (len(_led), _nhigh))
+            for b in _led:
+                print("  [%s | %s] %s" % (b.get("materiality"), b.get("category"), b.get("text")))
+    except Exception:
+        pass                                   # auditor is best-effort at clarify time; the pre-build gate is the enforcer
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, "CLARIFIED_GOAL.md")
-    open(path, "w", encoding="utf-8").write("# Clarified goal (requirements liaison)\n\n> Original: %s\n\n%s\n"
-                                            % (goal, brief.strip()))
+    open(path, "w", encoding="utf-8").write("# Clarified goal (requirements liaison)\n\n> Original: %s\n\n%s%s\n"
+                                            % (goal, brief.strip(), _asm_section))
     print("\nbrief -> %s  (feed it to: lathe do / lathe sdlc)" % path)
     return 0
 
@@ -1371,7 +1515,8 @@ def _apply_config_env(cfg):
     Secrets (e.g. a push token) are NEVER read from the file — use env / the git credential helper."""
     _m = {("analyst", "url"): "HARNESS_CLAUDE_URL", ("analyst", "model"): "HARNESS_ANALYST_MODEL",
           ("implementer", "url"): "LOCAL_OPENAI_URL", ("implementer", "model"): "HARNESS_MODEL",
-          ("tries", None): "LATHE_TRIES"}
+          ("tries", None): "LATHE_TRIES",
+          ("assumptions", "scrutiny"): "LATHE_ASSUMPTION_POLICY"}   # user-governed assumption-gate level (high|high+med|all|off)
     for (sec, key), env in _m.items():
         node = cfg.get(sec)
         v = node if key is None else (node.get(key) if isinstance(node, dict) else None)
@@ -1394,7 +1539,7 @@ def main(argv):
         "metrics": cmd_metrics, "plans": cmd_plans, "dups": cmd_dups, "whatis": cmd_whatis,
         "clean": cmd_clean, "wait": cmd_wait, "resume": cmd_resume, "waiting": cmd_waiting,
         "report": cmd_report, "issues": cmd_issues, "logs": cmd_logs, "lint-spec": cmd_lint_spec,
-        "flow": cmd_flow, "map": cmd_map, "checkin": cmd_checkin, "agent": cmd_agent, "ack": cmd_ack, "trace": cmd_trace, "sdlc": cmd_sdlc, "clarify": cmd_clarify,
+        "flow": cmd_flow, "map": cmd_map, "checkin": cmd_checkin, "agent": cmd_agent, "ack": cmd_ack, "trace": cmd_trace, "sdlc": cmd_sdlc, "clarify": cmd_clarify, "assume": cmd_assume,
     }
     if cmd in table:
         return table[cmd](rest)

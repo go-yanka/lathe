@@ -108,13 +108,15 @@ python lathe.py flow bug-fix --run <plan>    # execute the automatable steps
 **What:** one switch, `LATHE_STRICT=1`, makes the *kind and rigor* of testing non-optional on a build:
 a change must ship a test that fails on the old code (regression-proof); trivial AST mutants must be killed
 (mutation-score, a bounded tripwire — not exhaustive); a human acks the test set (`lathe ack`); declared
-test kinds (`property`/`edge`) are required; hand-written glue must have an integration test; and every
-acceptance criterion must map to a named test (`lathe trace`). Each is also switchable on its own.
+test kinds (`property`/`edge`) are required; hand-written glue must have an integration test; every
+acceptance criterion must map to a named test (`lathe trace`); and an adversarial auditor's unstated
+HIGH-materiality assumptions must be confirmed (`lathe assume`). Each is also switchable on its own.
 **Use it when:** the code matters and "unit-green but under-tested" is unacceptable. The `bug-fix`,
 `enhancement`, and `sdlc` workflows already build under STRICT.
 ```
-LATHE_STRICT=1 python lathe.py build <plan>     # all six gates on
-python lathe.py trace <plan>                     # criterion → test → pin → model matrix
+LATHE_STRICT=1 python lathe.py build <plan>     # all seven gates on
+python lathe.py trace <plan>                      # criterion → test → pin → model matrix
+python lathe.py assume <plan>                      # surface + confirm the goal's silent assumptions
 ```
 
 ## 12. Sharpen the requirement before any code  ⭐ (new)

@@ -57,8 +57,10 @@ def build(fn, prompt, tests, criteria=True, strict=True, ack=False):
         subprocess.run([sys.executable, os.path.join(ROOT, "lathe.py"), "ack", plan_path, "--yes"],
                        cwd=ROOT, capture_output=True, text=True, timeout=60)
     env = {k: v for k, v in os.environ.items()
-           if k not in ("LATHE_TEST_ACK", "LATHE_REGRESSION_PROOF", "LATHE_LINT_SPEC", "LATHE_STRICT")}
+           if k not in ("LATHE_TEST_ACK", "LATHE_REGRESSION_PROOF", "LATHE_LINT_SPEC", "LATHE_STRICT",
+                        "LATHE_ASSUMPTION_POLICY")}
     env["LOCAL_OPENAI_URL"] = url
+    env["LATHE_ASSUMPTION_POLICY"] = "off"     # this suite isolates the OTHER strict gates; the assumption gate has its own test
     if strict:
         env["LATHE_STRICT"] = "1"
     r = subprocess.run([sys.executable, os.path.join(ROOT, "engine_v2.py"), plan_path, "openai:local", "5"],

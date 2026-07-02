@@ -132,6 +132,51 @@ if plan.FUNCTIONS:
     except Exception:
         pass                             # gate module absent -> legacy behavior (gate is opt-in anyway)
 
+# ASSUMPTION GATE (owner idea): an LLM fills unstated requirements with silent guesses ("intent drift") and,
+# when told to ask, rates its own guesses as "common enough" and proceeds. So an adversarial auditor persona
+# surfaces the decisions the goal never specified, ranks them by blast radius, and the build REFUSES to
+# proceed while any HIGH-materiality assumption is unconfirmed. Opt-in (LATHE_ASSUMPTION_GATE=1, forced by
+# STRICT); the ledger + confirmations are authored by `lathe assume <plan>`. Decision logic is the
+# harness-built pinned module tools/assumption_logic.py; the engine only reads the ledger (offline, deterministic).
+if plan.FUNCTIONS and os.environ.get("LATHE_ASSUMPTION_GATE", "").strip().lower() in ("1", "true", "yes", "on"):
+    try:
+        _al = importlib.util.spec_from_file_location("assumption_logic", os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "assumption_logic.py"))
+        _alm = importlib.util.module_from_spec(_al); _al.loader.exec_module(_alm)
+        _asm_file = os.path.join(os.path.dirname(os.path.abspath(PLAN_PATH)), ".assumptions.json")
+        try:
+            _asm = json.loads(open(_asm_file, encoding="utf-8").read())
+        except Exception:
+            _asm = {}
+        _entry = _asm.get(os.path.basename(PLAN_PATH)) if isinstance(_asm, dict) else None
+        # SCRUTINY is user-governed: env LATHE_ASSUMPTION_POLICY (set from config `assumptions.scrutiny` by the
+        # lathe CLI) picks the level. 'off'/'advisory' never blocks — the audit becomes informational, so a
+        # team can dial the gate down without abandoning STRICT. Default 'high' (block on high-materiality only).
+        _policy = os.environ.get("LATHE_ASSUMPTION_POLICY", "high")
+        _advisory = _policy.strip().lower() in ("off", "none", "advisory", "0", "false", "")
+        _digest = _alm.spec_digest(plan.FUNCTIONS)
+        if _advisory:
+            if isinstance(_entry, dict) and _entry.get("digest") == _digest and _entry.get("ledger"):
+                print("engine: assumption audit (advisory, scrutiny=%s): %d unstated assumption(s) noted — not blocking."
+                      % (_policy, len(_entry.get("ledger") or [])))
+        elif not isinstance(_entry, dict) or _entry.get("digest") != _digest:
+            sys.exit("engine: ASSUMPTION GATE — no current assumption audit for this spec (plan: %s). Run: "
+                     "lathe assume %s — an adversarial auditor surfaces the unstated choices; confirm the "
+                     "high-materiality ones before the build proceeds. (Or lower scrutiny: "
+                     "LATHE_ASSUMPTION_POLICY=off / config assumptions.scrutiny.)" % (os.path.basename(PLAN_PATH), os.path.basename(PLAN_PATH)))
+        else:
+            _blockers = _alm.unconfirmed_blockers(_entry.get("ledger"), _entry.get("confirmed"), _policy)
+            if _blockers:
+                _lines = "\n".join("    - [%s|%s] %s" % (b.get("materiality"), b.get("category"), b.get("text"))
+                                   for b in _blockers)
+                sys.exit("engine: ASSUMPTION GATE — %d unconfirmed %s-materiality assumption(s) (plan: %s):\n%s\n"
+                         "Confirm or correct them: lathe assume %s --confirm" %
+                         (len(_blockers), _policy, os.path.basename(PLAN_PATH), _lines, os.path.basename(PLAN_PATH)))
+    except SystemExit:
+        raise
+    except Exception:
+        pass                             # gate module absent -> legacy behavior (gate is opt-in anyway)
+
 # A plan must NEVER write over a file the engine didn't generate, nor shadow an importable module.
 # MODULE_NAME is just an identifier, so without this MODULE_NAME="engine_v2" overwrites the engine, and
 # MODULE_NAME="json" writes tools/json.py which (tools/ is on sys.path) shadows stdlib json -> RCE on next import.

@@ -5,6 +5,9 @@
 #   - LATHE_REGRESSION_PROOF=1  (changed code — fix OR enhancement — ships a test that fails on the old impl)
 #   - LATHE_LINT_SPEC=block     (new code ships tests a trivial stub cannot satisfy)
 #   - LATHE_MUTATION_SCORE=0.5  (the suite must kill >=50% of deterministic mutants of the accepted code)
+#   - LATHE_GATE_GLUE=1         (hand-written glue must be exercised by an integration test)
+#   - LATHE_TEST_KIND=1         (a function gets the shape of test it declares it needs)
+#   - LATHE_ASSUMPTION_GATE=1   (unstated high-materiality assumptions must be surfaced + confirmed pre-build)
 #   - CRITERIA required         (every plan declares acceptance criteria -> full requirement→test traceability)
 # The POLICY itself is a pinned, tested function (this module); the engine only applies it.
 OUT_DIR = "projects/agentic-harness/tools"
@@ -18,18 +21,19 @@ FUNCTIONS = [
                 "env vars strict mode turns on. If env_value is None, not a str, or its stripped lowercased form "
                 "is NOT one of '1','true','yes','on' -> return [] (strict off). Otherwise return the [key, value] "
                 "pairs among [['LATHE_TEST_ACK','1'], ['LATHE_REGRESSION_PROOF','1'], ['LATHE_LINT_SPEC','block'], "
-                "['LATHE_MUTATION_SCORE','0.5'], ['LATHE_GATE_GLUE','1'], ['LATHE_TEST_KIND','1']] "
+                "['LATHE_MUTATION_SCORE','0.5'], ['LATHE_GATE_GLUE','1'], ['LATHE_TEST_KIND','1'], "
+                "['LATHE_ASSUMPTION_GATE','1']] "
                 "for which `existing` (a dict or None) does NOT already carry a non-empty string value for that "
                 "key — an explicit user setting always wins over the umbrella. Preserve that exact order. Never "
                 "raise." + "\n" + _ONLY),
      "tests": [
         "assert strict_defaults(None, {}) == []",
         "assert strict_defaults('0', {}) == []",
-        "assert strict_defaults('1', {}) == [['LATHE_TEST_ACK','1'],['LATHE_REGRESSION_PROOF','1'],['LATHE_LINT_SPEC','block'],['LATHE_MUTATION_SCORE','0.5'],['LATHE_GATE_GLUE','1'],['LATHE_TEST_KIND','1']]",
-        "assert strict_defaults('1', None) == [['LATHE_TEST_ACK','1'],['LATHE_REGRESSION_PROOF','1'],['LATHE_LINT_SPEC','block'],['LATHE_MUTATION_SCORE','0.5'],['LATHE_GATE_GLUE','1'],['LATHE_TEST_KIND','1']]",
-        "assert strict_defaults('1', {'LATHE_LINT_SPEC': 'warn'}) == [['LATHE_TEST_ACK','1'],['LATHE_REGRESSION_PROOF','1'],['LATHE_MUTATION_SCORE','0.5'],['LATHE_GATE_GLUE','1'],['LATHE_TEST_KIND','1']]",
-        "assert strict_defaults('1', {'LATHE_TEST_ACK': ''}) == [['LATHE_TEST_ACK','1'],['LATHE_REGRESSION_PROOF','1'],['LATHE_LINT_SPEC','block'],['LATHE_MUTATION_SCORE','0.5'],['LATHE_GATE_GLUE','1'],['LATHE_TEST_KIND','1']]",
-        "assert strict_defaults(' TRUE ', {'LATHE_TEST_ACK':'1','LATHE_REGRESSION_PROOF':'1','LATHE_LINT_SPEC':'block','LATHE_MUTATION_SCORE':'0.5','LATHE_GATE_GLUE':'1','LATHE_TEST_KIND':'1'}) == []",
+        "assert strict_defaults('1', {}) == [['LATHE_TEST_ACK','1'],['LATHE_REGRESSION_PROOF','1'],['LATHE_LINT_SPEC','block'],['LATHE_MUTATION_SCORE','0.5'],['LATHE_GATE_GLUE','1'],['LATHE_TEST_KIND','1'],['LATHE_ASSUMPTION_GATE','1']]",
+        "assert strict_defaults('1', None) == [['LATHE_TEST_ACK','1'],['LATHE_REGRESSION_PROOF','1'],['LATHE_LINT_SPEC','block'],['LATHE_MUTATION_SCORE','0.5'],['LATHE_GATE_GLUE','1'],['LATHE_TEST_KIND','1'],['LATHE_ASSUMPTION_GATE','1']]",
+        "assert strict_defaults('1', {'LATHE_LINT_SPEC': 'warn'}) == [['LATHE_TEST_ACK','1'],['LATHE_REGRESSION_PROOF','1'],['LATHE_MUTATION_SCORE','0.5'],['LATHE_GATE_GLUE','1'],['LATHE_TEST_KIND','1'],['LATHE_ASSUMPTION_GATE','1']]",
+        "assert strict_defaults('1', {'LATHE_TEST_ACK': ''}) == [['LATHE_TEST_ACK','1'],['LATHE_REGRESSION_PROOF','1'],['LATHE_LINT_SPEC','block'],['LATHE_MUTATION_SCORE','0.5'],['LATHE_GATE_GLUE','1'],['LATHE_TEST_KIND','1'],['LATHE_ASSUMPTION_GATE','1']]",
+        "assert strict_defaults(' TRUE ', {'LATHE_TEST_ACK':'1','LATHE_REGRESSION_PROOF':'1','LATHE_LINT_SPEC':'block','LATHE_MUTATION_SCORE':'0.5','LATHE_GATE_GLUE':'1','LATHE_TEST_KIND':'1','LATHE_ASSUMPTION_GATE':'1'}) == []",
      ]},
     {"name": "strict_plan_gaps",
      "prompt": ("Write strict_plan_gaps(env_value, has_functions, criteria, has_artifacts) -> list of problem "
@@ -53,4 +57,12 @@ FUNCTIONS = [
         "assert strict_plan_gaps(None, False, None, True) == []",
         "assert strict_plan_gaps('1', True, [{'id':'A'}], True) == []",
      ]},
+]
+
+# Requirement -> test traceability (consumed by `lathe trace`, enforced under LATHE_STRICT).
+CRITERIA = [
+    {"id": "S1", "text": "STRICT turns on exactly the enforcement env vars, letting an explicit user setting win",
+     "tests": ["strict_defaults"]},
+    {"id": "S2", "text": "STRICT refuses a plan missing CRITERIA, and refuses an ARTIFACTS-only plan",
+     "tests": ["strict_plan_gaps"]},
 ]

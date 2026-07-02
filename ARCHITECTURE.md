@@ -77,6 +77,13 @@ in `tools/`) with its own acceptance test in `review_tests/`, and `LATHE_STRICT=
    (`'kinds': ['property','edge']`); a unit missing a declared kind is refused.
 6. **Gate-the-glue** (`LATHE_GATE_GLUE=1`) — hand-written `GLUE` wiring must be exercised by an `INTEGRATION`
    test or the module is refused — so *no code* ships untested, not just no function.
+7. **Assumption gate** (`LATHE_ASSUMPTION_GATE=1`, `lathe assume`) — an underspecified goal makes the model
+   fill gaps with silent guesses ("intent drift"), and when told to ask it rates its own guesses as "common
+   enough" and proceeds. So an *adversarial* `assumption-auditor` persona re-reads the spec against the goal,
+   emits a materiality-ranked ledger of the choices the goal never specified, and the build **refuses to
+   proceed while any HIGH-materiality assumption is unconfirmed** (`lathe assume <plan> --confirm`).
+   Confirmations are keyed to a spec digest, so any spec change re-opens the audit; it runs both at `clarify`
+   (advisory) and pre-build (enforced). A tripwire against silent intent-drift, not a proof of full intent capture.
 
 ## Thinking first: clarify → decide → build
 

@@ -13,15 +13,14 @@ def strict_defaults(env_value, existing):
         ['LATHE_MUTATION_SCORE', '0.5'],
         ['LATHE_GATE_GLUE', '1'],
         ['LATHE_TEST_KIND', '1'],
+        ['LATHE_ASSUMPTION_GATE', '1'],
     ]
     result = []
     for key, value in defaults:
-        current = None
-        if isinstance(existing, dict):
-            try:
-                current = existing.get(key)
-            except Exception:
-                current = None
+        try:
+            current = existing.get(key) if existing is not None else None
+        except Exception:
+            current = None
         if isinstance(current, str) and current != '':
             continue
         result.append([key, value])

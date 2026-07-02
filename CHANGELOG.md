@@ -2,6 +2,31 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.5.0 — 2026-07-02
+
+**Assumption gate — surface the LLM's silent guesses before they ship** (owner idea). The known failure
+mode: hand a model an underspecified goal and it doesn't stop — it fills every gap with a "reasonable
+default" and proceeds ("intent drift"); worse, told to ask when unsure, it rates its own guesses as "common
+enough" and skips (documented in the literature — see the whitepaper/README references). So Lathe now runs an
+**adversarial `assumption-auditor` persona** that re-reads a spec *against the goal* and emits a
+materiality-ranked ledger of the decisions the goal never specified, and a gate that **refuses to build while
+any HIGH-materiality assumption is unconfirmed**.
+- New command `lathe assume <plan>` (audit → `ASSUMPTIONS.md` + `.assumptions.json`) and `--confirm` (walk the
+  blockers). Confirmations keyed to a spec digest — any spec change re-opens the audit.
+- **Scrutiny is user-governed** (owner refinement): `--scrutiny` / `LATHE_ASSUMPTION_POLICY` / config
+  `assumptions.scrutiny`, levels `all` › `high+med` › **`high` (default)** › `off`/`advisory`. A team can dial
+  the gate down to `off` (ledger still emitted, build not blocked) without abandoning STRICT, or up to `all`.
+- New gate `LATHE_ASSUMPTION_GATE=1`, **added to the STRICT umbrella** (now seven composed gates). Runs both
+  at `clarify` (advisory — the auditor's findings are appended to `CLARIFIED_GOAL.md`) and pre-build (enforced).
+- New pinned pure module `assumption_logic.py` (`parse_assumptions`, `blocking_assumptions`,
+  `unconfirmed_blockers`, `spec_digest`) built THROUGH the harness under STRICT — CRITERIA A1–A4, fable
+  implementer, all first-try; `strict_mode` rebuilt to include the new key (CRITERIA S1–S2).
+- New persona `ce_personas/assumption-auditor.md`; `sdlc`/`enhancement`/`bug-fix` workflows gained an explicit
+  assumption-audit step; acceptance test `review_tests/test_assumption_gate.py` (units + audit e2e + confirm
+  + the real engine-gate decision, incl. spec-change re-open). Engine-gate refusal verified end-to-end.
+- Honest scope: a tripwire against *silent* intent-drift, not a proof of full intent capture — the auditor
+  catches what it catches, materiality is a heuristic, and only HIGH blocks (to avoid confirmation fatigue).
+
 ## v2.4.0 — 2026-07-02
 
 **Requirements liaison now offers options to pick from** (owner idea). Interrogation was open-questions-only;
