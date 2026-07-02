@@ -29,6 +29,10 @@ tests, CI, lockfiles — except the machine enforces it instead of your willpowe
 Here's how it actually works, with a real function, and here's where it honestly falls short. If by the end
 you don't want to try it once, I've failed and you should close the tab.
 
+![The discipline you already believe in — enforced by the build](infographics/11_discipline_enforced.png)
+*You already do all four of these — test-first, never merge red, locked builds, don't hand-patch the
+compiler. Lathe's only trick is moving them off willpower and onto the machine.*
+
 ---
 
 ## The core move: a contract, not a conversation
@@ -74,11 +78,19 @@ If the model had produced something that failed even one assert, you would not h
 to fix. You'd have gotten a refusal. The gate is not a suggestion the model can talk its way past; passing
 the tests is a *precondition on the artifact*, decided outside the model's reach.
 
+![The build loop: goal to analyst to implementer to gate to pin](infographics/01_build_loop.png)
+*The loop in one picture: spec + tests in → a cheap model builds → the gate runs the tests → passing code is
+pinned; a failure loops back as a sharper spec, never a bigger model.*
+
 The division of labour matters here, and it's the quiet insight of the whole system: **the thinking is
 expensive, the building is cheap.** A frontier model (or you) writes the spec and tests once. A small local
 model does the repetitive work of turning that contract into code — a job it's genuinely good at, precisely
 because the contract is narrow and the gate catches its mistakes. You are not asking a weak model to be
 clever. You're asking it to fill in a blank, and checking its work.
+
+![Division of labour: analyst versus implementer, model-agnostic](infographics/02_division_of_labor.png)
+*Big model (or human) for judgment — the spec and tests. Small local model for volume — the code. The
+machine for discipline — the gate. Any model at either end.*
 
 ---
 
@@ -110,6 +122,10 @@ that pass the same tests. That's fine — that's expected. The determinism is a 
 + replay), not of the model. Lathe is a lockfile for AI code: the *rebuild* is reproducible, the *model*
 isn't. We measured both and wrote both down.
 
+![Determinism you can prove: pinned rebuild versus regeneration](infographics/15_determinism_two_claims.png)
+*Two honest lanes. Left, guaranteed: a pinned rebuild is byte-identical at zero tokens. Right, never
+claimed: regenerate from scratch and you may get different bytes — that still pass the same gate.*
+
 ---
 
 ## When it fails, the spec gets sharper — not the model bigger
@@ -130,6 +146,10 @@ them.
 We watched this happen to the tool's own maintainer, which is the most honest kind of demo: a build failed,
 the banked failure showed a missing case and an arithmetically-wrong test, the spec was sharpened, and the
 next attempt passed first try. The gate caught a *human's* mistake, not just the model's.
+
+![The loop that learns: a failed build sharpens the spec](infographics/06_loop_that_learns.png)
+*No escalation. When a build fails, the failing test is banked as evidence and the thinking layer sharpens
+the spec. The cheap model keeps doing the building.*
 
 ---
 
@@ -153,6 +173,10 @@ Flip all three on at once with `LATHE_STRICT=1` and every change runs the full g
 not "the AI is trustworthy." It's better and smaller: **the process is enforced by the build, so the kind and
 thoroughness of testing don't depend on anyone's discretion at deadline.**
 
+![The methodology, enforced by the build: three gates a change must pass](infographics/13_methodology_enforced.png)
+*Three gates, composed by `LATHE_STRICT=1`: traceability, regression-proof, mutation-score. A change passes
+all three or it doesn't pin. Read the fine print at the bottom — it's there on purpose.*
+
 Now the honesty, because this is where most tools lie and it's where you should judge us. The mutation gate is
 a **bounded tripwire for vacuous tests** — a small set of mutation operators, capped per function, with
 provably-equivalent mutants excluded so it can't false-alarm on correct code. It is *not* exhaustive mutation
@@ -172,6 +196,10 @@ afternoon.
 - Rebuilds are byte-identical with zero model calls. `lathe verify` proves it.
 - The acceptance gate can't be forged — the sandbox frames its pass/fail verdict with a nonce, so a test
   can't fake a pass. It's ~250 lines; read it.
+
+  ![The safety spine: plan validator, nonce sandbox, isolation tiers](infographics/10_safety_spine.png)
+  *Why running model-written code here is safe: a plan is validated as data before anything runs, the sandbox
+  gives an unforgeable nonce-framed verdict, and execution is isolated (subprocess → docker → docker-over-SSH).*
 - Every pinned function carries spec + tests + model + content hash by construction, and `lathe trace` emits
   the requirement chain when you've declared criteria.
 
@@ -204,9 +232,19 @@ Three concrete reasons, in rough order of who they're for.
 - **You answer to auditors.** Your AI-generated code currently has no provenance; nobody can say how a line
   was produced or what it passed. Every Lathe-built function carries requirement → spec → test → gate → model
   → hash, machine-generated at build time. When the compliance questions land, that's the artifact.
+
+  ![Provenance, by construction: the requirement-to-hash chain](infographics/14_provenance_chain.png)
+  *One tamper-evident record per function — requirement → spec → tests → gate → model → hash — produced by
+  building, not assembled after. (Requirement link when you've declared criteria; the verdict is proven by
+  the pin, not a separate attestation.)*
+
 - **You run your own models.** Lathe is pluggable at both ends — any OpenAI-compatible model as the analyst
   or the implementer, local by default, private, free per token. Bring your own; Lathe is the gate in the
   middle.
+
+  ![Works with the stack you already have](infographics/12_works_with_your_stack.png)
+  *Claude, any OpenAI-compatible endpoint, or a human on the thinking end; local open models (via Ollama,
+  llama.cpp, vLLM, LM Studio) or Claude on the building end. Runs standalone, embedded, or as an MCP tool.*
 
 And it runs where you already are: as its own CLI, embedded in your own code, or as an MCP tool inside your
 agent. (MCP is built and available; it's not yet the autonomous default — the honest badge matters here too.)
