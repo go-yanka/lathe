@@ -595,7 +595,22 @@ as reliable out-of-the-box would over-promise.
 3. **Reduce bus-factor risk** — a CONTRIBUTING guide, a couple of external contributors, or a clear
    "reference implementation / solo project" label so adopters know what they depend on.
 
-### 14e. Bottom line
+### 14d-followup. Maintainer response (PR #1) — reported, NOT independently verified
+The maintainer replied agreeing with the §14 verdict and reported a **first benchmark on real hardware** —
+the item §14d called highest-leverage: the implementer role on a cheap local model (reported as
+`ornith-1.0-9b-Q4`, 9B/4-bit via llama.cpp), analyst out of the loop, through the real gate — **7/8 (88%)
+pass within 5 tries, 6/8 (75%) first-pass; the one failure (an arithmetic-expression parser) was correctly
+refused by the gate rather than shipped wrong; pinned rebuild = 0 model calls.** If accurate, this is the
+**first non-model-contingent datapoint** for the core "cheap local model carries the implementer role"
+thesis — genuinely meaningful progress.
+
+**Reviewer's stance (unchanged until verified):** this is **maintainer-reported and NOT independently
+verified by this review** — I have no access to that model or hardware, and the model name is one I cannot
+corroborate. Consistent with this review's standing discipline (a claim counts when its artifacts support
+it — the same test that caught the B4 "export-gap" story), the core claim stays **"unproven in what I could
+independently test"** until the benchmark harness, task set, and raw run log are committed and reproducible
+(ideally wired into CI per §14d). The result is a promising first signal, not yet verified evidence; the ask
+is simply: make it reproducible and it converts from "reported" to "verified."
 **Publish it — as an honest open-source project and a well-argued idea, with framing that promises the method
 and invites testing, not a proven product.** It is trustworthy enough to stand public scrutiny (that is
 exactly why it improved so fast and credibly across five rounds). Just don't let the announcement claim the
@@ -620,7 +635,7 @@ Grouped here so it can be fixed in one pass. D7–D8 are new from the persona/ca
 | **D8** | Medium | **Persona/decider matching is exact-token word-overlap** (`agent_router.score_match`/`pick_best`/`select_agents_for_goal`) — no stemming/synonyms/embeddings. Verified: `"auth vulnerability"` matches the security persona, but `"authentication bug"` → **no match**, `"login credentials"` → **no match**. So the "right expert, automatically" claim silently misfires on reasonable phrasings and won't scale past a tiny catalog. | Add lightweight stemming + a synonym map (cheap, deterministic, keeps the LLM-independence), or an optional embedding match; at minimum expand each catalog entry's capability string with common synonyms. |
 | **D5b** | Medium | **A well-formed-but-wrong 200 from the analyst endpoint is undetectable.** `review`'s D3 fallback triggers only on connection error / non-2xx / empty completion, so a stale-but-reachable proxy returning a syntactically valid but semantically wrong 200 is **accepted → silent junk verdict**. | Content/schema-validate the analyst response (or add a second-opinion check); at minimum document that a wrong-200 is undetectable and don't claim the fallback covers it. |
 | **D5a** | Low | **Both-backends-dead path is unspecified.** `HARNESS_CLAUDE_URL` set but returning non-2xx/empty, **and** no `claude` CLI present (the air-gapped niche) → URL rejected → fallback to CLI → CLI absent. Terminal behavior isn't defined/tested. | Fail loud: "no usable analyst backend", rc≠0; add the case to the test matrix. |
-| **D6** | Low | **`should_auto_commit` silently disables on an unrecognized non-empty value** (`LATHE_AUTO_COMMIT=enabled`, `=2`, …). Direction is safe (fails closed), but a user who thinks they enabled commits gets no signal. | Warn-log on any non-empty value outside `{1,true,yes,on}`: "unrecognized LATHE_AUTO_COMMIT value '<x>' — treating as disabled". |
+| **D6** | Low | **`should_auto_commit` silently disables on an unrecognized non-empty value** (`LATHE_AUTO_COMMIT=enabled`, `=2`, …). Direction is safe (fails closed), but a user who thinks they enabled commits gets no signal. **Maintainer reports FIXED (commit `5f19c93`) — not yet independently verified by this review (my branch is behind that `main` commit); re-verify on next rebase.** | Warn-log on any non-empty value outside `{1,true,yes,on}`: "unrecognized LATHE_AUTO_COMMIT value '<x>' — treating as disabled". |
 
 None of these block the green sweep (they're edge/wiring/quality issues, not core-path breakage), but each is a case where the *stated or expected* behavior and the *actual* behavior diverge — the class of gap this review exists to surface. Fix order suggestion: **D7** (it's the "personification" feature the project is actively promoting — maintainer has confirmed it's intended and a fix is underway), then **D8** (same subsystem), then **D5b/D5a/D6**.
 
