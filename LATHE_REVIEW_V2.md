@@ -656,6 +656,15 @@ this publish call, especially 14d item 1, before it drives a launch decision.*
 > on the old code proceeds green; new functions and the flag-off path are exempt. That's **2 of 6**
 > comprehensiveness mechanisms at done+accepted (scorecard now 2/6 done, 1/6 partial). The word
 > "comprehensiveness" now hinges on the last hard one, **#3 mutation-score threshold**.
+>
+> **UPDATE — v2.1.7 (`b1682ed`): STRICT / SDLC umbrella (`LATHE_STRICT=1`) — composition layer, not a new
+> mechanism; independently reproduced.** `review_tests/test_strict_mode.py` **7/7** on a real gated build +
+> **8/8** on the pure policy logic (`tools/strict_mode.py`). Under the flag, all development is forced
+> through CRITERIA (#2) + test-ack (#4) + regression-proof (#1) + mutation-probe block — and #1 is
+> **generalized from bug-fix-only to every changed function** (verified: a no-proof *enhancement* is
+> REFUSED). Explicit env vars still override the umbrella; default off = no behavior change. Scorecard count
+> unchanged (2/6 done, 1/6 partial) — strict mode composes what's built, and #3 is still absent from it, so
+> the "comprehensiveness" line stays locked. Details in `docs/METHODOLOGY_ENFORCEMENT_VALIDATION.md`.
 
 Everything below is currently **not working as one would expect it to**, verified against the shipped tree.
 Grouped here so it can be fixed in one pass. D7–D8 are new from the persona/capability investigation

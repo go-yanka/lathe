@@ -7,10 +7,10 @@ This is Lathe's own doctrine — nothing ships unproven — applied to Lathe's m
 
 Method: empirical. Security battery (`review_tests/battery_security.py`, 35/35), a direct validator call,
 and a source grep across `engine_v2.py` + `tools/` + `qa/`. Verified 2026-07-02 at v2.1.3; the build-spec
-status column re-verified against **v2.1.4**, **v2.1.5**, and **v2.1.6** the same day (test-ack gate, the
-#2 traceability acceptance test — 12/12 — and the #1 regression-proof acceptance test — 8/8 plus 6/6 pure
-gate logic — all independently reproduced in fresh worktrees). Cross-checked by a Fable pressure-test
-(`GRAPHIC11_FACTCHECK.md` sibling analysis, recorded in the commit).
+status column re-verified against **v2.1.4**, **v2.1.5**, **v2.1.6**, and **v2.1.7** the same day (test-ack
+gate; #2 traceability — 12/12; #1 regression-proof — 8/8 + 6/6 pure logic; and the v2.1.7 strict/SDLC
+umbrella — 7/7 + 8/8 pure policy logic — all independently reproduced in fresh worktrees). Cross-checked by
+a Fable pressure-test (`GRAPHIC11_FACTCHECK.md` sibling analysis, recorded in the commit).
 
 ## What IS enforced today (the floor — verified, claimable now)
 | Mechanism | Enforced? | Evidence |
@@ -102,13 +102,29 @@ and the ornith-9b benchmark, previously maintainer-reported, are now maintainer-
    test; until then, drop "anything" from all copy. Acceptance test: a module whose GLUE entry point has no
    integration test is flagged.
 
-**Scorecard for the maintainer LLM (as of v2.1.6):** **2/6 done** (#1 regression-proof, #2 traceability),
+**Scorecard for the maintainer LLM (as of v2.1.7):** **2/6 done** (#1 regression-proof, #2 traceability),
 **1/6 partial** (#4 oracle, via test-ack), 3/6 open. Both done mechanisms independently reproduced here.
 The full comprehensiveness claim still cannot ship — it now hinges squarely on **#3 mutation-score**, the
 one mechanism that actually earns the word "comprehensiveness." Next-in-line by leverage: **#3
 mutation-score threshold**, then #5 kind-of-test and #6 gate-the-glue. Marketing may now add the
 *bug-fix-needs-a-reproducing-test* claim (#1) and the *declared-criterion traceability* claim (#2) — both
 verified — but stays off "comprehensiveness" until #3 lands its acceptance test green.
+
+### Strict / SDLC mode — the composition layer (v2.1.7, independently reproduced)
+`LATHE_STRICT=1` composes the enforcement stack into a single SDLC umbrella rather than adding a new
+mechanism (so the **scorecard count is unchanged**). Under it, *all* development — new code and
+enhancements alike — is forced through: mandatory `CRITERIA` (#2), forced test-ack (#4-partial), the
+mutation-probe stub-block (`LATHE_LINT_SPEC=block`) on new code, and — the notable generalization —
+**regression-proof (#1) applied to every *changed* function, not just bug fixes**. An explicitly-set env
+var still wins over the umbrella; default off = zero behavior change. Policy is pure + pinned
+(`tools/strict_mode.py`), wired at `engine_v2.py:86`.
+Reproduced here: `review_tests/test_strict_mode.py` **7/7** on a real gated build (prompt-aware local
+implementer stub) plus **8/8** on the pure policy logic directly. The load-bearing case verified: under
+strict, a **no-proof *enhancement* is REFUSED** (regression-proof is no longer bug-fix-only), the three
+refusal paths (no-CRITERIA / un-acked / stub-satisfiable) are model-free, and flag-off is a no-op. This
+lets a team claim, honestly: *"following the SDLC process is enforced by the build, not left to
+discipline"* — for the mechanisms that are actually built (#1, #2, #4-partial). It does **not** yet imply
+comprehensiveness; strict mode composes what exists, and #3 is still absent from what it composes.
 
 ## Go-forward gate (the reflexive rule)
 - Ship the **floor** claim now (it's verified above).
