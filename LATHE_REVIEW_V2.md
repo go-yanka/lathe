@@ -267,6 +267,119 @@ exposed.
 
 ---
 
+## 11. Path to mainstream — what the funded tools have that Lathe doesn't, and what to build
+
+This section answers the strategic question directly: **what would it take for Lathe to compete at or
+above the level of the funded players?** It is split into (a) an honest inventory of what they have that
+Lathe lacks, (b) what Lathe has that they lack (the assets to build on), and (c) a sequenced roadmap.
+
+### 11a. What they have that Lathe doesn't (the real gaps)
+
+| Gap | Who has it | Where Lathe is today |
+|---|---|---|
+| **Zero-friction install & onboarding** | Spec Kit (`uvx specify`), Kiro (installer), Cursor (app), Cline (marketplace) | clone a repo, set env vars, run raw `python lathe.py` — not even on PyPI |
+| **IDE / editor presence** | Kiro and Cursor *are* IDEs; Copilot/Cline live in VS Code | CLI only; no extension, no MCP server |
+| **Works with the agents people already use** | Spec Kit drives 30+ agents; Tessl hooks agents via MCP | Lathe requires its own loop end-to-end |
+| **Polyglot output** | all of them (TS/JS/Go/Java/…) | Python-only plans, assert-string tests, Python sandbox |
+| **Brownfield support** | Kiro/OpenSpec ("built for brownfield"), every agent edits existing repos | greenfield-only: plans generate new modules; no path to adopt existing code |
+| **Feature-level ergonomics** | Kiro: prompt → requirements/design/tasks; Spec Kit: guided phases | the human (or analyst) must already think in single functions; the spec-writing tax is fully exposed |
+| **Natural-language authoring UX** | conversational spec refinement, diagrams, review UIs | `lathe do "<goal>"` is one-shot; plan editing is raw Python-file editing |
+| **Team & enterprise machinery** | seats, SSO, dashboards, cloud execution, support contracts | none |
+| **Ecosystem & registry** | Tessl's Spec Registry (10k+ specs); Spec Kit templates; plugin marketplaces | none |
+| **Distribution & community** | 117k stars (Spec Kit), AWS's funnel (Kiro), $125M (Tessl) | single maintainer, no PyPI, no Discord, no docs site |
+| **Capital & staffing** | AWS, GitHub, $125M, $2B ARR (Cursor) | one person + a harness |
+
+Two of these deserve emphasis because they are *product* gaps, not resource gaps: **brownfield adoption**
+(nobody adopts a tool that can't touch their existing code) and **granularity ergonomics** (competitors
+let users think in features; Lathe makes them think in functions). Those two, more than money, explain why
+a Spec Kit user wouldn't switch today.
+
+### 11b. What Lathe has that none of them have (the assets)
+
+Verified unoccupied in §8, restated as product assets: (1) the **hard acceptance gate** — the market's
+loudest documented pain is "almost-right AI code" and review burden (46% of surveyed developers actively
+distrust AI output; the slop crisis); everyone else treats tests as behavior, Lathe treats them as
+*acceptance*. (2) **Content-hash pinning / byte-identical rebuilds** — the named, conceded flaw of the
+spec-as-source category (Tessl's "non-deterministic compiler" problem); Lathe holds the only working
+answer. (3) **Per-function granularity** — the one regime where cheap local models are empirically strong.
+(4) **Local-first economics + privacy** — every funded competitor is cloud-first; air-gapped/regulated
+teams are structurally underserved. (5) **Provenance by construction** — every accepted function already
+has spec+tests+model+hash; that is an AI-BOM waiting to be serialized.
+
+### 11c. Roadmap — sequenced, each phase falsifiable
+
+**Phase 0 — Credibility floor (weeks, no new design).** Fix B4 for real; make CI run the repo's own tests;
+fix the Linux test failure; publish to PyPI (`pipx install lathe`); a 5-minute Ollama quickstart
+(`lathe init` wizard: detect Ollama, write `lathe.config.json`, build a demo plan); a docs site. *Nothing
+else matters until a stranger can succeed in 5 minutes — the funnel today is: clone → read 19 MDs → set
+env vars → maybe green.*
+
+**Phase 1 — Reach (the two product gaps).**
+- **Polyglot gate.** Keep plans as data; add per-language runners (pytest → jest/vitest → `go test`),
+  starting with TypeScript (the largest spec-driven audience, and Tessl's only language). The validator
+  and pinning are language-agnostic already; the sandbox needs a runner abstraction.
+- **Brownfield adoption: `lathe adopt <file.py::func>`.** Reverse-derive a plan from existing code
+  (analyst writes the spec+tests *from* the implementation, human reviews, current code is pinned as-is).
+  This converts "rewrite your world" into "adopt one function at a time" — the single highest-leverage
+  feature for mainstream adoption, and no competitor has an equivalent of "bring existing code under a
+  reproducibility pin."
+- **Feature→function compiler.** Let users write a Kiro/Spec-Kit-style feature spec; the analyst
+  decomposes it into an ordered set of function plans plus an integration contract, which the human
+  approves before any build. This hides the spec-writing tax behind the granularity that makes the whole
+  thesis work — and it's exactly the "decomposition is the frontier model's real job" claim
+  operationalized.
+
+**Phase 2 — Ride the ecosystem instead of fighting it.**
+- **Ship Lathe as an MCP server** (`lathe-mcp`: `draft_plan`, `build`, `verify`, `pins`, `gate`). Claude
+  Code, Cursor, Copilot, and Kiro users then get gate+pin+provenance *inside the agent they already use* —
+  Lathe becomes the build system under any agent, the way make sits under any editor. This flips every
+  competitor from rival to distribution channel, and it is the correct answer to "how do you beat tools
+  with 100× your funding": don't out-agent them — be the layer they can't offer (deterministic,
+  provenance-grade acceptance) and that costs them nothing to adopt.
+- **Spec Kit bridge**: compile a `spec-kit` feature directory into Lathe plans (`lathe import speckit`),
+  so the 117k-star funnel feeds Lathe rather than competing with it.
+
+**Phase 3 — Deepen the moats (the "bigger than them" play).**
+- **Provenance/attestation as a first-class artifact.** Serialize what pinning already knows into a signed
+  AI-BOM per module (spec hash, test hashes, model id, sandbox verdict, timestamp) in in-toto/SLSA style.
+  EU CRA deadlines (Sept 2026 / Dec 2027), AIBOM procurement asks, and generative-AI insurance exclusions
+  are creating buyers who must *prove* which code is AI-written and how it was verified. **No shipping
+  tool can produce this today; Lathe already computes every field.** This is the plausible enterprise
+  wedge — and the thing a Tessl or Kiro would eventually pay for or clone.
+- **Test-quality escalation: from mutation probe to full mutation + property-based testing.** The
+  strongest academic attack on test-gating is "weak tests give false assurance." Lathe already has the
+  seed (spec-lint's stub probe). Extending to real mutation scoring and Hypothesis-generated property
+  tests at function granularity would make the gate *provably* strong — and pre-empt Kiro's PBT push at
+  coarser granularity.
+- **Remote pin cache.** Pins are a build cache; add a shared/team pin store (a la Bazel remote cache) and
+  a team gets organization-wide reproducibility: one person's gated-green function is everyone's instant,
+  verified build. This is the first genuinely *team-shaped* feature and a natural paid tier.
+- **The evidence engine.** Publish the harder benchmark (hard tasks where one-shots fail; rebuild axis;
+  metered $ on real local hardware vs Aider/Cursor/Copilot), continuously in CI, with a public dashboard.
+  For a trust product, the benchmark *is* the marketing.
+
+**Phase 4 — Category claim.** The concept is already being independently reinvented ("VSDD" on HN;
+"Compiled AI" on arXiv). Name the category — *deterministic AI builds* / *a lockfile for AI code* — write
+the definitive post, and launch where the spec-driven audience already argues (HN thrice-burned by
+spec-kit/Kiro threads). First-mover naming matters more than usual here because the mechanism is easy to
+describe and hard to retrofit (auto-committing agents can't honestly claim "code is a build output").
+
+### 11d. What money buys that features don't — an honest note
+
+Parity with Kiro/Cursor on *distribution* (IDE polish, cloud fleets, enterprise sales) is not reachable by
+feature work; it requires a team and capital, or a home inside a larger project/foundation. The realistic
+"as big or bigger" outcomes are: (a) **become the standard layer** — the MCP/agent-substrate route, where
+Lathe's mechanisms ship inside everyone else's tools (biggest reach, least revenue); (b) **own the
+compliance niche** — provenance-grade AI codegen for regulated/air-gapped buyers (smallest reach, clearest
+revenue, defensible against the incumbents' cloud-first DNA); or (c) **be acquired/absorbed** by a
+category leader that needs determinism (Tessl's conceded gap is an acquisition thesis in plain sight).
+Trying to out-Cursor Cursor is the one strategy the evidence rules out.
+
+**Sequencing discipline:** Phases 0–1 are prerequisites for any of it; the B4 episode shows the
+claim-verification culture must harden *before* the surface area grows.
+
+---
+
 ## Appendix — reproducing this review
 
 ```bash
