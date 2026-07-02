@@ -135,7 +135,7 @@ so it's model- and host-agnostic and drops into several setups:
 - [SECURITY.md](SECURITY.md) — the threat model and isolation tiers
 - [DATA_QUALITY.md](DATA_QUALITY.md) — gating "unit-green but wrong on real data"
 - [VENDORING.md](VENDORING.md) — one canonical copy; projects vendor, don't fork
-- [CHANGELOG.md](CHANGELOG.md) — release notes (current: v2.1.3)
+- [CHANGELOG.md](CHANGELOG.md) — release notes (current: v2.1.4)
 - [BENCHMARK.md](BENCHMARK.md) — an honest (warts-included) benchmark vs Aider/raw-Claude
 
 ## Status & honesty

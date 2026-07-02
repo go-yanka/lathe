@@ -47,15 +47,15 @@ check("NOT auto-fetchable" in cli("requirements analysis user stories", "--spawn
       "CLI: compliance gate REFUSES unlicensed (NOASSERTION) source")
 check("VENDORED" in cli("logic errors correctness edge cases"), "CLI: matches a vendored persona")
 
-# --- 4. offline fallback (source unreachable) ---
-import lathe as L
-cache, _ = L._agent_dirs()
+# --- 4. offline fallback (source unreachable) --- (fetch I/O lives in tools/persona_spawn.py — one canonical copy)
+import persona_spawn as P
+cache, _ = P.agent_dirs()
 os.makedirs(cache, exist_ok=True)
 open(os.path.join(cache, "__probe.md"), "w", encoding="utf-8").write("cached persona body")
-md, how = L._spawn_one({"name": "__probe", "repo": "nonexistent/repo-xyz-000", "path": "x.md", "license": "MIT"})
+md, how = P.spawn_one({"name": "__probe", "repo": "nonexistent/repo-xyz-000", "path": "x.md", "license": "MIT"})
 check(md is not None and "cache" in how.lower(), "fallback: unreachable source -> uses local cached copy")
 os.remove(os.path.join(cache, "__probe.md"))
-md2, _ = L._spawn_one({"name": "__none", "repo": "nonexistent/repo-xyz-000", "path": "x.md", "license": "MIT"})
+md2, _ = P.spawn_one({"name": "__none", "repo": "nonexistent/repo-xyz-000", "path": "x.md", "license": "MIT"})
 check(md2 is None, "fallback: unreachable + no cache -> refuses (no fabrication)")
 
 print("\nRESULT: " + ("ALL PASS" if not fails else "%d FAILED" % len(fails)))

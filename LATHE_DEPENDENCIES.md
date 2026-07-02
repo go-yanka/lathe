@@ -33,7 +33,7 @@ and accepts that model's terms. So these are the *user's* obligations, not Lathe
 |---|---|---|---|
 | **Gemma 4 12B** (published default local impl) | Local code generation | **Gemma Terms of Use** (Google) | Commercial use OK, but carries a Prohibited‑Use Policy that must pass through to downstream; **not OSI**. Don't redistribute weights — let users pull. |
 | **Qwen2.5‑Coder‑32B‑Instruct** (rig codegen) | Local code generation | **Apache‑2.0** (verified — [LICENSE on HF](https://huggingface.co/Qwen/Qwen2.5-Coder-32B-Instruct/blob/main/LICENSE)) | ✅ Clean. The restricted "Qwen/Tongyi Qianwen License" does NOT apply to this size — the 32B Coder is plain Apache‑2.0. |
-| **Ornith‑1.0 (35B MoE / 9B)** (rig agent / a prior agent brain) | Agentic / brain | **MIT** (verified — DeepReinforce AI; [35B](https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B) / [9B](https://huggingface.co/deepreinforce-ai/Ornith-1.0-9B)) | ✅ Clean, no regional restrictions. Both variants post‑trained on top of Gemma 4 + Qwen 3.5 (each Apache‑2.0); the Ornith release itself is MIT. |
+| **Ornith‑1.0 (35B MoE / 9B)** (local implementer / agent brain) | Agentic / brain | **MIT** (verified — DeepReinforce AI; [35B](https://huggingface.co/deepreinforce-ai/Ornith-1.0-35B) / [9B](https://huggingface.co/deepreinforce-ai/Ornith-1.0-9B)) | ✅ Clean, no regional restrictions. Both variants post‑trained on top of Gemma 4 + Qwen 3.5 (each Apache‑2.0); the Ornith release itself is MIT. |
 | **Claude** (via `claude_proxy.py`) | The "analyst" / premium thinking | Anthropic Commercial Terms | See below. |
 
 ## Two legality watch‑items (both already satisfied by design)

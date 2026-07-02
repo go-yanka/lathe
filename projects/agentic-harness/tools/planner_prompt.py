@@ -80,6 +80,13 @@ def _expert_lenses(goal):
         by = {e["name"]: e for e in ents}
         out = ["EXPERT LENSES (think through these specialists for THIS goal — adopt their concerns in the spec + tests):"]
         out += ["- %s: %s" % (n, by[n].get("capability", "")) for n in names]
+        try:                                    # D7: a needed-but-absent expert is FETCHED (license-gated) and its
+            from persona_spawn import auto_spawn_for_goal      # BODY injected — not just its name as a hint
+            for _n, _md, _body in auto_spawn_for_goal(goal, 2):
+                out.append("\nFETCHED EXPERT PERSONA — %s (auto-spawned for this goal; adopt this specialist's "
+                           "approach in the spec + tests):\n%s" % (_n, _body.strip()[:1800]))
+        except Exception:
+            pass                                # best-effort — the name+capability hints above still stand
         return "\n".join(out)
     except Exception:
         return ""

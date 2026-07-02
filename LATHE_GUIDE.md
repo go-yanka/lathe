@@ -2,7 +2,7 @@
 
 > **Treat AI code generation like a build system, not a conversation.**
 > A spec‑driven, reproducible, gated harness for building software with LLMs. This guide covers install,
-> the model, the CLI, every integration (Claude, a prior agent, any OpenAI‑compatible LLM, local models, or a
+> the model, the CLI, every integration (Claude, any OpenAI‑compatible LLM, local models, or a
 > human analyst), worked use cases, the security model, and troubleshooting.
 
 ---
@@ -169,7 +169,7 @@ flowchart TB
     I3["Claude<br/>model='claude' (for hard fns)"]
   end
   subgraph DRIVE["DRIVERS"]
-    D1["lathe CLI"]; D2["a prior agent / Claude Code /<br/>any shell-running agent"]; D3["programmatic (import engine)"]
+    D1["lathe CLI"]; D2["Claude Code /<br/>any shell-running agent"]; D3["programmatic (import engine)"]
   end
   ANALYST --> CORE --> IMPL
   DRIVE --> CORE
@@ -203,13 +203,13 @@ lathe build plan.py openai:local
 Skip `HARNESS_CLAUDE_URL` entirely; write `plans/NN.py` by hand and `lathe build` them. The local model
 still does all the coding; you provide the specs. This is the cheapest, most private mode.
 
-### 7e. With a prior agent / Claude Code / any agent (agent‑native)
+### 7e. With Claude Code / any shell-running agent (agent‑native)
 Any agent that can run a shell uses Lathe by calling the CLI. Tell the agent (in its system prompt/SOUL):
 > *"For any code generation, don't free‑hand edit — drive the Lathe CLI: `lathe \"<goal>\"` to build,
 > `lathe review` to verify, `lathe status` to inspect. Code is a build output; change the plan and
 > regenerate."*
-Proven live: a prior agent (a local agent) given a coding task ran `lathe`, the engine built, results landed in
-the metrics ledger. See `LATHE_COMMANDS.md` → "Wiring into a prior agent".
+Proven live: a local desktop agent given a coding task ran `lathe`, the engine built, and the results
+landed in the metrics ledger. See `LATHE_COMMANDS.md` for the command surface.
 
 ### 7f. In a dev environment / CI
 `lathe build` and `lathe gate` are exit‑coded; wire them into pre‑commit or CI. Pins make rebuilds
@@ -306,7 +306,7 @@ push token in the file — use an env var or the git credential helper. (Parsing
 | Var | Role | Default |
 |---|---|---|
 | `HARNESS_CLAUDE_URL` | **analyst** endpoint (OpenAI‑compatible) | `http://127.0.0.1:8787/v1/chat/completions` |
-| `HARNESS_MODEL` | default **implementer** model | `gemma2:12b` |
+| `HARNESS_MODEL` | default **implementer** model | `gemma4:12b` |
 | `LOCAL_OPENAI_URL` | endpoint for `openai:*` implementer models | llama‑server `:8089` |
 | `OLLAMA_URL` | endpoint for bare‑name (ollama) models | `http://localhost:11434` |
 | `LATHE_MODEL` / `LATHE_TRIES` | CLI default implementer / best‑of‑N | `openai:local` / `3` |

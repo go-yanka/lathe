@@ -29,6 +29,8 @@ Usage:
   lathe waiting                list dormant tasks (what's waiting on a signal)
   lathe report "<title>"       file a Lathe issue into the shared queue for the maintainer to fix
   lathe issues [resolved]      maintainer: list open (or resolved) issues in the shared queue
+  lathe ack <plan> [--yes]     review + acknowledge a plan's TEST SET (with LATHE_TEST_ACK=1 the engine
+                               refuses to build un-acked or rewritten tests — the tests define 'correct')
   lathe selftest               exercise every capability and report PASS/FAIL
   lathe help                   this help
 
@@ -49,8 +51,8 @@ QA = os.path.join(INNER, "qa")
 ENGINE = os.path.join(ROOT, "engine_v2.py")
 HREVIEW = os.path.join(INNER, "hreview.py")
 OBJ_FILE = os.path.join(ROOT, "_self_feed_objective.txt")
-# Product (a product/your-product) paths are env-overridable so the open-source core ships no hardcoded private path:
-# LATHE_LEDGER_DIR / LATHE_PRODUCT_GATES override; the your-product tree is used if present (live), else a ROOT default.
+# Product (consuming-project) paths are env-overridable so the open-source core ships no hardcoded private path:
+# LATHE_LEDGER_DIR / LATHE_PRODUCT_GATES override; a consuming project's tree is used if present, else a ROOT default.
 _LEDGER_DIR = os.environ.get("LATHE_LEDGER_DIR") or os.path.join(ROOT, "docs")
 LEDGER = os.path.join(_LEDGER_DIR, "OVERNIGHT_LEDGER.md")
 PRODUCT_GATES = os.environ.get("LATHE_PRODUCT_GATES") or os.path.join(ROOT, "qa", "gates")   # a project's product gates; env-overridable, no hardcoded consumer path
@@ -218,7 +220,7 @@ def cmd_gate(args):
         names = {"h3": "visual_gate.py", "h4": "perf_gate.py", "h5": "security_gate.py", "h6": "a11y_gate.py"}
         runner = os.path.join(PRODUCT_GATES, "run_all.py") if target == "all" else os.path.join(PRODUCT_GATES, names[target])
         if not os.path.isfile(runner):
-            print("product gate not found (%s); these live in the your-product tree." % runner); return 2
+            print("product gate not found (%s); these live in the consuming project's tree (LATHE_PRODUCT_GATES)." % runner); return 2
         return _run([PY, runner], cwd=os.path.dirname(PRODUCT_GATES))
     # default: harness regression + stale gate
     rg = os.path.join(QA, "run_gates.py")
@@ -260,6 +262,13 @@ def cmd_review(args):
             _picked = []
         lenses = list(dict.fromkeys(_DEFAULT_LENSES + [p for p in _picked if p in _ALL_LENSES]))   # correctness+adversarial floor + domain specialists
         print("decider selected lenses for this code: %s" % ", ".join(lenses))
+        try:                                        # D7: a needed-but-absent expert is FETCHED (license-gated) and injected
+            from persona_spawn import auto_spawn_for_goal
+            for _name, _md, _body in auto_spawn_for_goal(_sample, 2):
+                lenses.append("@" + _md)            # hreview loads the fetched persona BODY from this path
+                print("decider auto-spawned expert persona: %s (license-gated fetch -> %s)" % (_name, os.path.relpath(_md, ROOT)))
+        except Exception as _sp_e:
+            print("(persona auto-spawn skipped: %s)" % _sp_e)   # best-effort — never blocks the review floor
     elif args[0] == "all":
         lenses, files = _ALL_LENSES, args[1:]
     elif args[0] in _ALL_LENSES:
@@ -319,7 +328,7 @@ def cmd_status(_args):
     print("  ledger:  %s" % (last[:120] or "(none)"))
     # labels derived from the ACTUAL configured endpoints — hardcoded "rig 35B (:8090)" lied when a user pointed
     # LOCAL_OPENAI_URL at a different model/port.
-    _impl = os.environ.get("LOCAL_OPENAI_URL", "http://127.0.0.1:8090/v1/chat/completions")
+    _impl = os.environ.get("LOCAL_OPENAI_URL", "http://127.0.0.1:8089/v1/chat/completions")
     _anl = os.environ.get("HARNESS_CLAUDE_URL", "http://127.0.0.1:8787/v1/chat/completions")
     _hostport = lambda u: u.split("//", 1)[-1].split("/", 1)[0]
     print("  implementer (%s): %s" % (_hostport(_impl), _probe(_impl.replace("/chat/completions", "") + "/models")))
@@ -692,7 +701,7 @@ def cmd_selftest(_args):
             _tool(t); rec("orchestration: %s" % t, True)
         except Exception as e:
             rec("orchestration: %s" % t, False, str(e)[:40])
-    base = os.environ.get("LOCAL_OPENAI_URL", "http://127.0.0.1:8090/v1/chat/completions").replace("/chat/completions", "")
+    base = os.environ.get("LOCAL_OPENAI_URL", "http://127.0.0.1:8089/v1/chat/completions").replace("/chat/completions", "")
     try:                                                  # B6: label reflects the CONFIGURED model, not a hardcoded "35B"
         sys.path.insert(0, TOOLS); from spine_helpers import model_label
         _ml = model_label(os.environ.get("HARNESS_MODEL", ""))
@@ -859,48 +868,12 @@ def cmd_flow(args):
     return 0
 
 
-def _agent_dirs():
-    return os.path.join(INNER, "agents", "_fetched"), os.path.join(INNER, "agents", "licenses")
-
-def _gh_json(url):
-    import subprocess, json
-    r = subprocess.run(["curl", "-s", "-m", "25", url], capture_output=True, text=True, encoding="utf-8", errors="replace")
-    return json.loads(r.stdout)
-
-def _store_license(repo):
-    """Download the source repo's LICENSE locally (compliance — kept alongside any cached agent). Best-effort."""
-    import base64
-    _, lic_dir = _agent_dirs()
-    dest = os.path.join(lic_dir, repo.replace("/", "__") + ".LICENSE.txt")
-    try:
-        d = _gh_json("https://api.github.com/repos/%s/license" % repo)
-        os.makedirs(lic_dir, exist_ok=True)
-        open(dest, "w", encoding="utf-8").write("Source repo: %s  (SPDX: %s)\n\n" % (repo, d.get("license", {}).get("spdx_id", "")) +
-                                                base64.b64decode(d["content"]).decode("utf-8", "replace"))
-        return True
-    except Exception:
-        return os.path.exists(dest)      # already have a copy -> fine
-
 def _spawn_one(e):
-    """Refresh the agent .md from source if reachable, else use the local copy; ALWAYS keep its license. Compliant + resilient."""
-    import base64
-    cache, _ = _agent_dirs()
-    os.makedirs(cache, exist_ok=True)
-    md = os.path.join(cache, e["name"] + ".md")
-    fresh = False
-    try:                                  # try to refresh to latest before launch
-        d = _gh_json("https://api.github.com/repos/%s/contents/%s" % (e["repo"], e["path"]))
-        _content = base64.b64decode(d["content"]).decode("utf-8", "replace")   # decode BEFORE opening — a failed fetch must not truncate/create the file
-        open(md, "w", encoding="utf-8").write(_content); fresh = True
-    except Exception:
-        fresh = False
-    if not os.path.exists(md):
-        return None, "source unreachable and no local copy cached"
-    _store_license(e["repo"])
-    open(os.path.join(cache, e["name"] + ".SOURCE.txt"), "w", encoding="utf-8").write(
-        "%s\nsource: %s (%s)\npath: %s\nused under its %s license (see ../licenses/%s.LICENSE.txt).\n"
-        % (e["name"], e["repo"], e["license"], e["path"], e["license"], e["repo"].replace("/", "__")))
-    return md, ("refreshed from source" if fresh else "used local cache (source unreachable)")
+    """One canonical fetch implementation — tools/persona_spawn.py (shared with the D7 in-flow deciders)."""
+    if TOOLS not in sys.path:
+        sys.path.insert(0, TOOLS)
+    from persona_spawn import spawn_one
+    return spawn_one(e)
 
 def cmd_agent(args):
     """Load-the-program: instantiate the best expert persona for a NEED — from the vendored set, or a locally-mirrored
@@ -942,6 +915,55 @@ def cmd_agent(args):
     if not md:
         print("  spawn failed: %s" % how); return 1
     print("  SPAWNED (%s): agents/_fetched/%s.md + license stored. Ready to inject into any endpoint." % (how, name))
+    return 0
+
+
+def cmd_ack(args):
+    """Test-ack gate (the analyst's tests were the ONE ungated artifact — they define what 'correct' means).
+    `lathe ack <plan>` shows every function's tests for human review and records an ack keyed by a digest of
+    the exact test set; with LATHE_TEST_ACK=1 the engine refuses to build un-acked (or rewritten) tests."""
+    import importlib.util, json, hashlib
+    yes = "--yes" in args
+    paths = [a for a in args if not a.startswith("--")]
+    if not paths:
+        print("usage: lathe ack <plan.py> [--yes]   (records approval of the plan's CURRENT test set)"); return 2
+    plan_path = os.path.abspath(paths[0])
+    if not os.path.exists(plan_path):
+        print("ack: no such plan: %s" % plan_path); return 2
+    spec = importlib.util.spec_from_file_location("plan", plan_path)
+    plan = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(plan)
+    except Exception as e:
+        print("ack: plan does not load: %s" % e); return 1
+    fns = getattr(plan, "FUNCTIONS", []) or []
+    if not fns:
+        print("ack: plan has no FUNCTIONS (nothing to acknowledge)"); return 0
+    if TOOLS not in sys.path:
+        sys.path.insert(0, TOOLS)
+    from test_ack import tests_digest
+    print("TESTS UNDER REVIEW — these asserts DEFINE correct behavior for this build:\n")
+    for f in fns:
+        print("  %s:" % f.get("name", "?"))
+        for t in f.get("tests", []) or []:
+            print("      %s" % t)
+    digest = tests_digest(fns)
+    if not yes:
+        try:
+            resp = input("\nAcknowledge this exact test set? [y/N] ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            resp = ""
+        if resp not in ("y", "yes"):
+            print("NOT acknowledged — nothing recorded."); return 1
+    ack_file = os.path.join(os.path.dirname(plan_path), ".test_ack.json")
+    try:
+        acks = json.loads(open(ack_file, encoding="utf-8").read())
+    except Exception:
+        acks = {}
+    acks[os.path.basename(plan_path)] = digest
+    open(ack_file, "w", encoding="utf-8").write(json.dumps(acks, indent=1))
+    print("acknowledged: %s (digest %s...) -> %s" % (os.path.basename(plan_path), digest[:12], ack_file))
+    print("(the engine enforces this only when LATHE_TEST_ACK=1; any test rewrite forces a re-ack)")
     return 0
 
 
@@ -1032,7 +1054,7 @@ def main(argv):
         "metrics": cmd_metrics, "plans": cmd_plans, "dups": cmd_dups, "whatis": cmd_whatis,
         "clean": cmd_clean, "wait": cmd_wait, "resume": cmd_resume, "waiting": cmd_waiting,
         "report": cmd_report, "issues": cmd_issues, "logs": cmd_logs, "lint-spec": cmd_lint_spec,
-        "flow": cmd_flow, "map": cmd_map, "checkin": cmd_checkin, "agent": cmd_agent,
+        "flow": cmd_flow, "map": cmd_map, "checkin": cmd_checkin, "agent": cmd_agent, "ack": cmd_ack,
     }
     if cmd in table:
         return table[cmd](rest)

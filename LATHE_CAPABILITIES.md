@@ -1,16 +1,14 @@
 # Lathe — Capabilities Catalog
 
 > **Treat AI code generation like a build system, not a conversation.**
-> The authoritative, file‑cited map of everything Lathe can do. This is the spine the CLI and the
-> a prior agent `/` slash‑commands reference — if a capability isn't here, it isn't discoverable, and an
+> The authoritative, file‑cited map of everything Lathe can do. This is the spine the CLI and a
+> driving agent's `/` slash‑commands reference — if a capability isn't here, it isn't discoverable, and an
 > autonomous agent will never reach for it. Status legend: **✅ wired** (the autonomous self‑feed loop
 > uses it today) · **🔌 available** (built + tested, not yet on the autonomous path) · **🧠 analyst** (a
 > human/premium‑model front‑end step, not the autonomous loop).
 
-Two trees share **one byte‑identical engine**: the canonical meta‑tool
-(`<LATHE_ROOT>\projects\agentic-harness`, plus the product `projects\your-product` where the
-H3–H6 gates live) and the live autonomous copy (`<LATHE_ROOT>`). Paths below are relative to
-a tree unless absolute.
+Paths below are relative to the Lathe root unless absolute. (What's current lives in `CHANGELOG.md`;
+this catalog describes capabilities, not point-in-time state.)
 
 ---
 
@@ -111,7 +109,7 @@ for every planner/repair/judge call.
 
 ## 4. Quality gates
 
-Real **H3–H6 gates live in `projects/your-product/qa/gates/`** (the agentic‑harness tree has only the
+Real **H3–H6 gates live in the consuming product's `qa/gates/` tree** (the agentic‑harness tree has only the
 regression aggregator).
 
 | Gate | What it does | Invoke | Status |
@@ -124,7 +122,7 @@ regression aggregator).
 | **run_gates / stale_gate** | Post‑build regression + fails build if backup/dup/stale files linger | wired into engine; `python qa/stale_gate.py` | ✅ |
 | **road_ready (whole‑product)** | Fresh‑subprocess import → boot+HTTP‑health → live‑E2E/smoke; fail‑closed | via `driver.py` when a plan declares `ROAD_READY` | 🔌 |
 
-Product gates (your-product): `drift_gate`, `functional_acceptance`, `gate_db_schema/project`,
+Product gates (consuming product): `drift_gate`, `functional_acceptance`, `gate_db_schema/project`,
 `tenant_isolation`, `source_completeness_gate`, page gates, `_e2e_harness.py` skeleton‑fill E2E. 🔌
 
 ---
@@ -221,8 +219,8 @@ and routing the loop's writes through `safe_write` + `checkpoint` (it still uses
 
 ---
 
-## 12. How an agent (a prior agent) invokes Lathe
+## 12. How a driving agent invokes Lathe
 
-a prior agent drives Lathe through `/` slash‑commands (defined alongside this catalog) — e.g. build a plan,
+An agent drives Lathe through `/` slash‑commands (defined alongside this catalog) — e.g. build a plan,
 run a gate, request a CE review, check status. Each command maps to one capability above. See
 `LATHE_COMMANDS.md` (companion file).

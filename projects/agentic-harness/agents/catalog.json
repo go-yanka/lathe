@@ -2,7 +2,7 @@
   "_meta": {
     "purpose": "Inventory of expert agent personas — the ones we KNOW are out there. 'vendored:true' ship in-repo (license-compliant, attributed). The rest are fetched ON DEMAND (the Matrix 'load the program' model) IF their license is permissive. Cataloging metadata is not redistribution.",
     "compliance": "Auto-fetch is gated by agent_router.license_ok (MIT / Apache / BSD / ISC / Unlicense / CC0 only). Non-permissive or unlicensed (e.g. NOASSERTION) sources are cataloged but NEVER auto-fetched — verify + vendor manually. Fetched files land in agents/_fetched/ (gitignored — a per-user runtime cache, not redistributed) with a SOURCE attribution note.",
-    "llm_independent": "An agent = persona (prompt text) + role. Spawning = inject that text into a chat call to whatever endpoint is configured (a prior agent / Claude subscription proxy / Claude API / local). No coupling to any LLM."
+    "llm_independent": "An agent = persona (prompt text) + role. Spawning = inject that text into a chat call to whatever endpoint is configured (any OpenAI-compatible agent / Claude subscription proxy / Claude API / local). No coupling to any LLM."
   },
   "agents": [
     {"name": "correctness-reviewer", "role": "reviewer", "capability": "logic errors edge cases state management bugs intent vs implementation correctness review", "source": "EveryInc/compound-engineering-plugin", "license": "MIT", "vendored": true, "path": "projects/agentic-harness/ce_personas/correctness-reviewer.md"},

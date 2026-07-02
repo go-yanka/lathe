@@ -22,7 +22,7 @@ NOTICE + attribution wherever we actually reuse code.
     (human approval, a slow dependency, a time window) and resume cleanly from board state. Tracked as a
     candidate capability for workflow-style autonomy.
   - *Multi-agent delegation* — Lathe uses a deliberate two-tier split (Claude analyst ↔ local implementer)
-    rather than a sub-agent graph; the delegation idea lives more in a prior agent (the driving agent) than in Lathe.
+    rather than a sub-agent graph; the delegation idea lives more in the driving agent than in Lathe.
 
 - **Compound Engineering (`EveryInc/compound-engineering-plugin`, MIT).** Lathe's multi-lens review
   discipline (`lathe review`) and the `simplify-code`/`pattern-recognition` reviewer ideas draw on CE.

@@ -18,7 +18,7 @@ except Exception:
     BeautifulSoup = None
 
 PLAN_PATH = sys.argv[1]
-MODEL = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("HARNESS_MODEL", "gemma2:12b")
+MODEL = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("HARNESS_MODEL", "gemma4:12b")
 N = int(sys.argv[3]) if len(sys.argv) > 3 else 12
 
 # structured per-run logging so a reported bug is self-diagnosing (best-effort — a logging failure must NEVER
@@ -85,6 +85,30 @@ if os.environ.get("LATHE_VALIDATE_PLAN") == "1" and os.environ.get("LATHE_TRUST_
 for _attr, _dflt in (("FUNCTIONS", []), ("ARTIFACTS", []), ("HEADER", ""), ("GLUE", ""), ("INTEGRATION", "")):
     if not hasattr(plan, _attr) or getattr(plan, _attr) is None:
         setattr(plan, _attr, _dflt)
+
+# TEST-ACK GATE (review V4 §3 risk 1): the analyst's tests define truth but were the one ungated artifact —
+# a misread goal becomes tests that certify the wrong behavior. Opt-in (LATHE_TEST_ACK=1): refuse to build
+# until a human has acknowledged THIS exact test set (`lathe ack <plan>`); any test rewrite (incl. by the
+# repair loop) changes the digest and forces a re-read. Decision logic is harness-built (tools/test_ack.py).
+if plan.FUNCTIONS:
+    try:
+        _ta = importlib.util.spec_from_file_location("test_ack", os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "test_ack.py"))
+        _tam = importlib.util.module_from_spec(_ta); _ta.loader.exec_module(_tam)
+        _ack_file = os.path.join(os.path.dirname(os.path.abspath(PLAN_PATH)), ".test_ack.json")
+        try:
+            _acks = json.loads(open(_ack_file, encoding="utf-8").read())
+        except Exception:
+            _acks = {}
+        _ok, _why = _tam.ack_ok(os.environ.get("LATHE_TEST_ACK"), _acks,
+                                os.path.basename(PLAN_PATH), _tam.tests_digest(plan.FUNCTIONS))
+        if not _ok:
+            sys.exit("engine: TEST-ACK GATE — %s (plan: %s). The tests define what 'correct' means; read them "
+                     "before the build certifies them." % (_why, os.path.basename(PLAN_PATH)))
+    except SystemExit:
+        raise
+    except Exception:
+        pass                             # gate module absent -> legacy behavior (gate is opt-in anyway)
 
 # A plan must NEVER write over a file the engine didn't generate, nor shadow an importable module.
 # MODULE_NAME is just an identifier, so without this MODULE_NAME="engine_v2" overwrites the engine, and
@@ -331,7 +355,7 @@ def _judge_best(candidates, name, prompt):
         tok["judge_failures"] = tok.get("judge_failures", 0) + 1
     return min(candidates, key=_quality_score)
 
-BASE_NS = {}  # STRICT gate (fix 2026-06-28): NO pre-loaded stdlib. Generated code (+ the plan HEADER) must import what it uses — exactly like the deployed file (HEADER+funcs, assembled below). Previously json/re/etc were mirrored here, so a function using json without importing it PASSED the gate yet was broken in isolation (caught: T2 health_parse). validate() now prepends plan.HEADER so a product plans (which import via HEADER) still pass.
+BASE_NS = {}  # STRICT gate (fix 2026-06-28): NO pre-loaded stdlib. Generated code (+ the plan HEADER) must import what it uses — exactly like the deployed file (HEADER+funcs, assembled below). Previously json/re/etc were mirrored here, so a function using json without importing it PASSED the gate yet was broken in isolation (caught: T2 health_parse). validate() now prepends plan.HEADER so plans that import via HEADER still pass.
 solved_ns = dict(BASE_NS)
 solved_src = {}
 try:                                  # load HEADER so a function exec'd into solved_ns sees its imports when called by a sibling
@@ -416,6 +440,20 @@ if os.path.exists(PIN_FILE):
     except Exception:
         pins = {}
 
+# TRANSITIVE PIN INVALIDATION (review V3 §3 — the make-without-depfiles hole): if function A was freshly
+# regenerated this run, any later function whose PINNED code references A was verified against the OLD A —
+# reusing it would be stale-but-green even if its own tests still pass. Deps are derived from the pinned
+# code itself (no .pins.json format change). Decision logic is harness-built (tools/pin_deps.py).
+_pin_stale_by_deps = None
+try:
+    _pd = importlib.util.spec_from_file_location("pin_deps", os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "pin_deps.py"))
+    _pdm = importlib.util.module_from_spec(_pd); _pd.loader.exec_module(_pdm)
+    _pin_stale_by_deps = _pdm.pin_stale_by_deps
+except Exception:
+    _pin_stale_by_deps = None            # module absent -> legacy behavior (no transitive invalidation)
+_fresh_fn_names = []                     # functions regenerated THIS run (the dirty seeds; closure via plan order)
+
 # FAILURE-AS-ASSET for FUNCTIONS (mirrors the artifact preservation below): a failed candidate and
 # the EXACT failing test are banked to disk so the analyst can sharpen the spec from real feedback.
 _FN_FAILDIR = os.path.join(_pre_out, "_fn_fails")
@@ -462,8 +500,12 @@ for f in plan.FUNCTIONS:
     # Opt-in quality selection (D28): collect K passing candidates, judge-pick the cleanest.
     # K defaults to 1 -> classic first-pass. The analyst marks complex functions with "select": 2/3.
     K = max(1, int(f.get("select", 1)))
-    # 1) Reuse the pinned (approved) implementation if its spec is unchanged AND it still passes.
-    if pkey in pins and validate(pins[pkey], name, tests, solved_ns):
+    # 1) Reuse the pinned (approved) implementation if its spec is unchanged AND no dependency it references
+    #    was regenerated this run (transitive invalidation — V3 §3) AND it still passes.
+    _dep_stale = bool(_pin_stale_by_deps and pkey in pins and _pin_stale_by_deps(pins[pkey], _fresh_fn_names))
+    if _dep_stale:
+        print(f"  {name:16} pin INVALIDATED — references a dependency regenerated this run; rebuilding")
+    if not _dep_stale and pkey in pins and validate(pins[pkey], name, tests, solved_ns):
         winner, source = pins[pkey], "pinned"
     else:
         candidates = []
@@ -486,6 +528,7 @@ for f in plan.FUNCTIONS:
             source = short
             pins[pkey] = winner          # pin the SELECTED (cleanest) implementation
             _pins_added_this_run.add(pkey)
+            _fresh_fn_names.append(name)  # dirty seed: later pins that reference this name are invalidated
     # FAIL -> analyst improves the spec so THIS model passes (D6/D19); NO model fall-through.
     solved_src[name] = winner
     report.append((name, winner is not None, tries, source))
@@ -792,7 +835,7 @@ if module_ok and _RETIRE and not str(integration).startswith("FAIL"):
 #     gate is RED. Baseline-aware (run_gates protects only the green set; known-open defects allowed). This
 #     is "gate facts" — was-green-now-red is a fact. Env: SKIP_REGRESSION=1, REGRESSION_TIMEOUT, RUN_GATES_PATH.
 regression = "SKIPPED"
-_proj_root = os.path.dirname(os.path.dirname(os.path.abspath(PLAN_PATH)))  # projects/<proj> — plan lives in .../plans/<plan>.py; generic, NOT tied to a product
+_proj_root = os.path.dirname(os.path.dirname(os.path.abspath(PLAN_PATH)))  # projects/<proj> — plan lives in .../plans/<plan>.py; generic, NOT tied to any one project
 _RG = os.environ.get("RUN_GATES_PATH") or os.path.join(_proj_root, "qa", "run_gates.py")
 if module_ok and os.environ.get("SKIP_REGRESSION") != "1" and os.path.exists(_RG):
     try:

@@ -129,7 +129,7 @@ the implementer/analyst endpoints derived from your env).
 $ python lathe.py status
   board:   {'done': 12, 'todo': 0}
   pins:    47 approved impls
-  implementer (127.0.0.1:8090): up
+  implementer (127.0.0.1:8089): up
   analyst (127.0.0.1:8787): up
 ```
 
@@ -185,7 +185,7 @@ $ python lathe.py logs --tail
 ### `lathe agent "<need>" [--spawn]`
 **Load the program.** Match a capability need to the best expert persona — from the **vendored** set or **fetched
 on demand** from a permissively-licensed source — then inject it into whatever endpoint is configured
-(**LLM-independent**: a prior agent / Claude subscription proxy / Claude API / local — a persona is just prompt text).
+(**LLM-independent**: any OpenAI-compatible agent or client / Claude subscription proxy / Claude API / local — a persona is just prompt text).
 `lathe agent "<need>"` reports the best match; `--spawn` fetches it (license-gated) and caches it with attribution.
 The inventory is `projects/agentic-harness/agents/catalog.json`; the decider is harness-built (`tools/agent_router.py`).
 **Compliance:** auto-fetch is gated to permissive licenses (MIT/Apache/BSD/ISC/Unlicense/CC0); anything else
@@ -195,6 +195,20 @@ The inventory is `projects/agentic-harness/agents/catalog.json`; the decider is 
 $ python lathe.py agent "backend api design" --spawn
 best match: backend-architect  [wshobson/agents · MIT]
   SPAWNED: 18356 bytes -> agents/_fetched/backend-architect.md (+ SOURCE attribution). Ready to inject into any endpoint.
+```
+
+### `lathe ack <plan> [--yes]`
+**Gate the analyst's tests** — the asserts define what "correct" means, so they deserve a human read before the
+build certifies them. Shows every function's test set and records an acknowledgement keyed by a **digest of the
+exact tests**; set `LATHE_TEST_ACK=1` and the engine **refuses to build** a plan whose tests are un-acked — and
+because any rewrite (including by the spec-repair loop) changes the digest, silently weakened tests force a
+re-read. Opt-in: without `LATHE_TEST_ACK=1` nothing changes.
+```
+$ python lathe.py ack examples/hello.py --yes
+TESTS UNDER REVIEW — these asserts DEFINE correct behavior for this build:
+  greet:
+      assert greet('Ada') == 'Hello, Ada!'
+acknowledged: hello.py (digest 3f2a91c04b7e...) -> examples/.test_ack.json
 ```
 
 ## Maintenance — keep the tree pristine + file issues

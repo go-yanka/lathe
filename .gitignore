@@ -1,14 +1,25 @@
+# ephemeral runtime state — never versioned
 __pycache__/
 *.pyc
-_fails/
-_itest.py
-_*.tmp
-.DS_Store
-
-# runtime state
-metrics/
+*.pyo
 runs/
-harness.db
+_fn_fails/
+_artifact_fails/
+docs/ce/
+*.tmp
+*.lock
+_wp.txt
+_writeprobe.txt
+RUN_REPORT.md
+tags
+
+# secrets / local env / binaries — never versioned
 *.db
-lathe.config.json
+.env
+oracle-keys/
+node_modules/
+metrics/
 *.db-journal
+lathe.config.json
+**/agents/_fetched/
+**/agents/licenses/

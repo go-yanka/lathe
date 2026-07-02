@@ -4,7 +4,7 @@ This is the **complete, hardened, portable canonical Lathe** (see `VERSION`): al
 dedup/registry/pristine cleanliness suite, and the resume-on-signal capability — fully integrated, 12/12
 selftest, passes its own 4 cleanliness gates, uses **relative paths** so it builds on any install.
 
-Development continues in `<LATHE_ROOT>`; pinned releases are cut here. Projects **vendor** a copy —
+This tree is the single source of truth; pinned releases are cut from it. Projects **vendor** a copy —
 they do **not** fork.
 
 ## The rule: VENDOR, DON'T FORK
@@ -19,9 +19,9 @@ they do **not** fork.
 2. Copy from here into your project root: `engine_v2.py`, `lathe.py`, the `*.md` docs, and the whole
    `projects\agentic-harness\` (all 124 tool modules, all plans, the 5 gates, capabilities.json, a clean
    empty board).
-3. Keep your own product layer untouched (e.g. `projects\your-product\` — plans, product gates, wrappers).
-4. Verify on YOUR machine: `python lathe.py gate` (4 gates pass) and `python lathe.py selftest` (12/12;
-   needs your rig at :8090 + analyst proxy at :8787).
+3. Keep your own product layer untouched (your `projects/<your-product>/` tree — plans, product gates, wrappers).
+4. Verify on YOUR machine: `python lathe.py gate` (all gates pass) and `python lathe.py selftest`
+   (all green; needs your implementer + analyst endpoints up).
 5. Dry-run your existing plans against the stricter validator (literal dicts, string-literal tests,
    identifier names, no f-strings in exec'd fields, import allowlist, >=1 test/function). Update any that
    fail or let the repair loop fix them.

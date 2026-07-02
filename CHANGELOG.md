@@ -2,6 +2,36 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.1.4 — 2026-07-02
+
+The round-6 review's consolidated fix list (§15), closed with claim-level tests. Every fix's decision
+logic was built **through the harness** (implementer: a frontier model this round; the engine is
+model-agnostic).
+
+- **D7 (High) — the decider now auto-fetches a needed-but-absent expert and injects its BODY.**
+  `review auto` and the planner tap the persona catalog; a non-vendored pick is fetched license-gated
+  (harness-built `spawn_candidates`, fail closed) and its full body becomes a review lens (`@<path>`)
+  / planner persona block. Fetch I/O consolidated to one canonical module (`tools/persona_spawn.py`).
+  Standing regression `tools/test_d7_autospawn.py`; proven live end-to-end.
+- **Transitive pin invalidation (V3 §3)** — change function A's spec and dependent B no longer keeps
+  its pin (it was verified against the OLD A: stale-but-green). Deps derive from the pinned code; no
+  pin-format change; conservative and transitive. E2E: `tools/test_pin_deps_e2e.py`.
+- **Test-ack gate (V4 §3 risk 1)** — the analyst's tests were the one ungated artifact. Opt-in
+  (`LATHE_TEST_ACK=1`): the engine refuses to build an un-acknowledged test set; `lathe ack <plan>`
+  records the ack keyed by a digest of the exact tests, so any rewrite (incl. by the repair loop)
+  forces a human re-read.
+- **D8 — matcher understands synonyms/stems**: new `expand_words` (deterministic synonym canon + light
+  stemming); "authentication bug" / "login credentials" now reach the security persona (both verified
+  failing before). Still LLM-independent.
+- **D5b — wrong-200 guard**: a reachable analyst returning well-formed junk is now rejected by content
+  validation and falls to the next backend instead of becoming a silent junk verdict. **D5a** —
+  both-backends-dead fails loud (rc≠0); now covered by `tools/test_analyst_guard_e2e.py`.
+- **Docs**: internal residue purged from every public-shipping doc (DOC_CRITIQUE Finding 1); persona
+  runtime cache untracked (gitignore anchoring bug).
+- Honest note: the gate refused the maintainer's own first D8 spec (a missing synonym + an
+  arithmetically-wrong test) — banked failures showed both; spec sharpened; green. The discipline
+  applies to the maintainer too.
+
 ## v2.1.3 — 2026-07-02
 
 Hardening found by the harness reviewing **its own** recent output (`lathe review auto`, decider-selected lenses).
