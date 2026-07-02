@@ -8,13 +8,12 @@ through the harness itself** (`lathe review` with a vision-capable analyst).
 |---|---|---|
 | `01_build_loop.png` | **How Lathe works** — the pipeline: GOAL → ANALYST (spec+tests) → IMPLEMENTER (code) → GATE (sandbox tests) → PIN; FAIL loops back to "sharpen the spec — never escalate". | ✅ Final (title fixed) |
 | `02_division_of_labor.png` | **Big brain thinks, small brain builds** — analyst (frontier) vs implementer (local by default); model-agnostic ribbon. | ✅ Final (model-agnostic) |
-| `03_strengths.png` | **Why Lathe is trustworthy** — TEST-GATED · PINNED · NO HAND-EDITS · LOCAL OR ANY MODEL · PROVENANCE. | ⚠️ Near-final — pending one text fix (see below) |
+| `03_strengths.png` | **Why Lathe is trustworthy** — TEST-GATED · PINNED · NO HAND-EDITS · LOCAL OR ANY MODEL · PROVENANCE. | ✅ Final (NO HAND-EDITS wording corrected) |
 
-## Known pending fix
-- `03_strengths.png`, **NO HAND-EDITS** row subtext currently reads *"code is a build output — you fix the
-  spec."* This is **inaccurate**: the human supplies requirements/goal; the **higher (analyst) model authors
-  the spec + tests**. Replace with *"code is a build output — regenerated, never hand-patched"* (or
-  *"you refine the goal, the AI re-specs"*). Regenerate before treating this image as final.
+## Pending
+- A determinism deep-dive (`04_determinism.png`) is planned — see the accuracy note below on *how* pinning
+  yields "same spec = same code" (the code is produced by a non-deterministic intermediary model; determinism
+  comes from pinning + reuse, not from the model).
 
 ## Accuracy notes (kept honest on purpose)
 - The mental model across all three: **you → requirements/goal → analyst (higher model) writes spec + tests →
@@ -29,4 +28,4 @@ through the harness itself** (`lathe review` with a vision-capable analyst).
 Generated 2026-07-02. SHA-256 (first 20 hex) at save time:
 - 01_build_loop.png — `82fc5e55ea51cd56c50a`
 - 02_division_of_labor.png — `9067115d0e7082a32b12`
-- 03_strengths.png — `dcb5907fe35ba2c50878`
+- 03_strengths.png — `1f9a70e24f2a1aca31df` (final)
