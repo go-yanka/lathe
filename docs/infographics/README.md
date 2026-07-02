@@ -14,7 +14,7 @@ through the harness itself** (`lathe review` with a vision-capable analyst).
 | `05_capability_map_poster.png` | Poster version of the map: 9 buckets, punchier, Nano Banana. Fewer items, no analyst-status color. | ✅ Final |
 | `06_loop_that_learns.png` | The two-harness feedback loop: analyst writes spec+tests → local model builds → gate → PASS pins/ships, FAIL banks the test and the analyst sharpens the spec. "No escalation." | ✅ Final |
 | `07_clean_tree.png` | Without vs with Lathe: a mess of `util_v2/util_final/util_OLD` the model guesses between, vs one canonical file enforced by the gate (+ `whatis`). "The gate keeps the tree honest." | ✅ Final |
-| `08_fewer_tokens.png` | Dump-the-files (~40k tokens) vs send-the-structure (ctags repo-map, ~2k) + skeleton-fill/complete. "Structure is ~20x cheaper than source." | ✅ (minor: decorative code-map text is placeholder) |
+| `08_fewer_tokens.png` | Dump-the-files (~40k tokens) vs send-the-structure (ctags repo-map, ~2k) + skeleton-fill/complete. "Structure is ~20x cheaper than source." | ✅ Final (code-map text cleaned) |
 | `09_run_anywhere.png` | Three ways to run it: standalone CLI ● · inside your agent via MCP ○ · embedded ●; pluggable analyst + implementer. "Pluggable at both ends." | ✅ Final |
 
 ## How determinism actually works (the point `04_determinism.png` makes explicit)
