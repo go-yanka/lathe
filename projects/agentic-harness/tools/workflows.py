@@ -45,7 +45,7 @@ WORKFLOWS = {
         "desc": "Accept + scope (vendoring boundary) -> build via the harness -> integrate -> review -> document -> release.",
         "steps": [
             ("you",  "Scope it: is this a general HARNESS capability or a PROJECT-specific check? (vendor-don't-fork)", ""),
-            ("you",  "Design: break it into small PURE functions + strong tests (edge cases: empty/None/0/boundary)", ""),
+            ("you",  "Design: small PURE functions + strong tests. Declare required test KINDS per function (e.g. 'kinds': ['property','edge']) — an enhancement invariant needs a PROPERTY test; under STRICT (LATHE_TEST_KIND=1) a unit missing a declared kind is refused", ""),
             ("auto", "Build it THROUGH the harness under STRICT mode — criteria declared, tests acked, stub-proof, change-proof (LATHE_STRICT=1)", "build {plan}"),
             ("auto", "Confirm the tests pin behavior", "lint-spec {plan}"),
             ("gate", "Integrate + verify the whole tree", ""),

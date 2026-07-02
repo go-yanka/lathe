@@ -520,6 +520,19 @@ except Exception:
     _mut_equiv = None
 _mutation_unmeasured = []                # E1: functions the mutation gate could not measure (no mutable nodes)
 
+# TEST-KIND GATE (enforcement mechanism #5 — required KIND of test per contract): comprehensiveness is not
+# just mutant-kill count, it's whether the RIGHT SHAPE of test exists. A function may declare `kinds`
+# (e.g. ["property","edge"]) or the plan a default `TEST_KINDS`; under LATHE_TEST_KIND=1 (forced by STRICT)
+# a unit whose declared kinds aren't all present in its tests is refused. Detection is structural (no model).
+_detect_kinds, _kind_gaps = None, None
+try:
+    _tk = importlib.util.spec_from_file_location("test_kind", os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "test_kind.py"))
+    _tkm = importlib.util.module_from_spec(_tk); _tk.loader.exec_module(_tkm)
+    _detect_kinds, _kind_gaps = _tkm.detect_kinds, _tkm.kind_gaps
+except Exception:
+    pass                                 # module absent -> legacy behavior (gate is opt-in anyway)
+
 # FAILURE-AS-ASSET for FUNCTIONS (mirrors the artifact preservation below): a failed candidate and
 # the EXACT failing test are banked to disk so the analyst can sharpen the spec from real feedback.
 _FN_FAILDIR = os.path.join(_pre_out, "_fn_fails")
@@ -566,6 +579,16 @@ for f in plan.FUNCTIONS:
     # Opt-in quality selection (D28): collect K passing candidates, judge-pick the cleanest.
     # K defaults to 1 -> classic first-pass. The analyst marks complex functions with "select": 2/3.
     K = max(1, int(f.get("select", 1)))
+    # TEST-KIND GATE (#5): before spending a token, if this unit declares required test KINDS (or the plan
+    # sets TEST_KINDS), refuse when the tests don't contain them (structural, no model call).
+    if _kind_gaps is not None:
+        _req = f.get("kinds") or getattr(plan, "TEST_KINDS", None)
+        _kg = _kind_gaps(os.environ.get("LATHE_TEST_KIND"), _req, _detect_kinds(tests) if _detect_kinds else set())
+        if _kg:
+            print(f"  {name:16} TEST-KIND GATE — {'; '.join(_kg)}")
+            solved_src[name] = None
+            report.append((name, False, 0, None))
+            continue
     # 1) Reuse the pinned (approved) implementation if its spec is unchanged AND no dependency it references
     #    was regenerated this run (transitive invalidation — V3 §3) AND it still passes.
     _dep_stale = bool(_pin_stale_by_deps and pkey in pins and _pin_stale_by_deps(pins[pkey], _fresh_fn_names))

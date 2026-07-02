@@ -41,6 +41,12 @@ blocked. A function with **no mutable nodes** is reported `unmeasurable` (a ledg
 passed. Scope, stated honestly: this is a bounded tripwire for vacuous tests (a small operator set, capped
 per function via `LATHE_MUTATION_LIMIT`), **not** exhaustive mutation coverage.
 
+**Required test-KIND per contract (`LATHE_TEST_KIND=1`, forced by STRICT):** comprehensiveness isn't only
+"how many mutants die" — it's whether the *right shape* of test exists. A function may declare
+`'kinds': ['property', 'edge']` (or the plan a default `TEST_KINDS`); when armed, a unit whose tests don't
+contain its declared kinds is **refused** (kinds are detected structurally — property/roundtrip/edge/error/
+example — no model call). The `enhancement` workflow asks you to declare a **property** test per invariant.
+
 **Gate the glue (`LATHE_GATE_GLUE=1`, forced by STRICT):** `GLUE` is the architect's hand-written wiring
 appended after the gated functions — the most bug-prone part, otherwise shipped unverified. When armed, a
 plan whose substantive GLUE (more than `LATHE_GLUE_MAX`, default 2 lines) has no `INTEGRATION` block is

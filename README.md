@@ -134,6 +134,9 @@ so it's model- and host-agnostic and drops into several setups:
 - **A change must prove itself** — with `LATHE_REGRESSION_PROOF=1`, a changed function (bug fix *or*
   enhancement) whose new tests all pass on the *old* accepted implementation is **refused before a single
   generation token is spent**: nothing demonstrates the new behavior, so a green rebuild would prove nothing.
+- **Required test-kind per contract** — with `LATHE_TEST_KIND=1` (forced by STRICT), a function can declare
+  the *kinds* of test it needs (`'kinds': ['property', 'edge']`); a unit whose tests lack a declared kind is
+  **refused** — so an enhancement's invariant must ship a property test, not just an example.
 - **Gate the glue** — with `LATHE_GATE_GLUE=1` (forced by STRICT), substantive hand-written `GLUE` wiring
   must be exercised by an `INTEGRATION` test or the build is **refused** — this is what lets the harness say
   *no code* ships untested, not just *no function*.
@@ -155,7 +158,7 @@ so it's model- and host-agnostic and drops into several setups:
 - [SECURITY.md](SECURITY.md) — the threat model and isolation tiers
 - [DATA_QUALITY.md](DATA_QUALITY.md) — gating "unit-green but wrong on real data"
 - [VENDORING.md](VENDORING.md) — one canonical copy; projects vendor, don't fork
-- [CHANGELOG.md](CHANGELOG.md) — release notes (current: v2.2.3)
+- [CHANGELOG.md](CHANGELOG.md) — release notes (current: v2.2.4)
 - [PERSONAS.md](PERSONAS.md) — the expert market: sources, the decider pipeline, ratings, your controls
 - [REPRODUCIBILITY.md](REPRODUCIBILITY.md) — what's guaranteed (pinned rebuilds) vs what isn't (regeneration), measured
 - [BENCHMARK.md](BENCHMARK.md) — an honest (warts-included) benchmark vs Aider/raw-Claude

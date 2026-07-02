@@ -2,6 +2,17 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.2.4 — 2026-07-02
+
+Enforcement mechanism **#5 — required KIND of test per contract**. This completes the reviewer's 6/6 stack.
+- A function may declare `'kinds': ['property', 'edge', ...]` (or the plan a default `TEST_KINDS`); under
+  `LATHE_TEST_KIND=1` (forced by STRICT) a unit whose tests don't contain its declared kinds is **refused**,
+  before any generation. Kinds (property / roundtrip / edge / error / example) are detected structurally,
+  no model call (`tools/test_kind.py`). The `enhancement` workflow now asks for a property test per invariant.
+- Acceptance `review_tests/test_test_kind.py` ALL PASS; STRICT composes it alongside the other five.
+- Persona buckets: attempted a token-aware refinement, it regressed (over-matched `language`) and my tests
+  were too weak to catch it — reverted to the better substring bucketer. Buckets remain heuristic/advisory.
+
 ## v2.2.3 — 2026-07-02
 
 Enforcement mechanism **#6 — gate the glue** (the last honest gap), plus a doc-integrity fix.

@@ -2,30 +2,30 @@
 
 
 def strict_defaults(env_value, existing):
-    try:
-        if not isinstance(env_value, str):
-            return []
-        if env_value.strip().lower() not in ('1', 'true', 'yes', 'on'):
-            return []
-        defaults = [
-            ['LATHE_TEST_ACK', '1'],
-            ['LATHE_REGRESSION_PROOF', '1'],
-            ['LATHE_LINT_SPEC', 'block'],
-            ['LATHE_MUTATION_SCORE', '0.5'],
-            ['LATHE_GATE_GLUE', '1'],
-        ]
-        result = []
-        for key, value in defaults:
+    if not isinstance(env_value, str):
+        return []
+    if env_value.strip().lower() not in ('1', 'true', 'yes', 'on'):
+        return []
+    defaults = [
+        ['LATHE_TEST_ACK', '1'],
+        ['LATHE_REGRESSION_PROOF', '1'],
+        ['LATHE_LINT_SPEC', 'block'],
+        ['LATHE_MUTATION_SCORE', '0.5'],
+        ['LATHE_GATE_GLUE', '1'],
+        ['LATHE_TEST_KIND', '1'],
+    ]
+    result = []
+    for key, value in defaults:
+        current = None
+        if isinstance(existing, dict):
             try:
-                current = existing.get(key) if isinstance(existing, dict) else None
+                current = existing.get(key)
             except Exception:
                 current = None
-            if isinstance(current, str) and current.strip():
-                continue
-            result.append([key, value])
-        return result
-    except Exception:
-        return []
+        if isinstance(current, str) and current != '':
+            continue
+        result.append([key, value])
+    return result
 
 def strict_plan_gaps(env_value, has_functions, criteria, has_artifacts):
     if not isinstance(env_value, str):

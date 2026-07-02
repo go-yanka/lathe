@@ -18,18 +18,18 @@ FUNCTIONS = [
                 "env vars strict mode turns on. If env_value is None, not a str, or its stripped lowercased form "
                 "is NOT one of '1','true','yes','on' -> return [] (strict off). Otherwise return the [key, value] "
                 "pairs among [['LATHE_TEST_ACK','1'], ['LATHE_REGRESSION_PROOF','1'], ['LATHE_LINT_SPEC','block'], "
-                "['LATHE_MUTATION_SCORE','0.5'], ['LATHE_GATE_GLUE','1']] "
+                "['LATHE_MUTATION_SCORE','0.5'], ['LATHE_GATE_GLUE','1'], ['LATHE_TEST_KIND','1']] "
                 "for which `existing` (a dict or None) does NOT already carry a non-empty string value for that "
                 "key — an explicit user setting always wins over the umbrella. Preserve that exact order. Never "
                 "raise." + "\n" + _ONLY),
      "tests": [
         "assert strict_defaults(None, {}) == []",
         "assert strict_defaults('0', {}) == []",
-        "assert strict_defaults('1', {}) == [['LATHE_TEST_ACK','1'],['LATHE_REGRESSION_PROOF','1'],['LATHE_LINT_SPEC','block'],['LATHE_MUTATION_SCORE','0.5'],['LATHE_GATE_GLUE','1']]",
-        "assert strict_defaults('1', None) == [['LATHE_TEST_ACK','1'],['LATHE_REGRESSION_PROOF','1'],['LATHE_LINT_SPEC','block'],['LATHE_MUTATION_SCORE','0.5'],['LATHE_GATE_GLUE','1']]",
-        "assert strict_defaults('1', {'LATHE_LINT_SPEC': 'warn'}) == [['LATHE_TEST_ACK','1'],['LATHE_REGRESSION_PROOF','1'],['LATHE_MUTATION_SCORE','0.5'],['LATHE_GATE_GLUE','1']]",
-        "assert strict_defaults('1', {'LATHE_TEST_ACK': ''}) == [['LATHE_TEST_ACK','1'],['LATHE_REGRESSION_PROOF','1'],['LATHE_LINT_SPEC','block'],['LATHE_MUTATION_SCORE','0.5'],['LATHE_GATE_GLUE','1']]",
-        "assert strict_defaults(' TRUE ', {'LATHE_TEST_ACK':'1','LATHE_REGRESSION_PROOF':'1','LATHE_LINT_SPEC':'block','LATHE_MUTATION_SCORE':'0.5','LATHE_GATE_GLUE':'1'}) == []",
+        "assert strict_defaults('1', {}) == [['LATHE_TEST_ACK','1'],['LATHE_REGRESSION_PROOF','1'],['LATHE_LINT_SPEC','block'],['LATHE_MUTATION_SCORE','0.5'],['LATHE_GATE_GLUE','1'],['LATHE_TEST_KIND','1']]",
+        "assert strict_defaults('1', None) == [['LATHE_TEST_ACK','1'],['LATHE_REGRESSION_PROOF','1'],['LATHE_LINT_SPEC','block'],['LATHE_MUTATION_SCORE','0.5'],['LATHE_GATE_GLUE','1'],['LATHE_TEST_KIND','1']]",
+        "assert strict_defaults('1', {'LATHE_LINT_SPEC': 'warn'}) == [['LATHE_TEST_ACK','1'],['LATHE_REGRESSION_PROOF','1'],['LATHE_MUTATION_SCORE','0.5'],['LATHE_GATE_GLUE','1'],['LATHE_TEST_KIND','1']]",
+        "assert strict_defaults('1', {'LATHE_TEST_ACK': ''}) == [['LATHE_TEST_ACK','1'],['LATHE_REGRESSION_PROOF','1'],['LATHE_LINT_SPEC','block'],['LATHE_MUTATION_SCORE','0.5'],['LATHE_GATE_GLUE','1'],['LATHE_TEST_KIND','1']]",
+        "assert strict_defaults(' TRUE ', {'LATHE_TEST_ACK':'1','LATHE_REGRESSION_PROOF':'1','LATHE_LINT_SPEC':'block','LATHE_MUTATION_SCORE':'0.5','LATHE_GATE_GLUE':'1','LATHE_TEST_KIND':'1'}) == []",
      ]},
     {"name": "strict_plan_gaps",
      "prompt": ("Write strict_plan_gaps(env_value, has_functions, criteria, has_artifacts) -> list of problem "
