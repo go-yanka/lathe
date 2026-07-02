@@ -90,8 +90,17 @@ Four artifacts, four rules.
    This looks like cost dogma; it's actually a clarity mechanism. A weak implementer is a spec linter: a
    frontier model papers over ambiguity by guessing well, a small one exposes it. Specs that survive this
    loop are unambiguous — to models and to the humans who read them later.
-3. **The tests are the contract.** A function is done when its asserts pass in the sandbox, and a spec is
-   suspect if a trivial stub can pass its tests (a mutation probe checks exactly that).
+3. **The tests are the contract — and the process, not the model, decides how thorough they are.** A
+   function is done when its asserts pass in the sandbox. Beyond that floor, a set of gates you can switch on
+   (`LATHE_STRICT=1` composes them) move testing thoroughness from discretion to enforcement: every declared
+   acceptance criterion must map to a named test (traceability, with `lathe trace` emitting the
+   requirement→test→pin→model matrix); a bug fix must ship a test that *fails on the old code* before it's
+   accepted (regression-proof); and accepted code is mutated and rejected if the suite can't tell the real
+   thing from a broken copy (mutation-score). Stated against interest: the mutation gate is a **bounded
+   tripwire for vacuous tests** — a small operator set, capped per function, equivalent mutants excluded so it
+   never false-blocks correct code — *not* exhaustive coverage, and it measures one gated function's test
+   adequacy, not the whole system. Glue stays hand-written and ungated. So: *the code Lathe gates is
+   comprehensively tested by construction* — not *your whole system is.*
 4. **The tree stays pristine.** One canonical implementation per capability, no stale copies, no dupes —
    enforced by gates that fail the build, not by convention. An agent (or a new hire) reading this tree
    never has to guess which of three `util.py`s is real.

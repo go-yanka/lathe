@@ -17,6 +17,15 @@ which every working dev knows — not on obscure 1980s methods. See `GRAPHIC11_F
 
 **One-liner:** Stop chatting with the AI. Build with it.
 
+**Now sayable (as of v2.2.1 — verified, cleared in `METHODOLOGY_ENFORCEMENT_VALIDATION.md`):** *test
+comprehensiveness is measured and gated, not assumed.* Three enforcement gates — requirement→test
+traceability, a bug fix must ship a test that fails on the old code, and a mutation-score that rejects a
+suite that can't tell the code from a broken copy — composed by `LATHE_STRICT=1`. **Mandatory scope clause,
+always attach it:** the mutation gate is *"a bounded tripwire for vacuous tests (small operator set, capped
+per function, equivalent mutants excluded), not exhaustive coverage"*, and it gates *each function, not your
+whole system* (glue stays ungated). Say "the code Lathe gates is comprehensively tested," never "your whole
+system is."
+
 **Tagline bank** (pick per surface, don't use all):
 - You'd never hand-patch a compiler's output. Hold AI code to the same contract.
 - The discipline you already believe in — enforced.

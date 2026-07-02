@@ -171,7 +171,24 @@ composition), so the SDLC claim covers the gated leaf-function core, not glue/en
 - The remaining honest limits to preserve in copy: #4 is a human-ack (not a second independent test-author),
   #5 (required kind of test) and #6 (glue/entry-point coverage) are open. So: never "your whole system is
   comprehensively tested"; always "the code Lathe gates is." Keep "function", not "anything," for glue.
-- **Action item for the docs:** `WHITEPAPER_DRAFT.md` §3 and `MARKETING_SALES_KIT.md` were written to the
-  *enforcement-floor* ceiling and can now be upgraded to the scoped-comprehensiveness wording above — but that
-  edit should itself be reviewed against this gate before publishing (don't let "measured comprehensiveness"
-  silently become "complete coverage").
+- **Action item for the docs — DONE (2026-07-02).** `WHITEPAPER_DRAFT.md` §4 (rule 3) and
+  `MARKETING_SALES_KIT.md` §1 have been upgraded to the scoped-comprehensiveness wording, each carrying the
+  mandatory tripwire + per-function scope clauses. A new launch article `docs/INTRODUCING_LATHE.md` states the
+  same claim at the same scope. If any future copy drops the scope clauses, that's a regression against this
+  gate.
+
+## Maintainer-LLM action items (accepted by the owner 2026-07-02)
+The owner has accepted the review's outstanding recommendations. For the agent picking up work on `main`:
+1. **Comprehensiveness copy is now LIVE and cleared** — whitepaper/kit/article carry it *with* the two scope
+   clauses (bounded tripwire, per-function-not-whole-system). Keep those clauses on any new marketing surface.
+   Don't restate comprehensiveness without them.
+2. **README / docs entry-point cleanup — accepted, pending.** Per `DOC_CRITIQUE.md`: purge internal-agent
+   residue, give the docs a single entry point, and move the review/strategy docs under `docs/`. This is a
+   `main`-side change (the review branch can't restructure the shipped README for you). Treat `DOC_CRITIQUE.md`
+   as the spec.
+3. **Remaining methodology mechanisms — still open, unchanged priority:** #5 kind-of-test per contract, #6
+   gate-the-glue. When either lands with its acceptance test, the review will reproduce it before any doc
+   claims it (same loop as #1/#2/#3). Until #6 lands, "function" not "anything/whole system" stays in all copy.
+4. **Two items remain maintainer-verified, not reviewer-run** (sandbox-blocked here): live GitHub persona
+   auto-fetch and the `ornith-9b` benchmark. If you want them promoted from ○/"reported" to ✅ in the reports,
+   the review needs a reproducible harness it can run without `api.github.com` / your specific model.
