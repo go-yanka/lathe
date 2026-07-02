@@ -7,9 +7,9 @@ This is Lathe's own doctrine — nothing ships unproven — applied to Lathe's m
 
 Method: empirical. Security battery (`review_tests/battery_security.py`, 35/35), a direct validator call,
 and a source grep across `engine_v2.py` + `tools/` + `qa/`. Verified 2026-07-02 at v2.1.3; the build-spec
-status column re-verified against **v2.1.4** the same day (test-ack gate independently reproduced on the
-rebased branch). Cross-checked by a Fable pressure-test (`GRAPHIC11_FACTCHECK.md` sibling analysis, recorded
-in the commit).
+status column re-verified against **v2.1.4** and again **v2.1.5** the same day (test-ack gate and the #2
+traceability acceptance test both independently reproduced — v2.1.5 in a fresh worktree, 12/12).
+Cross-checked by a Fable pressure-test (`GRAPHIC11_FACTCHECK.md` sibling analysis, recorded in the commit).
 
 ## What IS enforced today (the floor — verified, claimable now)
 | Mechanism | Enforced? | Evidence |
@@ -52,22 +52,29 @@ produce *anything* without testing" (glue is ungated → say *function*, not *an
 Ordered by leverage. **A mechanism is not "done" — and its claim is not marketable — until its acceptance
 test passes.** Add each acceptance test to `review_tests/` so the claim can't silently regress.
 
-**v2.1.4 status legend:** ❌ open · ⚠️ partial · ✅ done+accepted. Per-mechanism status added 2026-07-02
+**Status legend:** ❌ open · ⚠️ partial · ✅ done+accepted. Per-mechanism status added 2026-07-02
 after independently verifying v2.1.4 on the rebased branch (D7 auto-fetch, D5a/D5b analyst guards, D8
-synonyms, and the test-ack gate all PASS locally; transitive-pin invalidation and the ornith-9b benchmark
-are maintainer-reported, not independently reproduced — `api.github.com` 403 in this sandbox).
+synonyms, and the test-ack gate all PASS locally). **Updated for v2.1.5** the same day: mechanism #2
+(traceability) landed and was **independently reproduced** here — `review_tests/test_traceability.py`
+**12/12** against the v2.1.5 validator, including step 4's real gated build + the pin→model matrix (I stood
+up a local implementer stub; enforcement steps 1–3 are endpoint-independent). Transitive-pin invalidation
+and the ornith-9b benchmark, previously maintainer-reported, are now maintainer-reproduced on their machine
+(I remain sandbox-blocked on `api.github.com`, so those two stay *maintainer-verified, not reviewer-run*).
 
 1. ❌ **Regression-test-must-fail-on-old-code (bug-fix).** *Open — unchanged by v2.1.4.* Highest leverage,
    cheapest, fully structural.
    Build: in the bug-fix path, run the new test against the *pre-fix* implementation; require it to FAIL,
    then pass post-fix. Acceptance test: a scratch plan where the new assert passes on old code is REFUSED.
    Claim it unlocks: "a bug fix is not accepted unless it comes with a test that reproduces the bug."
-2. ❌ **Requirement→test traceability, enforced.** *Open — this is the maintainer's highest-leverage next
-   queued item (`lathe trace`); nothing enforces it yet.* Build: plan/contract declares acceptance criteria;
-   validator refuses a plan with any criterion not mapped to ≥1 named test. Acceptance test: a plan with an
-   unmapped criterion is refused; `lathe trace` emits the criterion→test→pin→model matrix. Claim: "every
-   requirement is covered by a named test, by construction." (This is also the compliance artifact — §6.1 of
-   strategy.)
+2. ✅ **Requirement→test traceability, enforced.** *DONE+ACCEPTED in v2.1.5 — independently reproduced here
+   (`test_traceability.py` 12/12).* Plans may declare `CRITERIA = [{'id','text','tests': ['fn'|'fn:idx']}]`;
+   the closed-rule AST-literal validator **refuses** an unmapped criterion, a dangling fn ref, an
+   out-of-range test index, or a duplicate id — and criteria-free plans stay valid (opt-in, backward
+   compatible). `lathe trace <plan>` emits the criterion→test→**pin→model** matrix (verified: real pin hash,
+   model column, coverage summary on a live gated build). Claim now marketable, honestly scoped: "every
+   **declared** acceptance criterion is covered by a named test, by construction" — *declared*, because
+   nothing forces a plan to declare criteria yet (that's the gap between this and full comprehensiveness).
+   This is also the compliance artifact — §6.1 of strategy.
 3. ❌ **Real mutation-score threshold.** *Open — v2.1.4 still ships only the single-stub `spec_lint` probe,
    not a scored mutation pass.* Build: generate mutants of the accepted impl; require the suite to
    kill ≥X%. Acceptance test: a suite that passes but kills <X% of mutants BLOCKS the build. Claim:
@@ -90,10 +97,12 @@ are maintainer-reported, not independently reproduced — `api.github.com` 403 i
    test; until then, drop "anything" from all copy. Acceptance test: a module whose GLUE entry point has no
    integration test is flagged.
 
-**Scorecard for the maintainer LLM:** 0/6 fully done, 1/6 partial (#4 oracle, via test-ack). The
-comprehensiveness claim still cannot ship. Next-in-line by leverage: **#2 traceability (`lathe trace`)**,
-then #1 regression-fails-on-old-code, then #3 mutation-score. Marketing stays on the *enforcement floor*
-wording until #1–#3 land their acceptance tests green.
+**Scorecard for the maintainer LLM (as of v2.1.5):** **1/6 done** (#2 traceability), **1/6 partial**
+(#4 oracle, via test-ack), 4/6 open. The full comprehensiveness claim still cannot ship — it hinges on
+**#3 mutation-score**, which is the mechanism that actually earns the word "comprehensiveness," and #1.
+Next-in-line by leverage: **#1 regression-must-fail-on-old-code** (cheapest, fully structural), then
+**#3 mutation-score threshold**. Marketing may now add the *declared-criterion traceability* claim (#2 is
+verified) but stays off "comprehensiveness" until #1 and #3 land their acceptance tests green.
 
 ## Go-forward gate (the reflexive rule)
 - Ship the **floor** claim now (it's verified above).

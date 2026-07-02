@@ -634,6 +634,18 @@ this publish call, especially 14d item 1, before it drives a launch decision.*
 > verifiable here** (need a local model): transitive pin invalidation (`test_pin_deps_e2e.py`) and the
 > `ornith-1.0-9b-Q4` hard-set benchmark — recorded as maintainer-reported. The list below is the historical
 > record.
+>
+> **UPDATE — v2.1.5 (`0c62570`): methodology mechanism #2 (requirement→test traceability) landed, and I
+> independently reproduced it.** `review_tests/test_traceability.py` runs **12/12** against the v2.1.5
+> validator in a fresh worktree — the enforcement half (unmapped criterion / dangling ref / out-of-range
+> index / duplicate id all REFUSED; criteria-free plans still valid) is endpoint-independent, and I drove
+> step 4's real gated build with a local implementer stub to confirm `lathe trace` emits the actual
+> criterion→test→**pin→model** matrix (real pin hash `8c09…`, model column, coverage summary). This is the
+> first of the six comprehensiveness mechanisms in `METHODOLOGY_ENFORCEMENT_VALIDATION.md` to reach
+> done+accepted (scorecard now 1/6 done, 1/6 partial). The maintainer also reports having reproduced the two
+> items I was sandbox-blocked on (transitive-pin invalidation; ornith-9b at 7/8 this run — honest
+> regeneration variance vs the deterministic 8/8 pinned replay) — those remain *maintainer-verified, not
+> reviewer-run* here.
 
 Everything below is currently **not working as one would expect it to**, verified against the shipped tree.
 Grouped here so it can be fixed in one pass. D7–D8 are new from the persona/capability investigation
