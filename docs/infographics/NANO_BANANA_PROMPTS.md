@@ -115,6 +115,26 @@ Footer ribbon: "good practice runs on willpower — and willpower loses to deadl
 Every claim here is a practice a working dev used in 2000–2020 — no obscure history, no false universal
 claim.*
 
+### 12 — "Works with the stack you already have" (compatibility / interop; 16:9) — GENERATED & FINAL
+*File: `12_works_with_your_stack.png`. The adoption-forward interop story — pluggable at BOTH ends × runs
+anywhere. Stronger than #9 for "it fits what I already run." **Honesty checks that passed on the render:**
+MCP badged ○ (available, NOT ●); Hermes framed as an EXAMPLE open model (Hermes · Qwen · Llama), not a
+named Lathe integration — the code names only Ollama / llama.cpp / vLLM / LM Studio + any OpenAI-compatible
+endpoint.*
+```
+[style guide]. Title: "Works with the stack you already have". Subtitle: "pluggable at both ends · runs
+anywhere · bring your own models". Center: a rounded teal core box "LATHE" with "spec → gate → pin" under
+it; an arrow IN from the left, OUT to the right. LEFT, header "THINKING END" + brain icon, a card:
+"Claude" / "any OpenAI-compatible endpoint" / "or a human"; caption "the analyst writes spec + tests".
+RIGHT, header "BUILDING END" + chip icon, a card: "local open models — Hermes · Qwen · Llama" / "via
+Ollama · llama.cpp · vLLM · LM Studio" / "or Claude"; caption "the implementer writes the code". BOTTOM:
+three equal cards "RUN IT" each with icon + bold label + one detail + status dot — ● "STANDALONE" "its own
+CLI + chat REPL"; ○ "INSIDE YOUR AGENT" "MCP tool in Claude Code, Cursor, Copilot"; ● "EMBEDDED" "import
+the engine". Legend "● live  ○ available". Footer ribbon: "bring your own models at both ends — Lathe is
+the gate in the middle".
+```
+*Status: standalone ● , MCP ○ , embedded ● . Hermes = illustrative open model, not a special connector.*
+
 ---
 
 ## Recommended order to generate
