@@ -13,6 +13,7 @@ through the harness itself** (`lathe review` with a vision-capable analyst).
 | `00_capability_map.svg` (+ `.png` render) | Full capability map: 11 buckets (A–K), ~60 capabilities, exact text, status dots (green=live, amber=available, purple=analyst), bold=flagship. Hand-rendered SVG, not model-generated. | ✅ Final |
 | `05_capability_map_poster.png` | Poster version of the map: 9 buckets, punchier, Nano Banana. Fewer items, no analyst-status color. | ✅ Final |
 | `06_loop_that_learns.png` | The two-harness feedback loop: analyst writes spec+tests → local model builds → gate → PASS pins/ships, FAIL banks the test and the analyst sharpens the spec. "No escalation." | ✅ Final |
+| `07_clean_tree.png` | Without vs with Lathe: a mess of `util_v2/util_final/util_OLD` the model guesses between, vs one canonical file enforced by the gate (+ `whatis`). "The gate keeps the tree honest." | ✅ Final |
 
 ## How determinism actually works (the point `04_determinism.png` makes explicit)
 "Same spec = same code, every time" is an outcome of **pinning**, not of deterministic generation. The
