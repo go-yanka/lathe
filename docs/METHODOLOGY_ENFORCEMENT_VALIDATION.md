@@ -1,5 +1,24 @@
 # Methodology-enforcement: what's real, what to build before we claim it
 
+> ## ✅ UPDATE — v2.4.0: the enforcement stack is now **6/6**, and a front-end (`lathe clarify`) landed.
+> Reproduced on the rebased branch (2026-07-02):
+> - **#5 required test-KIND per contract** (`LATHE_TEST_KIND=1`, STRICT-forced) — `test_test_kind.py` ALL
+>   PASS + kind-detection pure logic verified. A unit whose tests lack its declared kinds (property / edge /
+>   roundtrip / error) is refused before generation. **Property tests are now a *requirable* kind — no longer
+>   "roadmap, not shipped."**
+> - **#6 gate-the-glue** (`LATHE_GATE_GLUE=1`, STRICT-forced) — `test_glue_gate.py` ALL PASS. Substantive
+>   `GLUE` must be exercised by an `INTEGRATION` test or the build is refused. **This retires the "function,
+>   not anything" qualifier: under STRICT, no *code* ships untested — not just no function.**
+> - **NEW front-end — requirements liaison (`lathe clarify`, v2.3.0; options v2.4.0)** — `test_clarify.py`
+>   ALL PASS + 8/8 pure logic (incl. `parse_options`). It interrogates the goal for ambiguity *before* the
+>   harness thinks (step 0 of `sdlc`), writing `CLARIFIED_GOAL.md` with testable acceptance criteria. **This
+>   is the front-end answer to the "garbage-in at the spec level" objection two external reviewers raised.**
+>
+> **Scorecard: 6/6 done + STRICT umbrella + clarify front-end.** Honest scope now updated below: the
+> comprehensiveness claim is materially stronger, but keep the residual caveats (glue-gate is test-*existence*
+> for glue, not per-function mutation rigor; mutation is still a bounded tripwire; the liaison reduces spec
+> ambiguity, it doesn't guarantee the user's answers are right).
+
 **The rule this document exists to hold:** we do not market a claim the harness can't back. The positioning
 thesis is "Lathe enforces a proven methodology, so the *kind and comprehensiveness* of testing come from the
 process, not the model's discretion." Before that goes in a whitepaper, it gets validated against the code.
@@ -49,17 +68,25 @@ is exercised — everything else is now gated.
 that writes the code (mitigated, not eliminated, by test-ack #4-partial and by mutation-score forcing the
 suite to actually discriminate); and *glue* code past the leaf-function core is not coverage-gated (#6).
 
-## The claim, honestly scoped for right now (v2.2.0)
+## The claim, honestly scoped (UPDATED v2.4.0 — 6/6)
+CAN say (all verified): all the v2.2.0 claims below, **plus** — under STRICT — "**no code ships untested**,
+not just no function" (#6 gate-the-glue: substantive glue needs an integration test or the build refuses);
+"the **kind** of test is enforced per contract — a declared property/edge/error test that's missing is
+refused" (#5); and "ambiguity in the goal is **interrogated up front** — `lathe clarify` produces testable
+acceptance criteria before the harness builds" (requirements liaison). Property-based tests are now a
+*requirable kind*, so the earlier "property tests are roadmap-only" caveat is retired.
+Still CANNOT over-say: glue-gate is test-*existence* for glue (an integration test must exist), **not**
+per-function mutation-gated rigor — so "no code ships untested" is honest, but "your whole system is
+*comprehensively* tested" is not; mutation-score remains a bounded tripwire; #4 is a human-ack, not a second
+independent model author; and `clarify` reduces goal ambiguity — it does not guarantee the human's answers
+are correct (garbage-in is *surfaced and structured*, not eliminated).
+
+### The v2.2.0 baseline (historical — superseded by the 6/6 update above)
 CAN say (all verified): "Lathe won't ship a *function* that isn't proven by passing, non-trivial tests —
 enforced, no override"; "test **comprehensiveness is measured and gated** — a suite that can't kill the
 accepted code's mutants doesn't pin" (#3); "every **declared** acceptance criterion is covered by a named
 test, by construction" (#2); "a change ships no fix without a test that reproduces the bug" (#1); and under
 STRICT, "the SDLC process is enforced by the build, not left to discipline" — for the gates that exist.
-CANNOT say (still): "your **whole system** is comprehensively tested" (comprehensiveness is measured
-per-gated-function under a bounded mutation-operator set, not whole-program — #5 kind-of-test and #6 glue
-coverage remain open); "cannot produce *anything* without testing" (glue is ungated → say *function*, not
-*anything*); and don't imply the tests have a fully independent author yet (#4 is a human-ack, not a second
-model).
 
 ## Build spec — make the full claim true, each with its own acceptance test
 Ordered by leverage. **A mechanism is not "done" — and its claim is not marketable — until its acceptance
@@ -130,9 +157,11 @@ and the ornith-9b benchmark, previously maintainer-reported, are now maintainer-
    test; until then, drop "anything" from all copy. Acceptance test: a module whose GLUE entry point has no
    integration test is flagged.
 
-**Scorecard for the maintainer LLM (as of v2.2.0):** **3/6 done** (#1 regression-proof, #2 traceability,
-#3 mutation-score), **1/6 partial** (#4 oracle, via test-ack), **2/6 open** (#5 kind-of-test, #6
-gate-the-glue). All three done mechanisms independently reproduced here (#3: 9/9 acceptance + 17/17 pure
+**Scorecard (UPDATED v2.4.0): 6/6 DONE** — #1 regression-proof, #2 traceability, #3 mutation-score,
+**#5 required test-kind (v2.2.4)**, **#6 gate-the-glue (v2.2.3)**, plus #4 (oracle) still *partial* via
+test-ack, all composed by STRICT — and a new front-end, `lathe clarify` (requirements liaison). Superseding
+note — the historical scorecard below read *(as of v2.2.0):* **3/6 done** (#1, #2, #3),
+**1/6 partial** (#4), **2/6 open** (#5, #6). All three done mechanisms independently reproduced here (#3: 9/9 acceptance + 17/17 pure
 logic incl. every fail-closed case). **The "comprehensiveness" claim is now UNLOCKED — scoped.** Marketing
 may say *test comprehensiveness is measured and gated (mutation-score), every declared criterion is covered
 by a named test, and a change ships no fix without a reproducing test* — all verified. The remaining honest

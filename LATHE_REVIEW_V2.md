@@ -795,6 +795,16 @@ the commit history alongside this file.
 
 ## 16. v2.2.0 edge-case findings — the mutation-score gate (adversarial pass)
 
+> **UPDATE — v2.4.0: enforcement stack now 6/6, and a front-end (`lathe clarify`) landed. All reproduced.**
+> #5 required test-kind (`test_test_kind.py` ALL PASS) and #6 gate-the-glue (`test_glue_gate.py` ALL PASS)
+> close the last two mechanisms; #6 retires the "function, not anything" qualifier (under STRICT no *code*
+> ships untested). The **requirements liaison** (`lathe clarify`, v2.3.0; selectable options v2.4.0 —
+> `test_clarify.py` ALL PASS + 8/8 pure logic) interrogates a goal's ambiguity *before* the harness builds
+> and writes `CLARIFIED_GOAL.md` with testable acceptance criteria — the front-end answer to the "garbage-in
+> at the spec level" objection two external reviewers raised. Property tests are now a *requirable* kind (#5),
+> so the earlier "roadmap-only" caveat is retired. Full scope + honest residual caveats in
+> `docs/METHODOLOGY_ENFORCEMENT_VALIDATION.md`.
+
 > **RESOLVED — v2.2.1 (`915c3eb`): all four (E1–E4) fixed, and I independently reproduced every fix** against
 > the shipped tag with a local implementer stub. `test_mutation_equiv.py` ALL PASS — including **AT-E2a: my
 > exact `scale` (n=5 guard-slack) repro now builds GREEN** (equivalent mutants excluded via
