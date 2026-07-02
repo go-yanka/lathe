@@ -41,26 +41,34 @@ From five research sweeps plus two Fable reviews, the capabilities nobody else s
 
 ## 3. The owner's sharpest instinct: methodology, not tool
 
-The market is drowning in tools ("use this, take that") and has abandoned methodology. Meanwhile every
-trusted discipline of the pre-AI era maps onto what Lathe already does — and this is the positioning gold:
+The market is drowning in tools ("use this, take that") and has abandoned methodology. But **anchor on
+disciplines a working developer actually used and trusts (2000–2020), not obscure 1980s methods.** A Fable
+fact-check (recorded in `docs/GRAPHIC11_FACTCHECK.md`) killed the original Cleanroom-first framing: nobody
+knows Cleanroom, its "developers never test their own code" rule is *false as a general claim*, and TDD/CI/
+review/lockfiles didn't "die" — they *erode under pressure*. The corrected, more relatable mapping:
 
-- **Cleanroom Software Engineering** (Harlan Mills, IBM, 1980s): developers never execute their own code;
-  verification is separated from construction; quality is certified statistically. **Lathe is Cleanroom
-  with the human replaced by an LLM** — the implementer never judges its own work, the gate certifies.
-  This is the historical anchor for the whitepaper: not "we invented a new way," but "we automated the
-  most disciplined way ever invented, which was too expensive for humans — and is now free."
-- **The V-model:** requirements (goal) → design (spec) → unit tests (asserts) → integration
-  (`INTEGRATION`) → acceptance (`road_ready`, flows). Lathe implements the V-model with a machine at
-  every node. Nobody has shipped an *enforced* V-model since... arguably ever.
-- **Fagan inspections** → the CE persona review gate. **Deming/quality gates** → the six standing gates.
-  **TDD** → the loop itself. **Requirements traceability (DOORS/Polarion territory)** → the pin ledger.
+- **Test-first / TDD** (Beck, 2003) → Lathe's analyst writes the tests before the implementer writes code.
+- **CI, "never merge red"** (Fowler 2000/2006; Jenkins/Travis) → the gate is a required green build with no
+  override.
+- **Lockfiles / reproducible builds** (`yarn.lock` 2016, `pip freeze`, Nix content-addressing) → hash-pinning,
+  applied to generated code.
+- **The compiler contract** (the most relatable, already in the README) → nobody hand-edits a compiler's
+  output; if it's wrong, fix the source. Lathe extends that to LLMs: if the code is wrong, fix the spec.
+- **The V-model / requirements traceability (DOORS/Polarion)** → the pin ledger traces requirement → spec →
+  test → code → model. This one is niche but it's the *paying* niche (§6.1), so keep it for that audience.
 
-**Positioning statement:** *"Everyone ships tools. We ship discipline. Lathe is the trusted software
-engineering canon — Cleanroom, the V-model, TDD, traceability — enforced by machines instead of managers,
-at a price (zero) that discipline never had before."*
+The true story is **enforcement, not resurrection**: these practices fail not because people reject them but
+because they run on willpower and willpower loses to deadlines (`--no-verify`, rubber-stamped reviews, a red
+build merged "just this once"). Lathe moves them onto the machine, where they can't be skipped. *(Cleanroom
+and Fagan inspections — the one discipline that genuinely died of human-hour cost — belong in `PRIOR_ART.md`
+as cited ancestors, not in the headline.)*
+
+**Positioning statement:** *"Everyone ships tools. Lathe ships enforcement. The practices you already
+believe in — test-first, never-merge-red, locked builds, don't-hand-patch-the-compiler — made unskippable by
+a machine that can't be talked out of them under deadline."*
 
 Structural move: **separate the method from the tool** (Scrum : Jira :: your-method : Lathe). Name the
-methodology (candidates: *Gated Development*, *Deterministic AI Development*, *Cleanroom-AI*), publish a
+methodology (candidates: *Gated Development*, *Enforced TDD*, *Deterministic AI Development*), publish a
 short manifesto + a one-page spec of its artifacts (plan, gate, pin, ledger), and let Lathe be the
 reference implementation. Methods spread further than tools, and methods are monetizable (§6).
 
@@ -92,9 +100,9 @@ Split into two documents:
 1. The problem, in the reader's scars: "almost-right" AI code, review burden, slop, irreproducibility
    (68% of AI projects don't run; cite it).
 2. The diagnosis: *a conversation is not a build* — keep this, it's the best line the project has.
-3. The history: Cleanroom, V-model, TDD, inspections — "we knew how to do this; it was just too expensive.
-   The economics changed." (This is the section nobody else can write — everyone else's whitepaper starts
-   at 2022.)
+3. The reframe: the practices you already believe in — test-first, never-merge-red, locked builds, the
+   compiler contract — don't fail because they're wrong; they *erode under deadline pressure*. AI made the
+   erosion fatal by making bad code cheap to produce. (Cleanroom/Fagan as cited ancestors, not the hook.)
 4. The method: the loop, the artifacts (plan/gate/pin/ledger), the principles (never hand-edit, never
    escalate, fix the spec), the metric (provenance coverage).
 5. The limits, stated against interest: what it can't do (stateful glue, the granularity ceiling), what's

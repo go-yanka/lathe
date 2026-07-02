@@ -10,18 +10,24 @@ The unproven claims (local-model economics at scale) are framed as invitations t
 
 **Category (own it):** Deterministic AI builds. A build system, not an assistant.
 
-**Positioning statement:** Everyone ships tools; Lathe ships discipline. It's the trusted software
-engineering canon — Cleanroom, the V-model, TDD, traceability — enforced by machines instead of managers,
-at a price discipline never had before.
+**Positioning statement:** Everyone ships tools; Lathe ships enforcement. The practices you already believe
+in — test-first, never-merge-red, locked builds, don't-hand-patch-the-compiler — made unskippable by a
+machine that can't be talked out of them under deadline. (Anchor on TDD/CI/lockfiles/the compiler contract,
+which every working dev knows — not on obscure 1980s methods. See `GRAPHIC11_FACTCHECK.md` for why.)
 
 **One-liner:** Stop chatting with the AI. Build with it.
 
 **Tagline bank** (pick per surface, don't use all):
-- Discipline used to be expensive. Now it compiles.
+- You'd never hand-patch a compiler's output. Hold AI code to the same contract.
+- The discipline you already believe in — enforced.
 - The tool that says no.
 - Same spec, same code, every time.
 - Your tests are the language. The code is a build artifact.
 - Delete the generated code. It comes back, gated.
+
+*Retired (do not use): "Discipline used to be expensive. Now it compiles." — the underlying "these
+disciplines died / developers never tested their own code" premise is false; a skeptical engineer will
+screenshot it. Fact-check in `GRAPHIC11_FACTCHECK.md`.*
 
 ## 2. Pitches, by length
 

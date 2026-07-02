@@ -92,19 +92,28 @@ one honest floor: a plan you build is code you run — so untrusted plans run in
 ```
 *Status: ● (validator, sandbox, tiers, guards all shipped). The footer keeps SECURITY.md's honest caveat.*
 
-### 11 — "Discipline used to be expensive" (the methodology hook; 16:9 or 4:5) — the flagship idea
+### 11 — "The discipline you already believe in — enforced" (the methodology hook) — CORRECTED
+*Original framing (Cleanroom / "discipline died" / "developers never test their own code") was killed by a
+Fable fact-check — `GRAPHIC11_FACTCHECK.md`: nobody knows Cleanroom, the "never test own code" claim is
+false, and TDD/CI/lockfiles didn't die. This is the corrected, relatable version. 16:9.*
 ```
-[style guide]. Title: "Discipline used to be expensive. Now it compiles." A simple 3-column "then vs now"
-table styled as cards, not a spreadsheet. Row headers down the left as small icons: "developer never tests
-own code", "every requirement → a test", "second-pair-of-eyes review", "every line traces to a requirement".
-Column 1 header "THE OLD DISCIPLINE" (small caption "Cleanroom · V-model · inspections · traceability —
-1980s"): each cell a check. Column 2 header "WHY IT DIED" : each cell a small money/clock icon with "too
-expensive in human hours". Column 3 header "LATHE" sage green: each cell a green check with a tiny robot,
-"done by the machine, ~free". Footer ribbon: "the most disciplined way to build software was priced in
-human hours. the price just went to zero."
+[style guide]. Title: "The discipline you already believe in — enforced". Subtitle: "test-first · never
+merge red · locked builds · don't hand-patch the compiler". A 2-column "you know this / Lathe enforces it"
+comparison styled as clean cards (NOT a spreadsheet). Four rows, each a small icon on the far left:
+  Row 1: "TEST-FIRST"        — icon: a checklist.
+  Row 2: "NEVER MERGE RED"   — icon: a red/green build light.
+  Row 3: "LOCKED BUILDS"     — icon: a padlock.
+  Row 4: "DON'T HAND-PATCH THE COMPILER" — icon: a compiler/gear.
+Column 1 header "YOU ALREADY DO THIS" (small caption "TDD · CI · lockfiles · the compiler contract"): each
+cell a check, plus a small faded note "…until Friday" or "…when there's time".
+Column 2 header "LATHE ENFORCES IT" in sage green: each cell a green check with a tiny robot/lock, reading
+respectively "analyst writes the test first", "the gate refuses a red build", "content-hash pins the build",
+"wrong code = fix the spec, rebuild".
+Footer ribbon: "good practice runs on willpower — and willpower loses to deadlines. move it onto the machine."
 ```
-*Status: ● conceptually (maps to shipped gates/loop/ledger). This is the positioning centerpiece from
-`PRODUCT_STRATEGY.md` §3 — the graphic no competitor can make, because their story starts in 2022.*
+*Status: ● (maps to shipped gates/loop/pins). Positioning centerpiece from `PRODUCT_STRATEGY.md` §3.
+Every claim here is a practice a working dev used in 2000–2020 — no obscure history, no false universal
+claim.*
 
 ---
 

@@ -1,4 +1,6 @@
-# Discipline used to be expensive. Now it compiles.
+# The discipline you already believe in — enforced by the machine
+
+*(working title; alt: "You'd never hand-patch a compiler. Hold AI code to the same contract.")*
 
 *A draft rewrite of the Lathe whitepaper, authored by the round-7/8 reviewer (Fable) per the maintainer's
 request. This is the manifesto — method-level, evergreen. The versioned technical paper (architecture,
@@ -36,25 +38,33 @@ a lockfile. Every bug becomes a test.
 
 Lathe is those habits, pointed at an LLM. Not a smarter model — a refusal to treat generation as a chat.
 
-## 3. The part everyone forgot: we already solved this
+## 3. You already believe in this. You just skip it on Friday.
 
-Here is the section no other AI-tools paper can write, because every other paper starts in 2022.
+None of the good practices are new, and you already trust them:
 
-In the 1980s, IBM's Cleanroom Software Engineering produced some of the lowest-defect software ever
-measured. Its rules sound alien now: **developers never execute their own code.** Construction and
-verification are separate roles. Nothing ships without independent certification. Cleanroom worked — and
-it died, because paying humans to work that way cost too much for all but spacecraft and pacemakers.
+- **Test-first (TDD).** Write the test, then the code that passes it. Kent Beck made it mainstream in 2003;
+  every serious team says they do it.
+- **Never merge red.** Continuous integration with a required green build — no override, no "just this once."
+- **Independent review.** A second pair of eyes on every change, formalized as the pull request.
+- **Locked, reproducible builds.** `yarn.lock`, `pip freeze`, Nix — everyone's build is identical.
+- **The compiler contract, the deepest one:** nobody hand-patches a compiler's output. If the binary is
+  wrong, you fix the source and recompile.
 
-The V-model said: every requirement gets a design, every design gets a test, every test gates a stage.
-Fagan inspections said: a second pair of eyes, formally, every time. Requirements traceability said: every
-shipped line answers to a numbered requirement. All of it worked. All of it was priced in human hours, and
-the industry spent forty years discounting it toward zero.
+These didn't die. They *erode* — under deadline pressure, on a Friday afternoon, with a `--no-verify` and a
+rubber-stamped approval. They run on willpower, and willpower loses to shipping. The whole reason your AI
+code is "almost right" is that the discipline that would catch it is the first thing dropped when it's
+tedious, and AI made writing code so cheap that the tedious part is now the whole job.
 
-**The economics just flipped.** A model can be the implementer who never judges their own work. A sandbox
-can be the independent certifier. A hash can be the traceability matrix. The most disciplined methodology
-ever invented was too expensive for humans — and is now nearly free.
+Lathe's move is not to invent discipline. It's to make the discipline you already believe in **unskippable**
+by moving it off willpower and onto the machine: the gate refuses red, the pin locks the build, the tree
+rejects a dirty commit, and — the compiler contract, extended to LLMs — you never hand-edit the output;
+wrong code means a wrong spec, so you fix the spec and rebuild.
 
-That's what Lathe is. Not a new idea. The oldest good idea, repriced.
+There is an older, deeper ancestor for the specific shape of this — IBM's Cleanroom Software Engineering
+(Mills, 1980s: implementers who don't debug, an independent team that certifies, statistical quality
+control). It's the honest intellectual lineage and it's in `PRIOR_ART.md` for the people who care. But you
+don't need to know it to recognize what Lathe does. It's `make` and a lockfile and a green build and TDD —
+enforced, not merely encouraged.
 
 ## 4. The method
 
