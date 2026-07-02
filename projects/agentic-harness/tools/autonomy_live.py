@@ -27,7 +27,7 @@ import sys
 
 _TOOLS = os.path.dirname(os.path.abspath(__file__))
 _INNER = os.path.dirname(_TOOLS)                       # projects/agentic-harness  (inner git repo)
-_ROOT = os.path.dirname(os.path.dirname(_INNER))       # <LATHE_ROOT>     (engine lives here)
+_ROOT = os.path.dirname(os.path.dirname(_INNER))       # C:\harness-for-hermes     (engine lives here)
 _PLANS = os.path.join(_INNER, "plans")
 if _TOOLS not in sys.path:                             # so board.py's `from dag import` resolves on any entry path
     sys.path.insert(0, _TOOLS)
@@ -276,7 +276,11 @@ def make_real_deps(state, db_path):
     def commit(message):
         try:
             from spine_helpers import should_auto_commit          # B4: harness-built opt-in gate
-            if not should_auto_commit(os.environ.get("LATHE_AUTO_COMMIT")):
+            _ac = os.environ.get("LATHE_AUTO_COMMIT")
+            if _ac is not None and _ac.strip() and _ac.strip().lower() not in ("1", "true", "yes", "on"):
+                sys.stderr.write("autonomy: unrecognized LATHE_AUTO_COMMIT value %r — treating as disabled "
+                                 "(enable with 1/true/yes/on).\n" % _ac)   # D6: fail closed but do not stay silent
+            if not should_auto_commit(_ac):
                 sys.stderr.write("autonomy: auto-commit is OFF — set LATHE_AUTO_COMMIT=1 to enable. "
                                  "Leaving this build UNcommitted (your git history is untouched).\n")
                 return False
