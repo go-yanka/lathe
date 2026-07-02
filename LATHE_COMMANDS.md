@@ -36,8 +36,10 @@ the new behavior; refused before any generation; new functions and unchanged pin
 **all** development, no picking and choosing: declared `CRITERIA` (requirement→test traceability) required
 on every plan, tests must be acknowledged (`lathe ack`), new code's tests must survive the stub probe
 (`LATHE_LINT_SPEC=block`), and changed code must carry a failing-on-old-code test. An explicitly-set env
-var still wins over the umbrella. The `bug-fix`/`enhancement` workflows build under this mode — following
-the SDLC process is enforced, not advisory.
+var still wins over the umbrella — and the accepted code must beat a **mutation-score threshold**
+(`LATHE_MUTATION_SCORE=0.5` under strict): deterministic AST mutants of the accepted implementation must be
+killed by the suite or the code will not pin. The `bug-fix`/`enhancement` workflows build under this mode —
+following the SDLC process is enforced, not advisory.
 
 ### `lathe chat`
 Interactive REPL — each line is a goal or a command (`build ...`, `status`, `quit`). Survives transient

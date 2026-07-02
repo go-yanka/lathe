@@ -496,6 +496,19 @@ try:
 except Exception:
     _OLD_MODULE_SRC = ""
 
+# MUTATION-SCORE GATE (enforcement mechanism #3 — test COMPREHENSIVENESS is measured, not assumed): with
+# LATHE_MUTATION_SCORE=<0..1>, deterministic AST mutants of the ACCEPTED code must be KILLED by the suite
+# at >= that rate before the code may pin. A suite that can't tell x*x from x+x proves nothing. LLM-free
+# (harness-built tools/mutation_score.py); mutants run through the same validate() as the gate itself.
+_mut_code, _mut_gate = None, None
+try:
+    _ms = importlib.util.spec_from_file_location("mutation_score", os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "mutation_score.py"))
+    _msm = importlib.util.module_from_spec(_ms); _ms.loader.exec_module(_msm)
+    _mut_code, _mut_gate = _msm.mutate_code, _msm.mutation_gate
+except Exception:
+    pass                                 # module absent -> legacy behavior (gate is opt-in anyway)
+
 # FAILURE-AS-ASSET for FUNCTIONS (mirrors the artifact preservation below): a failed candidate and
 # the EXACT failing test are banked to disk so the analyst can sharpen the spec from real feedback.
 _FN_FAILDIR = os.path.join(_pre_out, "_fn_fails")
@@ -579,6 +592,20 @@ for f in plan.FUNCTIONS:
         if candidates:
             picked = len(candidates)
             winner = candidates[0] if picked == 1 else _judge_best(candidates, name, prompt)
+            # MUTATION-SCORE GATE (mechanism #3): before this code may PIN, the suite must kill enough
+            # deterministic mutants of it — otherwise the tests can't distinguish right from nearly-right.
+            if winner is not None and _mut_gate is not None:
+                _muts = _mut_code(winner, int(os.environ.get("LATHE_MUTATION_LIMIT", "8"))) if _mut_code else []
+                _killed = sum(1 for _m in _muts if not validate(_m, name, tests, solved_ns))
+                _mblocked, _mwhy = _mut_gate(os.environ.get("LATHE_MUTATION_SCORE"), _killed, len(_muts))
+                if _mblocked:
+                    print(f"  {name:16} MUTATION-SCORE GATE — {_mwhy}")
+                    _save_fn_fail(name, fmodel, 0, winner, "mutation gate: " + _mwhy)
+                    winner = None
+            if winner is None:
+                solved_src[name] = None
+                report.append((name, False, tries, None))
+                continue
             source = short
             pins[pkey] = winner          # pin the SELECTED (cleanest) implementation
             _pins_added_this_run.add(pkey)

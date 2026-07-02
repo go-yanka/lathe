@@ -118,8 +118,10 @@ so it's model- and host-agnostic and drops into several setups:
 
 ## What makes it trustworthy (not just fast)
 
-- **Test-quality linter** (`lathe lint-spec`) — checks the tests are *good*, not just that they pass: a
-  mutation probe flags a spec whose tests a trivial stub could satisfy.
+- **Test comprehensiveness is measured, not assumed** — `lathe lint-spec`'s stub probe flags tests a
+  trivial implementation could satisfy, and with `LATHE_MUTATION_SCORE=<0..1>` the engine generates
+  deterministic AST mutants of the *accepted* code and **refuses to pin** unless the suite kills that
+  fraction — a suite that can't tell `x*x` from `x+x` blocks the build. (STRICT mode forces both.)
 - **Isolated execution** — tests run in a sandbox with an unforgeable verdict; fully-untrusted plans run in a
   network-less, read-only container (locally or on a remote host over SSH). See `SECURITY.md`.
 - **Six standing gates** — no stale/duplicate files, one canonical implementation per capability, no corrupt

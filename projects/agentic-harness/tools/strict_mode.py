@@ -6,16 +6,19 @@ def strict_defaults(env_value, existing):
         return []
     if env_value.strip().lower() not in ('1', 'true', 'yes', 'on'):
         return []
-    defaults = [['LATHE_TEST_ACK', '1'],
-                ['LATHE_REGRESSION_PROOF', '1'],
-                ['LATHE_LINT_SPEC', 'block']]
+    defaults = [
+        ['LATHE_TEST_ACK', '1'],
+        ['LATHE_REGRESSION_PROOF', '1'],
+        ['LATHE_LINT_SPEC', 'block'],
+        ['LATHE_MUTATION_SCORE', '0.5'],
+    ]
     result = []
     for key, value in defaults:
         try:
             current = existing.get(key) if existing else None
         except Exception:
             current = None
-        if isinstance(current, str) and current != '':
+        if isinstance(current, str) and current.strip():
             continue
         result.append([key, value])
     return result
