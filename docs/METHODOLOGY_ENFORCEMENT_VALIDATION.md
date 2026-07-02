@@ -6,8 +6,10 @@ process, not the model's discretion." Before that goes in a whitepaper, it gets 
 This is Lathe's own doctrine — nothing ships unproven — applied to Lathe's marketing.
 
 Method: empirical. Security battery (`review_tests/battery_security.py`, 35/35), a direct validator call,
-and a source grep across `engine_v2.py` + `tools/` + `qa/`. Verified 2026-07-02 at v2.1.3. Cross-checked by
-a Fable pressure-test (`GRAPHIC11_FACTCHECK.md` sibling analysis, recorded in the commit).
+and a source grep across `engine_v2.py` + `tools/` + `qa/`. Verified 2026-07-02 at v2.1.3; the build-spec
+status column re-verified against **v2.1.4** the same day (test-ack gate independently reproduced on the
+rebased branch). Cross-checked by a Fable pressure-test (`GRAPHIC11_FACTCHECK.md` sibling analysis, recorded
+in the commit).
 
 ## What IS enforced today (the floor — verified, claimable now)
 | Mechanism | Enforced? | Evidence |
@@ -50,27 +52,48 @@ produce *anything* without testing" (glue is ungated → say *function*, not *an
 Ordered by leverage. **A mechanism is not "done" — and its claim is not marketable — until its acceptance
 test passes.** Add each acceptance test to `review_tests/` so the claim can't silently regress.
 
-1. **Regression-test-must-fail-on-old-code (bug-fix).** Highest leverage, cheapest, fully structural.
+**v2.1.4 status legend:** ❌ open · ⚠️ partial · ✅ done+accepted. Per-mechanism status added 2026-07-02
+after independently verifying v2.1.4 on the rebased branch (D7 auto-fetch, D5a/D5b analyst guards, D8
+synonyms, and the test-ack gate all PASS locally; transitive-pin invalidation and the ornith-9b benchmark
+are maintainer-reported, not independently reproduced — `api.github.com` 403 in this sandbox).
+
+1. ❌ **Regression-test-must-fail-on-old-code (bug-fix).** *Open — unchanged by v2.1.4.* Highest leverage,
+   cheapest, fully structural.
    Build: in the bug-fix path, run the new test against the *pre-fix* implementation; require it to FAIL,
    then pass post-fix. Acceptance test: a scratch plan where the new assert passes on old code is REFUSED.
    Claim it unlocks: "a bug fix is not accepted unless it comes with a test that reproduces the bug."
-2. **Requirement→test traceability, enforced.** Build: plan/contract declares acceptance criteria; validator
-   refuses a plan with any criterion not mapped to ≥1 named test. Acceptance test: a plan with an unmapped
-   criterion is refused; `lathe trace` emits the criterion→test→pin→model matrix. Claim: "every requirement
-   is covered by a named test, by construction." (This is also the compliance artifact — §6.1 of strategy.)
-3. **Real mutation-score threshold.** Build: generate mutants of the accepted impl; require the suite to
+2. ❌ **Requirement→test traceability, enforced.** *Open — this is the maintainer's highest-leverage next
+   queued item (`lathe trace`); nothing enforces it yet.* Build: plan/contract declares acceptance criteria;
+   validator refuses a plan with any criterion not mapped to ≥1 named test. Acceptance test: a plan with an
+   unmapped criterion is refused; `lathe trace` emits the criterion→test→pin→model matrix. Claim: "every
+   requirement is covered by a named test, by construction." (This is also the compliance artifact — §6.1 of
+   strategy.)
+3. ❌ **Real mutation-score threshold.** *Open — v2.1.4 still ships only the single-stub `spec_lint` probe,
+   not a scored mutation pass.* Build: generate mutants of the accepted impl; require the suite to
    kill ≥X%. Acceptance test: a suite that passes but kills <X% of mutants BLOCKS the build. Claim:
    "test comprehensiveness is measured and gated, not assumed." This is the one that most directly earns the
    word "comprehensiveness."
-4. **Independent oracle.** Build: a second analyst instance sees only the spec/contract (never the impl) and
-   writes or must approve the tests. Acceptance test: the impl-authoring model cannot also be the sole
-   test author for a gated unit. Claim: "the code is checked against tests it didn't get to write."
-5. **Kind-of-test per contract.** Build: enhancement ⇒ property tests for each declared invariant;
-   code-review ⇒ adversarial cases. Validator enforces the required kind per workflow. Acceptance test: an
-   enhancement plan with no property test for a declared invariant is refused.
-6. **Gate the glue.** Build: require each capability's public entry point to be exercised by ≥1 end-to-end
+4. ⚠️ **Independent oracle.** *PARTIAL as of v2.1.4.* The **test-ack gate** (`LATHE_TEST_ACK=1`, `lathe ack`,
+   `tools/test_ack.py`, wired at `engine_v2.py:90`) now forces a human to read/approve a plan's test set
+   before build, and re-forces it on any rewrite (incl. the repair loop). Verified present + wired locally.
+   Still short of the full claim: it's an opt-in (default-off) *human re-read*, not a second independent
+   model that authors/approves tests without seeing the impl. Remaining build: a second analyst instance
+   sees only the spec/contract and writes-or-approves the tests. Acceptance test: the impl-authoring model
+   cannot also be the sole test author for a gated unit. Claim (full): "the code is checked against tests it
+   didn't get to write." Claim (marketable now): "no gated plan builds until its tests are read and
+   acknowledged — the repair loop can't slip a rewrite past that gate."
+5. ❌ **Kind-of-test per contract.** *Open — unchanged by v2.1.4.* Build: enhancement ⇒ property tests for
+   each declared invariant; code-review ⇒ adversarial cases. Validator enforces the required kind per
+   workflow. Acceptance test: an enhancement plan with no property test for a declared invariant is refused.
+6. ❌ **Gate the glue.** *Open — glue remains ungated in v2.1.4; keep saying "function", not "anything".*
+   Build: require each capability's public entry point to be exercised by ≥1 end-to-end
    test; until then, drop "anything" from all copy. Acceptance test: a module whose GLUE entry point has no
    integration test is flagged.
+
+**Scorecard for the maintainer LLM:** 0/6 fully done, 1/6 partial (#4 oracle, via test-ack). The
+comprehensiveness claim still cannot ship. Next-in-line by leverage: **#2 traceability (`lathe trace`)**,
+then #1 regression-fails-on-old-code, then #3 mutation-score. Marketing stays on the *enforcement floor*
+wording until #1–#3 land their acceptance tests green.
 
 ## Go-forward gate (the reflexive rule)
 - Ship the **floor** claim now (it's verified above).
