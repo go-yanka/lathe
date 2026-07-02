@@ -1,10 +1,11 @@
-This file is a prose review report (`LATHE_REVIEW_V2.md`, 295 lines of Markdown), not source code. The maintainability heuristics I apply — file-size regressions, moved-not-removed complexity, thin wrappers, type holes, premature abstraction, coupling — target executable code and have no purchase on a narrative document. I read it in full to confirm there is no embedded code, config, or structural artifact under review here.
+This file is a prose review report (`LATHE_REVIEW_V2.md`), not source code — 437 lines of Markdown with only a few shell snippets. The structural-maintainability rubric I apply (file-size regressions in code, type holes, thin wrappers, leaked layers, dead branches, premature abstraction) has essentially no surface to act on here. I read it in full and checked the one thing that *is* in scope for a document — internal consistency / claim drift.
 
-Nothing material to flag.
+**Nothing material to flag.**
 
-For completeness, the only maintainability-adjacent observations (all far below the reporting bar, and none a code-structure regression):
+The internal cross-references hold up on inspection:
+- Case-count arithmetic is consistent: §1 says 34 = validator 24 + sandbox 8 + spec-lint 2 (§4 table matches), and the appendix records the earlier 33→34 off-by-one as already corrected.
+- The "single red" claim is consistent across §4 (`45/46`), §3, and the D1 summary — all trace to B4.
+- The Rec ordering constraints are self-consistent (§10 #2 "must precede #3" ↔ #3 "enabling them before fixing #2 would turn CI red"), and the appendix notes the prior §10↔§11 ordering contradiction was reconciled.
+- The proposed B4 fix snippet (`should_auto_commit(os.environ.get("LATHE_AUTO_COMMIT", "0"))`) is coherent with the stated closed truthy set `{'1','true','yes','on'}` and the `"TRUE"`/`" yes "`→True examples (implies strip+lowercase), so no self-contradiction in the recommendation.
 
-- **low | LATHE_REVIEW_V2.md (doc self-consistency)** — The document asserts its own claims were verified but contains a self-referential loop: §3/§5/D4 indict the harness for shipping "artifacts without a reachable path," and the Appendix admits the review itself repeated that exact failure mode (a "verified end-to-end" repair-loop claim the method couldn't support). This is disclosed rather than hidden, so it is honest, not a defect — no fix needed.
-- **low | LATHE_REVIEW_V2.md:106,51** — Case-count arithmetic (24+8+2=34) is now internally consistent and the Appendix notes the prior 33→34 off-by-one was already folded in; no action.
-
-If you intended a maintainability review of the Lathe *codebase* referenced by this document (e.g. `autonomy_live.py`, `engine_v2.py`, `tools/spine_helpers.py`, `hreview.py`), point me at those source files and I'll review them directly.
+If you intended me to review the actual Lathe source that this document describes (`autonomy_live.py`, `spine_helpers.py`, `engine_v2.py`, `hreview.py`, `registry.py`, etc.) rather than the review write-up about it, point me at those paths — that is where maintainability/structural findings would live (e.g., the B4 unwired-function / dead-`should_auto_commit` situation the doc itself describes at §3 is exactly a dead-code + claim-drift finding, but I'd need to read the code to confirm and cite it rather than take the report's word for it).

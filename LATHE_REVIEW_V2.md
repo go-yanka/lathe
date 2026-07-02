@@ -115,6 +115,14 @@ that runs `lathe auto` in a scratch repo and asserts HEAD is unchanged unless `L
 | `lathe checkin` (new) | ✅ | correctly refused: reported gate/relic/behind-remote blockers with remediation |
 | `selftest` | ✅ 11/11 | was 10/11 on a fresh clone in v2.0.0 |
 
+**Reproducibility of these numbers:** the phases split into **model-independent** checks (the security
+battery, unit tests, ledger pinned rebuild, CI steps, and every pinned/offline path — these reproduce
+byte-for-byte for anyone) and **model-contingent** checks (the end-to-end `do`/`auto`/build greens, which
+depend on the implementer behind :8089 one-shotting each task, as this run's stand-in did). A third party
+reproducing with a weaker implementer will see the gate hold candidates red and the repair loop engage
+rather than instant greens — that is the harness working, not the tests failing, but the headline 45/46
+should be read with that split in mind.
+
 **New defects found in v2.1.0 (all minor except D1):**
 - **D1 (High):** B4 phantom fix — §3. Autonomy still commits silently; changelog claim false.
 - **D2 (Medium):** `test_safe_write.py` fails on Linux — the repo's own test suite is red out of the box
@@ -187,8 +195,9 @@ independently found verification structure beats model scale for small-model cod
 
 Summary of five research sweeps (2025–26 landscape; sources in the reports, key ones linked here):
 
-**Spec-driven development is now a mass-market category — without Lathe's mechanics.**
-GitHub **Spec Kit**: 117k stars in 10 months (verified via GitHub API) — feature-level Markdown specs,
+**Spec-driven development is now a mass-market category — without Lathe's mechanics.** (All third-party
+figures in this section are point-in-time, as of 2026-07-02, and will rot; treat them as order-of-magnitude.)
+GitHub **Spec Kit**: 117k stars in 10 months (verified via GitHub API, 2026-07-02) — feature-level Markdown specs,
 TDD by *prompt instruction*, no gate, no pinning. AWS **Kiro**: GA Nov 2025, 100k+ waitlist, EARS
 acceptance criteria + spec-derived property testing — advisory verification, cloud-only, no pinning.
 **Tessl** ($125M raised, ~$500-750M valuation): the closest philosophical neighbor — spec-as-source,
@@ -249,17 +258,21 @@ exposed.
 ## 10. Prioritized recommendations
 
 1. **Wire B4 for real** — guard `commit()` with
-   `should_auto_commit(os.environ.get("LATHE_AUTO_COMMIT", "0"))` (the spec's tests do cover
-   `should_auto_commit(None) is False` — plan line 44, re-verified in `unit_functions.py` — but passing a
-   defaulted string is still safer), drop `harness.db` from `_paths`, and add an end-to-end regression
-   test (scratch repo, run `auto`, assert HEAD unchanged). Correct the changelog entry.
+   `should_auto_commit(os.environ.get("LATHE_AUTO_COMMIT", "0"))`. The function's string semantics are
+   verified, not assumed: it parses against the closed truthy set `{'1','true','yes','on'}`, and both the
+   spec's tests (plan lines 41–47) and this review's `unit_functions.py` assert `"1"`/`"TRUE"`/`" yes "`
+   → True and `"0"`/`"no"`/`""`/`None` → False — so `LATHE_AUTO_COMMIT=0` disables, and the `"0"` default
+   is safe. Drop `harness.db` from `_paths`, and add an end-to-end regression test (scratch repo, run
+   `auto`, assert HEAD unchanged **both** with the variable unset and with `LATHE_AUTO_COMMIT=0`).
+   Correct the changelog entry.
 2. **Fix `test_safe_write.py` portability** (platform-conditional assertions) so the suite is green on
    Linux — this must precede #3.
 3. **Add claim-level tests to CI** — run the repo's own `test_*.py` in CI (they'd have caught D2; enabling
    them before fixing #2 would turn CI red), and for every changelog "Fixed" entry, one executable repro.
 4. **Prefer explicit config in `review`** (D3): use `HARNESS_CLAUDE_URL` when the user set it, with the
-   `claude` CLI as fallback on connection failure (an unconditional URL preference would break users whose
-   URL is stale but whose CLI works).
+   `claude` CLI as fallback on any **non-usable response** — connection failure, non-2xx status, or a
+   malformed/empty completion — not just connection failure (a stale-but-reachable proxy returning 200
+   with garbage must also trigger the fallback, or `review` silently produces junk verdicts).
 5. **Run the promised harder benchmark** — hard tasks + rebuild axis + metered cost on real local
    hardware. This is the single highest-leverage piece of missing evidence for the whole thesis.
 6. **Ship distribution basics** — PyPI packaging, a 5-minute Ollama quickstart, and grow the ledger demo
@@ -308,8 +321,9 @@ has spec+tests+model+hash; that is an AI-BOM waiting to be serialized.
 
 ### 11c. Roadmap — sequenced, each phase falsifiable
 
-**Phase 0 — Credibility floor (weeks, no new design).** Fix B4 for real; make CI run the repo's own tests;
-fix the Linux test failure; publish to PyPI (`pipx install lathe`); a 5-minute Ollama quickstart
+**Phase 0 — Credibility floor (weeks, no new design).** Fix B4 for real; fix the Linux test failure,
+*then* make CI run the repo's own tests (this order — per §10 — or CI turns red on D2 the moment the suite
+is enabled); publish to PyPI (`pipx install lathe`); a 5-minute Ollama quickstart
 (`lathe init` wizard: detect Ollama, write `lathe.config.json`, build a demo plan); a docs site. *Nothing
 else matters until a stranger can succeed in 5 minutes — the funnel today is: clone → read 19 MDs → set
 env vars → maybe green.*
@@ -394,14 +408,29 @@ creates commits; the sweep leaves them for inspection — `git reset --hard` aft
 Market claims in §8 are from five web-research sweeps with primary-source citations, compiled 2026-07-02;
 GitHub star counts were verified live via the GitHub API the same day.
 
-**This review was itself verified by the harness under review.** `lathe review adversarial
-LATHE_REVIEW_V2.md` was run with a real frontier analyst (Opus via the `claude` CLI — the harness's
-preferred path). It returned five findings, all legitimate: a "verified end-to-end" claim about the repair
+**This review was itself put through the harness under review** — precisely: `lathe review adversarial
+LATHE_REVIEW_V2.md` runs a second, independent frontier-model pass (Opus via the `claude` CLI, the
+harness's preferred path). Per this review's own D4, that is a **claim-review, not a gate** — an LLM
+reading a document, with no mechanical claim-verification power — so it earns no more authority than any
+independent expert read. What it demonstrates is the harness's review *plumbing* and the value of an
+adversarial second pass, and its findings stand on their own merits. The first pass returned five
+findings, all legitimate: a "verified end-to-end" claim about the repair
 loop that the v2 method could not support (the stand-in implementer never fails — the same
 artifact-without-reachable-path failure mode this review indicts in §3), an unverified assumption in
 Rec #1 (`should_auto_commit(None)` — in fact covered by the spec's tests, now stated explicitly), a
 priority-ordering hazard in Recs #2/#3, an off-by-one in the §1 case count (33→34), and an over-strong
 Rec #4 that would have removed a useful fallback. All five were folded back into this document before
-publication, per the harness's own review doctrine. The full findings are archived by the harness at
+publication, per the harness's own review doctrine.
+
+A **second adversarial pass** was run after §11 was added. It returned six findings; five were legitimate
+and are folded in above (a genuine §10↔§11 ordering self-contradiction, the authority-borrowing wording
+this paragraph now corrects, the model-contingency split in §4, a broader fallback trigger in Rec #4, and
+inline dating of market figures). The sixth — its HIGH — claimed the prescribed B4 fix was unverified for
+string inputs like `"0"`; its *concrete failure scenario is refuted by evidence* (the spec's own tests and
+this review's `unit_functions.py` both assert `"0"`/`"no"`/`""` → False), but its meta-point stood: the
+document hadn't *stated* that evidence, and now does (Rec #1). That asymmetry — reviewer wrong on the
+facts, right about the missing verification statement — is itself a fair sample of what LLM review passes
+do and don't give you: they catch unstated assumptions reliably, and their own claims also need checking.
+The full findings of both passes are archived by the harness at
 `projects/agentic-harness/docs/ce/review_adversarial.txt`. Verdict from `lathe flow doc-review --run`:
-recorded below in the commit history alongside this file.
+recorded in the commit history alongside this file.
