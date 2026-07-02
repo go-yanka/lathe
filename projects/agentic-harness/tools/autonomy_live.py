@@ -275,10 +275,16 @@ def make_real_deps(state, db_path):
 
     def commit(message):
         try:
+            from spine_helpers import should_auto_commit          # B4: harness-built opt-in gate
+            if not should_auto_commit(os.environ.get("LATHE_AUTO_COMMIT")):
+                sys.stderr.write("autonomy: auto-commit is OFF — set LATHE_AUTO_COMMIT=1 to enable. "
+                                 "Leaving this build UNcommitted (your git history is untouched).\n")
+                return False
             # SCOPE the add to Lathe's own output paths — never `-A`. The subprocess sandbox is not FS-confined
             # on Windows, so a hostile test could write anywhere in the inner repo; `-A` would stage it (e.g.
             # poison qa/ gates or .github/ workflows). Staging only these dirs keeps gates/vcs out of the commit.
-            _paths = [p for p in ("tools", "plans", "harness.db", "docs", "_archive")
+            # B4: never stage harness.db — binary runtime state does not belong in commits.
+            _paths = [p for p in ("tools", "plans", "docs", "_archive")
                       if os.path.exists(os.path.join(_INNER, p))]
             if _paths:
                 _git(["add", "--"] + _paths)

@@ -2,6 +2,23 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.1.1 — 2026-07-02
+
+Response to independent review v2 (`LATHE_REVIEW_V2.md`). The headline correction:
+
+- **B4 was a phantom in the v2.1.0 *public* artifact — now fixed for real and proven.** The guard was wired
+  in the source tree, but the v2.1.0 export dropped `autonomy_live.py`, so the shipped repo still auto-committed
+  and still staged `harness.db`. The reviewer was correct about what shipped. Fixed: the complete export now
+  includes `autonomy_live.py`, and — per the lesson — a **claim-level end-to-end regression test**
+  (`tools/test_b4_autocommit.py`) proves it in a scratch repo: HEAD unchanged unless `LATHE_AUTO_COMMIT=1`, and
+  `harness.db` is never staged. **Discipline going forward: a bug is "Fixed" only when an executable repro passes,
+  not when the helper unit-passes.**
+- **D2:** `test_safe_write.py` is now portable (OS-appropriate system path) — green on Linux, not just Windows.
+- **D3:** `lathe review` now lets an explicitly-set `HARNESS_CLAUDE_URL` win over a silent `claude` CLI (CLI
+  remains the default only when no URL is configured; `LATHE_REVIEW_USE_CLI` still forces either way).
+- **CI now runs the repo's own `test_*.py`** (incl. the B4 e2e), so claim-level regressions turn CI red — the
+  gap (D4) that let the B4 phantom through.
+
 ## v2.1.0 — 2026-07-01
 
 Response to an independent deep review (7 bugs + a command audit), plus a workflow

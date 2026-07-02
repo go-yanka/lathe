@@ -85,9 +85,24 @@ def main():
     if not os.path.isdir(_root):             # STILL not a real dir (e.g. a path that doesn't exist on disk) ->
         _root = ROOT                         # fall back to a guaranteed-valid cwd so CreateProcess can't WinError 267
     flist = "\n".join("  - " + f for f in abs_files)
+    _orient = ""                                          # token-lean ctags repo-map so the reviewer sees the surrounding structure cheaply
+    try:
+        _td = os.path.join(ROOT, "tools")
+        if _td not in sys.path:
+            sys.path.insert(0, _td)
+        from repomap import ctags_available, render_map
+        from context_helpers import trim_for_context
+        if ctags_available():
+            _mp = render_map([_root]) or ""
+            _mp = "\n".join(l for l in _mp.splitlines() if not l.split(":", 1)[0].strip().endswith(".json"))  # drop pins/data noise
+            if _mp.strip():
+                _orient = ("\n\n## PROJECT STRUCTURE (ctags orientation — the surrounding code, token-lean; "
+                           "use it to catch duplication or wrong integration)\n" + trim_for_context(_mp, 1800))
+    except Exception:
+        _orient = ""                                       # ctags optional — reviewer still gets full file contents
     _hdr = persona if persona else ("You are a rigorous %s reviewer. Read the files adversarially and find real defects." % lens)
     _add = ("\n\n## PROJECT ADDENDUM (Lathe field-derived — ADDITIONAL to the above, from our own bug reports)\n" + addendum) if addendum else ""
-    prompt = (_hdr + _add +
+    prompt = (_hdr + _add + _orient +
               "\n\n## YOUR TASK NOW\n"
               "Apply the expertise above to review these files (absolute paths). This is NOT a git repo — READ them directly:\n" + flist +
               "\n\nOUTPUT (this OVERRIDES any output-format instruction above): findings ONLY, each on its own block:\n"
@@ -103,7 +118,9 @@ def main():
     import tempfile, shutil
     _timeout = int(os.environ.get("CLAUDE_TIMEOUT", "180"))
     txt, rc = "", 0
-    if shutil.which("claude") and os.environ.get("LATHE_REVIEW_USE_CLI", "1") != "0":
+    _force = os.environ.get("LATHE_REVIEW_USE_CLI")       # "1"=force CLI, "0"=force endpoint, unset=auto
+    _url_set = bool(os.environ.get("HARNESS_CLAUDE_URL"))  # D3: an explicitly-configured endpoint wins over a silent CLI (CLI stays the default when no URL is set)
+    if shutil.which("claude") and _force != "0" and (_force == "1" or not _url_set):
         # Windows: `claude` is an npm .CMD shim — shell=True, prompt on stdin (claude -p reads stdin).
         _pf = tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8")
         _pf.write(prompt); _pf.close()

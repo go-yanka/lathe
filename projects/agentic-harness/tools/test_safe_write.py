@@ -21,9 +21,10 @@ def main():
     assert ok is False and "broken Python" in err, f"corruption was not refused: {ok}/{err}"
     assert open(app).read() == "from fastapi import FastAPI\napp = FastAPI()\n", "original file was clobbered"
 
-    # 3. credential / system / .git paths are denied
+    # 3. credential / system / .git paths are denied (system path is OS-appropriate so the test is portable — D2)
+    _sys_path = r"C:\Windows\system32\drivers\etc\hosts" if os.name == "nt" else "/etc/hosts"
     for bad in [os.path.join(d, ".env"), os.path.join(d, "id_rsa"),
-                os.path.join(d, ".git", "config"), r"C:\Windows\system32\drivers\etc\hosts"]:
+                os.path.join(d, ".git", "config"), _sys_path]:
         assert is_write_denied(bad), f"should deny {bad}"
         ok, err = safe_write(bad, "x")
         assert ok is False and "denied" in err

@@ -39,6 +39,11 @@ jobs:
           print("plan_validator: good accepted, malicious rejected")
           PY
 
+      - name: Claim-level regression tests (offline) — closes the B4-phantom gap (D4)
+        run: |
+          python projects/agentic-harness/tools/test_safe_write.py
+          python projects/agentic-harness/tools/test_b4_autocommit.py
+
       - name: Reproducibility — pinned demo rebuilds offline, zero model calls
         run: |
           python lathe.py build examples/hello.py > out.txt 2>&1 || true
