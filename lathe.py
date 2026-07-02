@@ -926,8 +926,18 @@ def cmd_agent(args):
         todo = [e for e in entries if e["name"] not in done and (e.get("vendored") or license_ok(e.get("license", "")))]
         if cap:
             todo = todo[:cap]
-        print("rating %d agent(s) (%d already done; resumable — reruns skip the rated)..." % (len(todo), len(done)))
-        rated = 0
+        import time
+        pace = float(os.environ.get("LATHE_RATE_PACE", "2"))    # seconds between agents — don't burst the endpoint
+        _err = lambda t: (not t) or not t.strip() or "API Error" in t or "usage policy" in t.lower()   # endpoint failure
+        _thin = lambda t: len(t.strip()) < 40                   # a substantive ANSWER floor (NOT for the short score)
+        def _ask(prompt):                                       # resilient: one backoff-retry on an endpoint failure
+            r = request_spec(prompt) or ""
+            if _err(r):
+                time.sleep(min(30, pace * 8))                   # a rate-limit needs a real pause, not an instant retry
+                r = request_spec(prompt) or ""
+            return r
+        print("rating %d agent(s) (%d already done; resumable — reruns skip the rated; pace=%ss)..." % (len(todo), len(done), pace))
+        rated = errs = 0
         for e in todo:
             name = e["name"]
             if e.get("vendored"):
@@ -942,18 +952,29 @@ def cmd_agent(args):
                 body = open(md, encoding="utf-8", errors="replace").read()
             probe = ("You are this specialist:\n%s\n\nTASK: list the 3 most critical, CONCRETE checks you would "
                      "run in your domain (%s). Number them; one line each; be specific." % (body[:1400], e.get("capability", "")[:80]))
-            ans = request_spec(probe) or ""
-            judge = request_spec("Rate 0-10 how specific/actionable/domain-expert this answer is (10=precise "
-                                 "expert checks; 0=generic). Reply exactly 'SCORE: <n>'.\n\nANSWER:\n%s" % ans[:1800]) or ""
-            _bad = lambda t: (not t) or len(t.strip()) < 40 or "API Error" in t or "usage policy" in t.lower()
-            if _bad(ans) or _bad(judge):        # a filtered/errored endpoint response must NOT become a false 0
-                print("  %-28s unmeasurable (endpoint filtered/errored) — skipped" % name); continue
+            ans = _ask(probe)
+            if _err(ans) or _thin(ans):         # no substantive answer -> can't judge; skip (don't false-0)
+                print("  %-28s unmeasurable (answer filtered/errored) — skipped" % name)
+                errs += 1
+                if errs >= 8:                   # the endpoint is down/capped — stop hammering; the run is resumable
+                    print("  ... 8 consecutive endpoint failures — stopping (rerun later to resume; %d rated this run)" % rated); break
+                continue
+            judge = _ask("Rate 0-10 how specific/actionable/domain-expert this answer is (10=precise "
+                         "expert checks; 0=generic). Reply exactly 'SCORE: <n>'.\n\nANSWER:\n%s" % ans[:1800])
+            if _err(judge):                     # judge endpoint failed (short 'SCORE: n' is FINE — no length floor)
+                print("  %-28s unmeasurable (judge filtered/errored) — skipped" % name)
+                errs += 1
+                if errs >= 8:
+                    print("  ... 8 consecutive endpoint failures — stopping (rerun later to resume; %d rated this run)" % rated); break
+                continue
+            errs = 0
             s = parse_judge_score(judge)
             if s >= 0:
                 save_rating(name, s, "batch:" + e.get("bucket", ""))
                 print("  %-28s %.1f  [%s]" % (name, s, e.get("bucket", ""))); rated += 1
             else:
                 print("  %-28s no score — skipped" % name)
+            time.sleep(pace)
         print("rated %d (total now %d) -> agents/ratings.json" % (rated, len(load_ratings())))
         return 0 if rated else 1
     if args and args[0] == "ratings":                         # #39: show the measured persona ratings
