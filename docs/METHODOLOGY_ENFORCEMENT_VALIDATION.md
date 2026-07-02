@@ -30,7 +30,7 @@ non-triviality* — nothing about *kind or coverage*. Verified absent (grep → 
 | Mutation-*score* threshold (kill ≥X% of mutants) — real mutation testing, not the single stub probe | ❌ 0 files |
 | Requirement/acceptance-criterion → test traceability, enforced | ❌ 0 files |
 | Property-based tests as a required kind | ❌ 0 files |
-| Independent oracle (tests authored/approved without seeing the impl) | ❌ 0 files |
+| Independent oracle (tests authored/approved without seeing the impl) | ⚠️ PARTIAL as of v2.1.4 — a **test-ack gate** (`LATHE_TEST_ACK=1`, `lathe ack`, `tools/test_ack.py`) now forces a human to read/approve a plan's test set before build, and any rewrite (incl. the repair loop) re-forces it. Opt-in, default off. Verified present + wired in `engine_v2.py:90`. It's a *human re-read*, not yet a second independent model author — but it closes the "tests slip through unread" hole. |
 | Regression test that must FAIL on pre-fix code (bug-fix) | ❌ 0 files |
 | Glue / end-to-end coverage of each capability's entry point | ❌ (glue largely ungated) |
 

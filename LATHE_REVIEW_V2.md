@@ -625,6 +625,16 @@ this publish call, especially 14d item 1, before it drives a launch decision.*
 
 ## 15. Open defects — consolidated fix list for the maintainer
 
+> **UPDATE — v2.1.4 (`0aac423`): this list is CLOSED, and I independently verified the fixes I could run.**
+> D7 (`test_d7_autospawn.py` — ALL PASS: real persona fetch + `@<md>` lens injection), D5a/D5b
+> (`test_analyst_guard_e2e.py` — ALL PASS: wrong-200 rejected, no-backend fails loud), D8 (my exact failing
+> phrasings "authentication bug"/"login credentials" now match), and the **test-ack gate** (`LATHE_TEST_ACK`,
+> `lathe ack`, `tools/test_ack.py` — real; closes the "gate the analyst's tests" mechanism from
+> `METHODOLOGY_ENFORCEMENT_VALIDATION.md`) all verified by me on the rebased branch. **Not independently
+> verifiable here** (need a local model): transitive pin invalidation (`test_pin_deps_e2e.py`) and the
+> `ornith-1.0-9b-Q4` hard-set benchmark — recorded as maintainer-reported. The list below is the historical
+> record.
+
 Everything below is currently **not working as one would expect it to**, verified against the shipped tree.
 Grouped here so it can be fixed in one pass. D7–D8 are new from the persona/capability investigation
 (round-6); D5–D6 were surfaced earlier and remain open.
