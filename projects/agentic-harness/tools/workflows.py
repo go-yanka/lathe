@@ -35,7 +35,7 @@ WORKFLOWS = {
             ("auto", "Diagnose: read the full run trace (every model call, verdicts) — spec bug or impl?", "logs --tail"),
             ("auto", "Are the tests even GOOD? (a trivial impl must not pass them)", "lint-spec {plan}"),
             ("you",  "Fix the SPEC/tests to pin the correct behavior (never hand-edit generated code), then rebuild", ""),
-            ("auto", "Rebuild", "build {plan}"),
+            ("auto", "Rebuild under STRICT mode (the fix must ship a test that reproduces the bug - LATHE_STRICT=1)", "build {plan}"),
             ("gate", "Verify the tree is clean + no regression", ""),
             ("auto", "Review the fix — decider picks the appropriate personas for the code", "review auto {files}"),
             ("you",  "Resolve the issue in the shared queue + re-cut canonical (release immediately)", ""),
@@ -46,7 +46,7 @@ WORKFLOWS = {
         "steps": [
             ("you",  "Scope it: is this a general HARNESS capability or a PROJECT-specific check? (vendor-don't-fork)", ""),
             ("you",  "Design: break it into small PURE functions + strong tests (edge cases: empty/None/0/boundary)", ""),
-            ("auto", "Build it THROUGH the harness (dogfood — do not hand-write what the harness can build)", "build {plan}"),
+            ("auto", "Build it THROUGH the harness under STRICT mode — criteria declared, tests acked, stub-proof, change-proof (LATHE_STRICT=1)", "build {plan}"),
             ("auto", "Confirm the tests pin behavior", "lint-spec {plan}"),
             ("gate", "Integrate + verify the whole tree", ""),
             ("auto", "Review the new capability (all lenses)", "review all {files}"),

@@ -86,6 +86,27 @@ for _attr, _dflt in (("FUNCTIONS", []), ("ARTIFACTS", []), ("HEADER", ""), ("GLU
     if not hasattr(plan, _attr) or getattr(plan, _attr) is None:
         setattr(plan, _attr, _dflt)
 
+# STRICT MODE (LATHE_STRICT=1 — the SDLC enforcement umbrella): ALL development, new AND enhancement, is
+# forced through every proof mechanism — tests acknowledged (TEST_ACK), changed code must ship a test that
+# fails on the old implementation (REGRESSION_PROOF), new code must ship tests a trivial stub can't satisfy
+# (LINT_SPEC=block), and the plan MUST declare CRITERIA (requirement→test traceability). The policy itself
+# is harness-built + pinned (tools/strict_mode.py); an explicitly-set env var still wins over the umbrella.
+try:
+    _sm = importlib.util.spec_from_file_location("strict_mode", os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "strict_mode.py"))
+    _smm = importlib.util.module_from_spec(_sm); _sm.loader.exec_module(_smm)
+    _strict = os.environ.get("LATHE_STRICT")
+    for _k, _v in _smm.strict_defaults(_strict, dict(os.environ)):
+        os.environ[_k] = _v
+        print("engine: STRICT mode -> %s=%s" % (_k, _v))
+    _gaps = _smm.strict_plan_gaps(_strict, bool(plan.FUNCTIONS), getattr(plan, "CRITERIA", None))
+    if _gaps:
+        sys.exit("engine: STRICT MODE — " + "; ".join(_gaps) + " (plan: %s)" % os.path.basename(PLAN_PATH))
+except SystemExit:
+    raise
+except Exception:
+    pass                                 # policy module absent -> legacy behavior (strict is opt-in anyway)
+
 # TEST-ACK GATE (review V4 §3 risk 1): the analyst's tests define truth but were the one ungated artifact —
 # a misread goal becomes tests that certify the wrong behavior. Opt-in (LATHE_TEST_ACK=1): refuse to build
 # until a human has acknowledged THIS exact test set (`lathe ack <plan>`); any test rewrite (incl. by the

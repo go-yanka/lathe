@@ -28,9 +28,16 @@ $ python lathe.py build projects/agentic-harness/plans/auto_070.py
   build_ok: true   run report: .../RUN_REPORT.md   metrics -> runs.jsonl
 ```
 
-**Bug-fix mode (`LATHE_REGRESSION_PROOF=1`):** a changed function is refused unless ≥1 of its new tests
-FAILS on the old accepted implementation — a fix must ship a test that reproduces the bug (refused before
-any generation; new functions and unchanged pins are unaffected; default off).
+**Change-proof (`LATHE_REGRESSION_PROOF=1`):** ANY changed function — bug fix or enhancement — is refused
+unless ≥1 of its new tests FAILS on the old accepted implementation (a change must ship a test that proves
+the new behavior; refused before any generation; new functions and unchanged pins unaffected; default off).
+
+**STRICT / SDLC mode (`LATHE_STRICT=1`):** the enforcement umbrella — forces **all** proof mechanisms for
+**all** development, no picking and choosing: declared `CRITERIA` (requirement→test traceability) required
+on every plan, tests must be acknowledged (`lathe ack`), new code's tests must survive the stub probe
+(`LATHE_LINT_SPEC=block`), and changed code must carry a failing-on-old-code test. An explicitly-set env
+var still wins over the umbrella. The `bug-fix`/`enhancement` workflows build under this mode — following
+the SDLC process is enforced, not advisory.
 
 ### `lathe chat`
 Interactive REPL — each line is a goal or a command (`build ...`, `status`, `quit`). Survives transient
