@@ -2,6 +2,33 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.4.0 — 2026-07-02
+
+**Requirements liaison now offers options to pick from** (owner idea). Interrogation was open-questions-only;
+now, when a clarifying question has a small bounded answer space, the liaison attaches selectable options with
+a recommended default — `Which format? [options: CSV | JSON | TSV] (default: CSV)`. In `lathe clarify` you
+answer with the option's number (or Enter for the default); free-text is always allowed; genuinely
+open-ended questions stay open. Lower friction, and it surfaces choices the user hadn't considered.
+- New pure function `parse_options` (in `clarify_logic`) extracts the options + default from a question line;
+  built through the harness under `LATHE_STRICT` (criteria + ack + mutation ≥0.5 + regression + test-kind),
+  fable as implementer, first-try pass; the other two clarify functions rebuilt byte-identical from pins.
+- `requirements-liaison` persona + the question prompt updated to emit the option markup; `cmd_clarify`
+  renders the numbered menu and resolves a numeric pick / empty-for-default / free-text answer.
+- Acceptance test extended (`review_tests/test_clarify.py`): parse_options units + an e2e proving a numeric
+  pick resolves to the option text and an empty answer resolves to the default (the raw index is never
+  recorded as the answer). Plan now declares `CRITERIA` (C1/C2/C3) — `lathe trace` shows 3/3 covered.
+
+## v2.3.1 — 2026-07-02
+
+**Docs sync.** The narrative docs now reflect the shipped capabilities of v2.1.4–v2.3.0 (the enforcement
+stack was live in code but under-documented outside README/LATHE_COMMANDS): ARCHITECTURE gained an
+*enforcement layer* section (the six gates + `LATHE_STRICT`) and a *thinking-first* section (clarify →
+decide → sdlc); LATHE_CAPABILITIES gained enforcement-stack rows with an honest-scope note (these bound
+*test quality per gated function*, not whole-program correctness); FOR_PROJECTS gained the STRICT one-switch
+and the clarify-liaison items; LATHE_GUIDE gained clarify/sdlc/ack/trace/agent CLI rows. WHITEPAPER was
+brought into canonical (it had been public-only) with an honest-scope sentence on strict rigor. No code
+change. (Public FOR_PROJECTS keeps its `127.0.0.1` scrub — the rig LAN IP is never exported.)
+
 ## v2.3.0 — 2026-07-02
 
 **Requirements liaison — interrogate for clarity before the harness thinks** (owner idea). A goal handed to

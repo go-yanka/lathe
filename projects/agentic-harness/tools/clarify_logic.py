@@ -43,3 +43,24 @@ def parse_questions(text):
     except Exception:
         return []
 
+def parse_options(q):
+    import re
+    if not isinstance(q, str):
+        return ['', [], '']
+    try:
+        options = []
+        default = ''
+        opt_match = re.search(r'\[options\s*:\s*([^\]]*)\]', q, re.IGNORECASE)
+        if opt_match:
+            payload = opt_match.group(1)
+            options = [p.strip() for p in re.split(r'[|/]', payload) if p.strip()]
+        def_match = re.search(r'\(default\s*:\s*([^)]*)\)', q, re.IGNORECASE)
+        if def_match:
+            default = def_match.group(1).strip()
+        clean = re.sub(r'\[options\s*:\s*[^\]]*\]', '', q, flags=re.IGNORECASE)
+        clean = re.sub(r'\(default\s*:\s*[^)]*\)', '', clean, flags=re.IGNORECASE)
+        clean = re.sub(r'\s+', ' ', clean).strip()
+        return [clean, options, default]
+    except Exception:
+        return [q, [], '']
+

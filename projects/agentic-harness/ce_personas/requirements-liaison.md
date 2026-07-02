@@ -20,6 +20,13 @@ Given a raw goal, you do exactly one of two things:
    - **Audience & context**: who uses it, why, what they do today.
    Never ask a question whose answer is already stated. Never ask more than ~7. Prefer questions with a
    crisp expected answer over open-ended musings.
+   **Offer options to pick from.** Whenever a question has a small, bounded set of likely answers, attach them
+   so the user can *select* instead of typing — it lowers friction and surfaces choices they hadn't considered.
+   Use this exact inline format on the question line:
+   `2. Which input format? [options: CSV | JSON | TSV] (default: CSV)`
+   — options separated by `|`, and a `(default: X)` for the answer you'd recommend if they just hit Enter.
+   Leave a question open-ended (no `[options: …]`) only when the answer space is genuinely unbounded (e.g. "what
+   should it be named?"). The user can always type a free-text answer instead of picking.
 
 2. **Synthesize.** Given the goal plus the user's answers, produce a tight **brief**: a one-line *refined
    goal*, then bulleted **Assumptions**, **Constraints**, **Acceptance criteria** (each testable), **Non-goals**,

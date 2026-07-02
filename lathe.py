@@ -1117,7 +1117,7 @@ def cmd_clarify(args):
     ans_file = args[args.index("--answers") + 1] if "--answers" in args else None
     if TOOLS not in sys.path:
         sys.path.insert(0, TOOLS)
-    from clarify_logic import goal_vagueness, parse_questions
+    from clarify_logic import goal_vagueness, parse_questions, parse_options
     from request_spec import request_spec
     needs, missing = goal_vagueness(goal)
     if not needs:
@@ -1130,7 +1130,9 @@ def cmd_clarify(args):
         except OSError:
             pass
     q_prompt = ("%s\n\n--- GOAL FROM THE USER ---\n%s\n\nProduce your clarifying questions now (numbered, "
-                "one per line, only what you cannot safely assume; at most 7). If the goal is already "
+                "one per line, only what you cannot safely assume; at most 7). Where a question has a small "
+                "bounded set of likely answers, attach selectable options inline as "
+                "'[options: A | B | C] (default: A)' so the user can pick. If the goal is already "
                 "unambiguous, reply with the single line: NO QUESTIONS." % (_persona, goal))
     raw_q = request_spec(q_prompt) or ""
     if "no questions" in raw_q.lower()[:40]:
@@ -1146,16 +1148,30 @@ def cmd_clarify(args):
         except OSError as e:
             print("clarify: --answers file unreadable: %s" % e); return 2
     for i, q in enumerate(questions, 1):
-        print("  Q%d. %s" % (i, q))
+        clean, opts, default = parse_options(q)          # the liaison may attach selectable options + a default
+        print("  Q%d. %s" % (i, clean))
+        if opts:
+            for j, opt in enumerate(opts, 1):
+                print("       %d) %s%s" % (j, opt, "   (default)" if opt == default else ""))
+            print("       (pick a number, type your own answer, or Enter for the default)")
+        # gather the RAW reply — a scripted line, or interactive input
         if scripted is not None:
-            a = scripted[i - 1] if i - 1 < len(scripted) else ""
-            print("     > %s" % a)
+            raw = (scripted[i - 1] if i - 1 < len(scripted) else "").strip()
+            print("     > %s" % raw)
         else:
             try:
-                a = input("     > ").strip()
+                raw = input("     > ").strip()
             except (EOFError, KeyboardInterrupt):
-                a = ""
-        answers.append("Q: %s\nA: %s" % (q, a))
+                raw = ""
+        # resolve the reply against the options: a bare number picks; empty -> default; else free text
+        chosen = raw
+        if opts and raw.isdigit() and 1 <= int(raw) <= len(opts):
+            chosen = opts[int(raw) - 1]
+        elif not raw and default:
+            chosen = default
+        if opts and chosen != raw:
+            print("       => %s" % chosen)
+        answers.append("Q: %s\nA: %s" % (clean, chosen))
     brief_prompt = ("%s\n\n--- GOAL ---\n%s\n\n--- CLARIFYING Q&A ---\n%s\n\nNow SYNTHESIZE the brief: a one-line "
                     "'Refined goal:', then bulleted Assumptions, Constraints, Acceptance criteria (each testable), "
                     "Non-goals, and Open questions. Concrete enough to write tests from."

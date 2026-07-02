@@ -274,11 +274,20 @@ for scripted runs), and it synthesizes a `CLARIFIED_GOAL.md` brief — a refined
 **testable acceptance criteria** + non-goals + open questions. Feed that brief to `lathe do` / `lathe sdlc`.
 A goal that already states its inputs+outputs is passed through with a note (no busywork questions). It is
 step 0 of the `sdlc` workflow. Enforceable for teams via a require-clarify policy.
+
+**Pick, don't type.** When a question has a small bounded set of likely answers, the liaison attaches
+selectable **options with a recommended default** — you answer with the option's number (or just hit Enter
+for the default), and free-text is always allowed. Only genuinely open-ended questions have no options.
 ```
-$ python lathe.py clarify "build a tool to combine some data files"
-=== REQUIREMENTS LIAISON — 5 clarifying question(s) ===
-  Q1. Deduplication key: entire row byte-identical, or a specific key column?
-  ...
+$ python lathe.py clarify "import records from a feed"
+=== REQUIREMENTS LIAISON — 2 clarifying question(s) ===
+  Q1. Which input format?
+       1) CSV   (default)
+       2) JSON
+       3) TSV
+       (pick a number, type your own answer, or Enter for the default)
+     > 2
+       => JSON
 brief -> projects/agentic-harness/CLARIFIED_GOAL.md  (feed it to: lathe do / lathe sdlc)
 ```
 

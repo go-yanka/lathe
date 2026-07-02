@@ -48,4 +48,41 @@ FUNCTIONS = [
         "assert parse_questions('') == []",
         "assert parse_questions('1) First?\\nsome prose\\n2) Second?') == ['First?', 'Second?']",
      ]},
+    {"name": "parse_options",
+     "kinds": ["edge"],
+     "prompt": ("Write parse_options(q) -> list [clean_question(str), options(list of str), default(str)]. "
+                "A clarifying question line MAY carry selectable answer options so the user can pick instead of "
+                "typing. Extract them deterministically: "
+                "(1) If q is not a str, return ['', [], '']. "
+                "(2) Options live in a bracketed marker '[options: A | B | C]' — case-INSENSITIVE on the word "
+                "'options', the payload is the text after the colon up to the closing ']'. Split that payload on "
+                "either '|' or '/' , strip each piece, drop empties -> the options list. If there is no such "
+                "marker, options is []. "
+                "(3) A default lives in a '(default: X)' marker — case-insensitive on 'default'; X is the text up "
+                "to the closing ')', stripped. If absent or empty, default is ''. "
+                "(4) clean_question = q with the [options: ...] and (default: ...) markers removed, then "
+                "collapse any run of whitespace to a single space and strip. "
+                "Use the re module (import it inside the function). Never raise; on any error return "
+                "[q if isinstance(q, str) else '', [], '']." + "\n" + _ONLY),
+     "tests": [
+        "assert parse_options('What format? [options: CSV | JSON | TSV] (default: CSV)') == ['What format?', ['CSV', 'JSON', 'TSV'], 'CSV']",
+        "assert parse_options('Pick one [options: a/b/c]') == ['Pick one', ['a', 'b', 'c'], '']",
+        "assert parse_options('What is the max size?') == ['What is the max size?', [], '']",
+        "assert parse_options('Overwrite? [OPTIONS: yes | no] (DEFAULT: no)') == ['Overwrite?', ['yes', 'no'], 'no']",
+        "assert parse_options(None) == ['', [], '']",
+        "assert parse_options('') == ['', [], '']",
+        "assert parse_options('Sep? [options:  tab |  comma |  ]') == ['Sep?', ['tab', 'comma'], '']",
+        "r = parse_options('Where does the data come from? [options: file | api]'); assert r[0] == 'Where does the data come from?' and r[1] == ['file', 'api'] and r[2] == ''",
+     ]},
+]
+
+# Requirement -> test traceability (consumed by `lathe trace` and enforced under LATHE_STRICT).
+CRITERIA = [
+    {"id": "C1", "text": "Flag a goal that lacks the inputs/outputs contract needed to design against",
+     "tests": ["goal_vagueness"]},
+    {"id": "C2", "text": "Extract the liaison's clarifying questions from free-form text",
+     "tests": ["parse_questions"]},
+    {"id": "C3", "text": "Parse selectable answer options (and an optional default) from a question line, "
+                         "so the user can pick instead of typing",
+     "tests": ["parse_options"]},
 ]

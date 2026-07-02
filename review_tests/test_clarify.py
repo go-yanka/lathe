@@ -17,7 +17,7 @@ import types
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "projects", "agentic-harness", "tools"))
-from clarify_logic import goal_vagueness, parse_questions
+from clarify_logic import goal_vagueness, parse_questions, parse_options
 
 fails = []
 def check(name, ok, detail=""):
@@ -32,6 +32,11 @@ check("input+output goal is clear enough",
 # 2) question parsing
 check("parse numbered questions", parse_questions("1. What input?\n2. What output?") == ["What input?", "What output?"])
 check("parse ignores prose", parse_questions("Some prose.\n- An edge case?") == ["An edge case?"])
+# 2b) options-in-a-question parsing
+check("parse_options splits options + default",
+      parse_options("Which format? [options: CSV | JSON] (default: CSV)") == ["Which format?", ["CSV", "JSON"], "CSV"])
+check("parse_options open-ended question has no options",
+      parse_options("What should it be named?") == ["What should it be named?", [], ""])
 
 # 3) e2e with a mocked liaison
 Q = "1. What are the inputs?\n2. What is the output format?\n3. Any size limits?"
@@ -57,6 +62,27 @@ if os.path.exists(brief_path):
     txt = open(brief_path, encoding="utf-8").read()
     check("brief contains the refined goal", "Refined goal" in txt and "merges CSVs" in txt)
     check("goal text is clean (no --answers/--out paths leaked)", ".txt" not in txt.split("Refined goal")[0].split("Original:")[1])
+
+# 3b) options-to-select path: the liaison offers options; a numeric answer PICKS, an empty answer takes the DEFAULT
+capd = []
+Q2 = ("1. Which input format? [options: CSV | JSON | TSV] (default: CSV)\n"
+      "2. Overwrite existing output? [options: yes | no] (default: no)")
+def _mock2(p):
+    if not capd:                       # first call -> the questions
+        capd.append(("q", p)); return Q2
+    capd.append(("brief", p))          # second call -> synthesize the brief (prompt carries the resolved Q&A)
+    return "Refined goal: a CSV importer.\n- Acceptance criteria: imports a CSV file."
+fake.request_spec = _mock2
+tmp3 = tempfile.mkdtemp(prefix="clar3_")
+ans3 = os.path.join(tmp3, "ans.txt")
+open(ans3, "w", encoding="utf-8").write("2\n\n")     # Q1 -> pick option 2 (JSON); Q2 -> Enter => default (no)
+rc = lathe.cmd_clarify(["import records from a feed", "--answers", ans3, "--out", tmp3])
+check("options path exits 0", rc == 0, "rc=%r" % rc)
+brief_prompt = next((p for k, p in capd if k == "brief"), "")
+check("numeric pick resolved to the option text (JSON)", "A: JSON" in brief_prompt)
+check("empty answer resolved to the default (no)", "A: no" in brief_prompt)
+check("raw selection index is NOT recorded as the answer", "A: 2" not in brief_prompt)
+shutil.rmtree(tmp3, ignore_errors=True)
 
 # 4) NO QUESTIONS path
 seq2 = ["NO QUESTIONS", "Refined goal: identity. Acceptance: returns input unchanged."]
