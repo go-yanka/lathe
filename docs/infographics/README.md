@@ -9,11 +9,14 @@ through the harness itself** (`lathe review` with a vision-capable analyst).
 | `01_build_loop.png` | **How Lathe works** — the pipeline: GOAL → ANALYST (spec+tests) → IMPLEMENTER (code) → GATE (sandbox tests) → PIN; FAIL loops back to "sharpen the spec — never escalate". | ✅ Final (title fixed) |
 | `02_division_of_labor.png` | **Big brain thinks, small brain builds** — analyst (frontier) vs implementer (local by default); model-agnostic ribbon. | ✅ Final (model-agnostic) |
 | `03_strengths.png` | **Why Lathe is trustworthy** — TEST-GATED · PINNED · NO HAND-EDITS · LOCAL OR ANY MODEL · PROVENANCE. | ✅ Final (NO HAND-EDITS wording corrected) |
+| `04_determinism.png` | **Same spec, same code — every time. Here's how.** First-build lane (requirements → higher model writes spec → local model generates code → gate → pin) vs rebuild lane (same spec → hash matches → reuse pin, no model call → same code). Callout: "the model is random; the PIN makes it deterministic — reuse, don't re-roll." | ✅ Final |
 
-## Pending
-- A determinism deep-dive (`04_determinism.png`) is planned — see the accuracy note below on *how* pinning
-  yields "same spec = same code" (the code is produced by a non-deterministic intermediary model; determinism
-  comes from pinning + reuse, not from the model).
+## How determinism actually works (the point `04_determinism.png` makes explicit)
+"Same spec = same code, every time" is an outcome of **pinning**, not of deterministic generation. The
+code-generating (local implementer) model is non-deterministic like any LLM; the higher model authors only
+the spec+tests. On first build the gate-passing code is pinned by `hash(spec+tests+model)`; every rebuild
+with an unchanged spec **reuses the pin with no model call**, so the output is byte-identical. Determinism is
+engineered by reuse — it sidesteps the model's randomness rather than trying to tame it.
 
 ## Accuracy notes (kept honest on purpose)
 - The mental model across all three: **you → requirements/goal → analyst (higher model) writes spec + tests →
@@ -29,3 +32,4 @@ Generated 2026-07-02. SHA-256 (first 20 hex) at save time:
 - 01_build_loop.png — `82fc5e55ea51cd56c50a`
 - 02_division_of_labor.png — `9067115d0e7082a32b12`
 - 03_strengths.png — `1f9a70e24f2a1aca31df` (final)
+- 04_determinism.png — `d630bfbc31d8fea44a99` (final)
