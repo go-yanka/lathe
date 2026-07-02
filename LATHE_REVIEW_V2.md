@@ -817,3 +817,62 @@ the passing-tests gate are unaffected); both scope the **#3 "comprehensiveness"*
 the current docs do. Recommended: keep the scoped-comprehensiveness copy off the whitepaper until E1/E2 are
 addressed or explicitly caveated — the honest line remains "measured **where mutable**, per gated function,"
 not "measured, period."
+
+### 16.1 Fix spec for the agent (each fix ships with its own acceptance test — Lathe doctrine)
+Ordered by priority. **No fix is "done" until its acceptance test passes; add each to `review_tests/`.** The
+rule this whole file lives by applies here too: the scoped-comprehensiveness copy stays off the whitepaper
+until E1 and E2 are green.
+
+**E2 — equivalent-mutant false blocks (HIGH, do first).**
+- *Root cause:* `tools/mutation_score.py` counts every un-killed mutant against the score, including mutants
+  that are **semantically equivalent** to the original (no input can distinguish them). The gate then hard-
+  blocks at the threshold and advises "strengthen the tests," which is impossible for equivalent survivors.
+- *Fix (recommended):* before scoring, filter out provably-equivalent mutants with a **bounded, deterministic
+  differential probe** — for each surviving (un-killed) mutant, evaluate the original vs the mutant over a
+  fixed, seeded input sample derived from the tests' literals plus a small canonical set
+  (e.g. `[-2,-1,0,1,2,10,-10]`, `''`, `'a'`, `[]`, `[0]`); if **no** sampled input distinguishes them, treat
+  the mutant as equivalent and **exclude it from the denominator** (report it as "equivalent, excluded").
+  Keep it deterministic (fixed sample, no RNG) so the gate stays reproducible. Alternative/complement: let a
+  plan mark a constant as `# lathe: config` to exclude it from int-const mutation.
+- *Acceptance test (`review_tests/test_mutation_equiv.py`):*
+  - **AT-E2a (no false block):** the exact repro — `scale` = `n = 5; if n > 0: return x*2; return -x` with a
+    complete suite (`scale(3)==6, scale(-3)==-6, scale(0)==0, scale(10)==20, scale(-7)==-14`) must
+    **BUILD GREEN** under `LATHE_MUTATION_SCORE=0.5` (the 3 equivalent mutants excluded).
+  - **AT-E2b (gate not neutered):** a genuinely weak suite on a mutable function — `square`=`x*x` with only
+    `square(2)==4` — must still **BLOCK** at 0.5 (the surviving `x+x` mutant is *killable*, not equivalent,
+    so it must count).
+
+**E1 — silent free-pass on "no mutants" (MED-HIGH).**
+- *Root cause:* operators are arith/compare/int-const only, so `mutate_code` returns `[]` for
+  string/list/dict/boolean/membership/`is None`/format functions; `mutation_gate` then returns
+  `no mutants generated - nothing to judge` → PASS. The gate fails **open** here (contrast the fail-**closed**
+  hardening on malformed inputs), under a mode that advertises measured comprehensiveness.
+- *Fix (recommended, two parts):* (1) **broaden operators** — boolean `and`↔`or`, `not` insert/remove,
+  `in`↔`not in`, `is`↔`is not`, and string/`None` constant swaps — so common leaf functions actually get
+  mutants; (2) for functions still yielding zero mutants, do **not** silently pass under STRICT: emit a loud
+  `MUTATION: unmeasurable (no mutable nodes) — not gated` warning and record an `unmeasured` flag in the
+  ledger/provenance so the gap is visible, not hidden.
+- *Acceptance test (`review_tests/test_mutation_coverage.py`):*
+  - **AT-E1a:** a boolean function `both`=`return a and b` with a weak suite (`both(True,True)==True` only)
+    now produces ≥1 mutant and **BLOCKS** at 0.5 (operator broadening works).
+  - **AT-E1b:** a truly unmutatable function under STRICT emits the `unmeasurable` warning and sets the
+    `unmeasured` ledger flag (assert the warning string + the flag), instead of a silent pass.
+
+**E3 — STRICT ignores ARTIFACTS-only plans (MED).**
+- *Fix:* either extend `strict_plan_gaps` to require CRITERIA for ARTIFACTS plans too (and run a coverage
+  check on the artifact), **or** narrow the STRICT claim in docs/CLI help to "all *function* development" and
+  say so. Whichever is chosen, make the wording match the code.
+- *Acceptance test:* an ARTIFACTS-only plan under `LATHE_STRICT=1` either is refused without CRITERIA
+  (if enforced) **or** the STRICT help text explicitly scopes to functions (if narrowed) — pick one and test it.
+
+**E4 — regression-proof rename bypass (LOW-MED).**
+- *Fix:* in `regression_proof`/engine wiring, resolve the "old implementation" by **plan-declared identity or
+  signature**, not only by name; or, in the bug-fix/enhancement workflows, flag a renamed unit for explicit
+  handling so a rename can't silently read as "new function → exempt."
+- *Acceptance test:* a fix that renames the changed function (`parse_v1`→`parse_v2`) with new tests that pass
+  on the old impl is still **REFUSED** under `LATHE_REGRESSION_PROOF=1` (not treated as a new function).
+
+**Sequencing for the #12 "comprehensiveness" infographic:** E2 then E1 are the gate. Once
+`test_mutation_equiv.py` and `test_mutation_coverage.py` are green (and I've reproduced them here), the
+mutation-score claim becomes "measured — with equivalent mutants excluded and unmeasurable functions flagged,"
+which is honest enough to put on a graphic. Until then, #12 waits; **#11 (floor-only) ships now.**
