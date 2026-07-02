@@ -555,6 +555,59 @@ local hardware, the last big unverified claim closes too.
 
 ---
 
+## 14. Publish-readiness — should this go out for general public consumption?
+
+The verdict splits by what "publish" means. **Publishing the open-source repo/idea publicly: yes, now.
+Promoting it to a broad general audience as a rely-on-it product: not yet** — three specific things gate that.
+
+### 14a. Where it stands (after five review rounds, v2.1.3)
+Genuinely crossed from "impressive pitch" to "working, honest, security-serious tool": every legitimate
+defect fixed with executable proof, overclaims retracted in plain language, CI added, a real multi-plan demo,
+an MCP server, and a persona subsystem shipped; the maintainer even caught a CRITICAL in its own security
+guard by reviewing its own output. Full test sweep green (6 phases), validator + nonce sandbox survived every
+adversarial probe, reproducibility works as claimed, docs unusually candid. **Two load-bearing gaps remain:**
+(1) the headline empirical claim — a cheap ~12B local model carrying the implementer role on non-toy work —
+is **unproven in anything shipped** (all green results here used a strong stand-in model); (2) it's a
+single-maintainer project with no community, no proven install base, and no benchmark behind the cost story.
+
+### 14b. ✅ Publish now — as an honest open-source project and idea
+It's MIT, it works, it's already public, the docs are candid, and its combination is genuinely unoccupied.
+Announcing it (HN, the spec-driven-dev community, a post) is reasonable **today**, *if the framing matches the
+evidence*:
+- Lead with what's **proven**: deterministic/reproducible builds, a real acceptance gate, provenance by
+  construction, strong sandboxing — and the method itself.
+- Frame the local-model economics as a **design and an invitation to test**, not a demonstrated result:
+  "here's the method and a demo; run it on your rig and tell us."
+- Keep the existing honest caveats (private flagship not in repo; benchmark pending; single maintainer).
+
+### 14c. ⚠️ Not yet — for broad "it just works for everyone" promotion
+A non-expert expecting a polished Cursor/Copilot experience will hit real friction: Python-only,
+greenfield-first (no "adopt my existing code" path), the spec-writing discipline is genuine work, and the
+"cheap local model" outcome depends on the user's own GPU/model, which is undemonstrated. Mass-marketing it
+as reliable out-of-the-box would over-promise.
+
+### 14d. The three things that flip it to unqualified "publish broadly"
+1. **Run the promised benchmark on real local hardware** — hard tasks where one-shots fail, the rebuild axis,
+   metered cost. Highest-leverage missing evidence; it's the line between "interesting method" and "proven
+   tool." (This is also §10 Rec #5, still open.)
+2. **A 5-minute onboarding a stranger can't fail** — finish `lathe init` + a PyPI quickstart that detects a
+   local model and builds a demo green (today success still depends on wiring endpoints correctly).
+3. **Reduce bus-factor risk** — a CONTRIBUTING guide, a couple of external contributors, or a clear
+   "reference implementation / solo project" label so adopters know what they depend on.
+
+### 14e. Bottom line
+**Publish it — as an honest open-source project and a well-argued idea, with framing that promises the method
+and invites testing, not a proven product.** It is trustworthy enough to stand public scrutiny (that is
+exactly why it improved so fast and credibly across five rounds). Just don't let the announcement claim the
+one thing the repo doesn't yet prove — that a cheap local model makes it all work. Land the benchmark and the
+frictionless quickstart and it moves from "worth trying" to "worth adopting."
+
+*Caveat consistent with this review's byline: this is the reviewer's judgment, and the reviewer is the same
+model that performed the audit — a second, independent party (human or a different model) should pressure-test
+this publish call, especially 14d item 1, before it drives a launch decision.*
+
+---
+
 ## Appendix — reproducing this review
 
 ```bash
