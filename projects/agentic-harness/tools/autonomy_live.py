@@ -27,7 +27,7 @@ import sys
 
 _TOOLS = os.path.dirname(os.path.abspath(__file__))
 _INNER = os.path.dirname(_TOOLS)                       # projects/agentic-harness  (inner git repo)
-_ROOT = os.path.dirname(os.path.dirname(_INNER))       # C:\harness-for-hermes     (engine lives here)
+_ROOT = os.path.dirname(os.path.dirname(_INNER))       # <LATHE_ROOT>     (engine lives here)
 _PLANS = os.path.join(_INNER, "plans")
 if _TOOLS not in sys.path:                             # so board.py's `from dag import` resolves on any entry path
     sys.path.insert(0, _TOOLS)
