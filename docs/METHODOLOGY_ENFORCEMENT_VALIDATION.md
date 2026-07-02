@@ -7,9 +7,10 @@ This is Lathe's own doctrine — nothing ships unproven — applied to Lathe's m
 
 Method: empirical. Security battery (`review_tests/battery_security.py`, 35/35), a direct validator call,
 and a source grep across `engine_v2.py` + `tools/` + `qa/`. Verified 2026-07-02 at v2.1.3; the build-spec
-status column re-verified against **v2.1.4** and again **v2.1.5** the same day (test-ack gate and the #2
-traceability acceptance test both independently reproduced — v2.1.5 in a fresh worktree, 12/12).
-Cross-checked by a Fable pressure-test (`GRAPHIC11_FACTCHECK.md` sibling analysis, recorded in the commit).
+status column re-verified against **v2.1.4**, **v2.1.5**, and **v2.1.6** the same day (test-ack gate, the
+#2 traceability acceptance test — 12/12 — and the #1 regression-proof acceptance test — 8/8 plus 6/6 pure
+gate logic — all independently reproduced in fresh worktrees). Cross-checked by a Fable pressure-test
+(`GRAPHIC11_FACTCHECK.md` sibling analysis, recorded in the commit).
 
 ## What IS enforced today (the floor — verified, claimable now)
 | Mechanism | Enforced? | Evidence |
@@ -61,11 +62,15 @@ up a local implementer stub; enforcement steps 1–3 are endpoint-independent). 
 and the ornith-9b benchmark, previously maintainer-reported, are now maintainer-reproduced on their machine
 (I remain sandbox-blocked on `api.github.com`, so those two stay *maintainer-verified, not reviewer-run*).
 
-1. ❌ **Regression-test-must-fail-on-old-code (bug-fix).** *Open — unchanged by v2.1.4.* Highest leverage,
-   cheapest, fully structural.
-   Build: in the bug-fix path, run the new test against the *pre-fix* implementation; require it to FAIL,
-   then pass post-fix. Acceptance test: a scratch plan where the new assert passes on old code is REFUSED.
-   Claim it unlocks: "a bug fix is not accepted unless it comes with a test that reproduces the bug."
+1. ✅ **Regression-test-must-fail-on-old-code (bug-fix).** *DONE+ACCEPTED in v2.1.6 — independently
+   reproduced here (`test_regression_proof.py` 8/8 + the pure gate logic 6/6).* Opt-in
+   (`LATHE_REGRESSION_PROOF=1`): on a **changed** function the engine extracts the old accepted impl from
+   the built module and runs the *new* tests against it in the same sandbox as the gate; if every new test
+   passes on the old code, the change ships no reproducing test and is **REFUSED before a single generation
+   token is spent** (verified: `tok_total == 0` on the refusal path). New functions and unchanged pins are
+   exempt; default off. Decision + extraction are pure/harness-built (`tools/regression_proof.py`,
+   `engine_v2.py:529`). Claim now marketable: "a bug fix is not accepted unless it comes with a test that
+   reproduces the bug."
 2. ✅ **Requirement→test traceability, enforced.** *DONE+ACCEPTED in v2.1.5 — independently reproduced here
    (`test_traceability.py` 12/12).* Plans may declare `CRITERIA = [{'id','text','tests': ['fn'|'fn:idx']}]`;
    the closed-rule AST-literal validator **refuses** an unmapped criterion, a dangling fn ref, an
@@ -97,12 +102,13 @@ and the ornith-9b benchmark, previously maintainer-reported, are now maintainer-
    test; until then, drop "anything" from all copy. Acceptance test: a module whose GLUE entry point has no
    integration test is flagged.
 
-**Scorecard for the maintainer LLM (as of v2.1.5):** **1/6 done** (#2 traceability), **1/6 partial**
-(#4 oracle, via test-ack), 4/6 open. The full comprehensiveness claim still cannot ship — it hinges on
-**#3 mutation-score**, which is the mechanism that actually earns the word "comprehensiveness," and #1.
-Next-in-line by leverage: **#1 regression-must-fail-on-old-code** (cheapest, fully structural), then
-**#3 mutation-score threshold**. Marketing may now add the *declared-criterion traceability* claim (#2 is
-verified) but stays off "comprehensiveness" until #1 and #3 land their acceptance tests green.
+**Scorecard for the maintainer LLM (as of v2.1.6):** **2/6 done** (#1 regression-proof, #2 traceability),
+**1/6 partial** (#4 oracle, via test-ack), 3/6 open. Both done mechanisms independently reproduced here.
+The full comprehensiveness claim still cannot ship — it now hinges squarely on **#3 mutation-score**, the
+one mechanism that actually earns the word "comprehensiveness." Next-in-line by leverage: **#3
+mutation-score threshold**, then #5 kind-of-test and #6 gate-the-glue. Marketing may now add the
+*bug-fix-needs-a-reproducing-test* claim (#1) and the *declared-criterion traceability* claim (#2) — both
+verified — but stays off "comprehensiveness" until #3 lands its acceptance test green.
 
 ## Go-forward gate (the reflexive rule)
 - Ship the **floor** claim now (it's verified above).

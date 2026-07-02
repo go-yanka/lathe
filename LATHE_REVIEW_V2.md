@@ -646,6 +646,16 @@ this publish call, especially 14d item 1, before it drives a launch decision.*
 > items I was sandbox-blocked on (transitive-pin invalidation; ornith-9b at 7/8 this run — honest
 > regeneration variance vs the deterministic 8/8 pinned replay) — those remain *maintainer-verified, not
 > reviewer-run* here.
+>
+> **UPDATE — v2.1.6 (`f7047d1`): methodology mechanism #1 (regression-test-must-fail-on-old-code) landed,
+> and I independently reproduced it.** `review_tests/test_regression_proof.py` runs **8/8** on a real gated
+> build (I drove it with a prompt-aware local implementer stub), and the pure gate logic
+> (`tools/regression_proof.py`) checks **6/6** directly. The core assertion holds: with
+> `LATHE_REGRESSION_PROOF=1`, a *changed* function whose new tests all pass on the old accepted impl is
+> **REFUSED before any generation** (`tok_total == 0`), while a change carrying a test that genuinely fails
+> on the old code proceeds green; new functions and the flag-off path are exempt. That's **2 of 6**
+> comprehensiveness mechanisms at done+accepted (scorecard now 2/6 done, 1/6 partial). The word
+> "comprehensiveness" now hinges on the last hard one, **#3 mutation-score threshold**.
 
 Everything below is currently **not working as one would expect it to**, verified against the shipped tree.
 Grouped here so it can be fixed in one pass. D7–D8 are new from the persona/capability investigation
