@@ -15,6 +15,7 @@ through the harness itself** (`lathe review` with a vision-capable analyst).
 | `06_loop_that_learns.png` | The two-harness feedback loop: analyst writes spec+tests → local model builds → gate → PASS pins/ships, FAIL banks the test and the analyst sharpens the spec. "No escalation." | ✅ Final |
 | `07_clean_tree.png` | Without vs with Lathe: a mess of `util_v2/util_final/util_OLD` the model guesses between, vs one canonical file enforced by the gate (+ `whatis`). "The gate keeps the tree honest." | ✅ Final |
 | `08_fewer_tokens.png` | Dump-the-files (~40k tokens) vs send-the-structure (ctags repo-map, ~2k) + skeleton-fill/complete. "Structure is ~20x cheaper than source." | ✅ (minor: decorative code-map text is placeholder) |
+| `09_run_anywhere.png` | Three ways to run it: standalone CLI ● · inside your agent via MCP ○ · embedded ●; pluggable analyst + implementer. "Pluggable at both ends." | ✅ Final |
 
 ## How determinism actually works (the point `04_determinism.png` makes explicit)
 "Same spec = same code, every time" is an outcome of **pinning**, not of deterministic generation. The
