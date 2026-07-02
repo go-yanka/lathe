@@ -98,6 +98,15 @@ the diff won't be empty and a skeptic will notice (details: `LATHE_REVIEW_V3_FAB
 
 ## 5. Objection handling
 
+- **"The gate is only as good as the tests — and the tests are AI-written too. Garbage in, garbage out."**
+  The sharpest objection, and we answer it at *both* ends. **Front end:** `lathe clarify` (the requirements
+  liaison, v2.3.0/2.4.0) interrogates the goal for ambiguity *before* the harness thinks — fewest, sharpest
+  questions with pick-from options — and writes testable acceptance criteria. Ambiguity is dragged out with
+  the user up front, not discovered in prod. **Back end:** the tests themselves are gated — mutation-score
+  rejects a stub-passable test, `#5` enforces the required *kind* of test per contract (property/edge/error),
+  regression-proof needs a failing-on-old-code test, and test-ack forces a human read. *Honest limit:* it's
+  a shift and a hardening, not elimination — `clarify` surfaces ambiguity, it can't guarantee the user's
+  answers are right; example tests remain gameable. The frame is "much harder to fool," not "unfoolable."
 - **"LLMs aren't deterministic; 'same code every time' is impossible."** Correct — and we don't tame the
   model, we sidestep it. Accepted output is pinned by content hash; rebuilds replay the pin with no model
   call. Determinism is a property of the *build*, not the model. (This objection is our favorite: answering

@@ -253,6 +253,31 @@ hallucinating garbage labels; (c) "11 individual panels, none merged" stops the 
 (d) the newer Nano Banana Pro / 2 hold ~40 labels where classic 2.5 Flash garbles past ~15. Keep the `.svg`
 as the machine-exact reference.*
 
+### 17 — "Before it builds, it interviews you" (the requirements liaison / clarify; 16:9) — PROMPT READY (v2.4.0)
+*The new front-end (`lathe clarify`, v2.3.0 + v2.4.0 options). The visual answer to the "garbage-in at the
+spec level" objection. Verified: `test_clarify.py` ALL PASS + 8/8 pure logic. All ● (shipped).*
+```
+[style guide]. Title: "Before it builds, it interviews you". Subtitle: "a vague goal makes confidently-wrong
+code — so Lathe interrogates the goal first". Center: a left-to-right flow of three stages, connected by
+arrows. Stage 1, a speech-bubble/question icon labeled "VAGUE GOAL" with faded text "parse a money string".
+Stage 2, the big one, a friendly clipboard-with-questions icon labeled "REQUIREMENTS LIAISON — lathe
+clarify", showing a short numbered question list as a card: "1. Which format? [ CSV · JSON · plain ]  (default
+plain)", "2. Reject negatives, or allow?", "3. What's out of scope?" — with two of the options rendered as
+little selectable pill-buttons and one pill highlighted as the default. Stage 3, a document icon labeled
+"CLARIFIED_GOAL.md" with three green-checked lines: "testable acceptance criteria", "assumptions + non-goals",
+"→ feeds the build". Footer ribbon: "ambiguity dragged into the open, up front — not discovered in production".
+Small honest caption under the footer, muted: "it surfaces ambiguity; it can't guarantee your answers are right".
+```
+*Status: all ● shipped. Keep the honest caption — clarify structures the goal, it doesn't make the human infallible.*
+
+### 13-update / 00-update — reflect the 6/6 stack (v2.4.0) — NOTE
+*#13 currently shows THREE gates (traceability · regression-proof · mutation-score). The stack is now **six**:
+add **TEST-KIND** (property/edge/error required per contract) and **GATE-THE-GLUE** (glue needs an integration
+test) to the `LATHE_STRICT` band — either as two more gate cards or a "+2 more under STRICT" tag. #00's ENFORCE
+band lists four ⚙️ items (traceability · regression-proof · mutation-score · test-ack); add **test-kind** and
+**gate-glue** to make it six, and add `clarify` as a "step 0" chip to THINK & LEARN. Regenerate both when
+convenient; not urgent — the copy already carries the 6/6 claim.*
+
 ## Recommended order to generate
 11 (the hook — leads any launch) → 6 (the loop — most-requested strength) → 7 (clean tree) → 10 (safety) →
 9 (distribution) → 8 (token efficiency). Then you have: hook → how it works (existing #1) → who does it

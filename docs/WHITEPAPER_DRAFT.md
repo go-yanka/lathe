@@ -109,7 +109,14 @@ Four artifacts, four rules.
    enforced by gates that fail the build, not by convention. An agent (or a new hire) reading this tree
    never has to guess which of three `util.py`s is real.
 
-The loop, in one breath: *analyst writes spec+tests → local model implements → gate accepts or refuses →
+**Step zero — interrogate the goal.** Before any spec is written, `lathe clarify` (the requirements liaison)
+drags the ambiguity out of the goal *with the user*: the fewest, sharpest questions — inputs, outputs,
+success criteria, edge cases, non-goals, with pick-from options where the answer space is bounded — and
+writes a brief of **testable acceptance criteria**. A goal that already states its inputs and outputs passes
+through untouched. This is the front-end defense against the oldest failure mode in the book: a confidently-
+built answer to a misunderstood question.
+
+The loop, in one breath: *clarify the goal → analyst writes spec+tests → local model implements → gate accepts or refuses →
 accepted code is pinned → failures flow back as sharper specs.* Big model for judgment, small model for
 volume, machine for discipline.
 
@@ -185,7 +192,10 @@ What's *not* yet demonstrated, so you don't have to discover it yourself:
   benchmark behind it, not a public, metered, reproducible one. It's coming; until then treat the
   economics as a design you can test in an afternoon, not a proven result.
 - The method's unit is the well-specified function. Stateful, I/O-heavy, framework-shaped code doesn't
-  decompose that way yet; glue is hand-written and only as tested as your integration blocks.
+  decompose that way yet; glue is hand-written — though under STRICT it must carry an integration test or the
+  build refuses (v2.2.3, #6), so "no code ships untested" holds; that's test-*existence* for glue, not the
+  per-function mutation rigor. (Enforcement stack is now 6/6 — regression-proof, traceability, mutation-score,
+  test-kind, gate-the-glue, plus the test-ack oracle — all composed by STRICT.)
 - On trivial tasks, a frontier one-shot is faster. Our own benchmark says so (41s vs 5s). Lathe buys
   verification, reproducibility, and provenance — not speed of first draft.
 
