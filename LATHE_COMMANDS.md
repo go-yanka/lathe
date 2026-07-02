@@ -87,11 +87,15 @@ lint_no_real_bugs      PASS   no undefined-name/syntax/format defects
 regression clean (5 checks)
 ```
 
-### `lathe review [lens|all] <files...>`
+### `lathe review [auto|lens…|all] <files...>`
 Multi-file, multi-lens Compound-Engineering review (read-only). Lenses: security, correctness, adversarial,
-data, perf, reliability, api, maintainability, ui. Findings fold into the owning plan and regenerate.
+data, perf, reliability, api, maintainability, testing, ui. Findings fold into the owning plan and regenerate.
+Use **`auto`** to let the **decider** pick the appropriate persona(s) for the code's domain (correctness +
+adversarial always, plus the domain specialists it matches — e.g. `security`+`reliability` for network/subprocess
+code). This is what the `code-review`/`bug-fix` workflows now use, so the right minds are invoked automatically.
 ```
-$ python lathe.py review correctness adversarial projects/your-product/runtime/match.py
+$ python lathe.py review auto lathe_mcp.py
+decider selected lenses for this code: correctness, adversarial, security, reliability
 ========== lathe review: correctness (1 file) ==========
   ... findings by severity ...
 ```
@@ -174,6 +178,23 @@ latency+tokens → result), secrets redacted. This is what you attach to a bug r
 $ python lathe.py logs --tail
 === run 20260630-235607-981b (3 events) ===
   ... start / model_call {elapsed_s, tokens} / result {build_ok} ...
+```
+
+## Agents — instantiate expert personas on demand
+
+### `lathe agent "<need>" [--spawn]`
+**Load the program.** Match a capability need to the best expert persona — from the **vendored** set or **fetched
+on demand** from a permissively-licensed source — then inject it into whatever endpoint is configured
+(**LLM-independent**: a prior agent / Claude subscription proxy / Claude API / local — a persona is just prompt text).
+`lathe agent "<need>"` reports the best match; `--spawn` fetches it (license-gated) and caches it with attribution.
+The inventory is `projects/agentic-harness/agents/catalog.json`; the decider is harness-built (`tools/agent_router.py`).
+**Compliance:** auto-fetch is gated to permissive licenses (MIT/Apache/BSD/ISC/Unlicense/CC0); anything else
+(GPL, unlicensed/`NOASSERTION`) is catalogued but **never** auto-fetched. Fetched files land in `agents/_fetched/`
+(gitignored — a per-user cache, not redistributed) with a `SOURCE` note.
+```
+$ python lathe.py agent "backend api design" --spawn
+best match: backend-architect  [wshobson/agents · MIT]
+  SPAWNED: 18356 bytes -> agents/_fetched/backend-architect.md (+ SOURCE attribution). Ready to inject into any endpoint.
 ```
 
 ## Maintenance — keep the tree pristine + file issues

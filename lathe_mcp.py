@@ -37,7 +37,7 @@ TOOLS = [
 
 def _run(args, timeout=600):
     try:
-        r = subprocess.run([PY, LATHE] + [a for a in args if a], cwd=ROOT, capture_output=True, text=True, timeout=timeout)
+        r = subprocess.run([PY, LATHE] + [a for a in args if a], cwd=ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
         return (r.stdout or "") + (("\n" + r.stderr) if (r.stderr or "").strip() else "")
     except Exception as e:
         return "lathe error: %s" % e

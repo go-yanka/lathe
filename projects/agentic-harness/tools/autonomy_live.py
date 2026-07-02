@@ -48,7 +48,7 @@ _reqspec = _load("request_spec")
 # ---- real I/O helpers ----------------------------------------------------------------
 
 def _git(args):
-    return subprocess.run(["git", "-C", _INNER] + args, capture_output=True, text=True, timeout=60)
+    return subprocess.run(["git", "-C", _INNER] + args, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
 
 
 def engine_build(plan_rel, model="openai:local", tries="3", timeout=420):
@@ -64,7 +64,7 @@ def engine_build(plan_rel, model="openai:local", tries="3", timeout=420):
     env.pop("LATHE_TRUST_REMOTE_ANALYST", None)          # nor lets a parent env open the analyst SSRF guard
     try:
         p = subprocess.run([sys.executable, "engine_v2.py", plan_rel, model, tries],
-                           cwd=_ROOT, capture_output=True, text=True, timeout=timeout, env=env)
+                           cwd=_ROOT, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout, env=env)
     except subprocess.TimeoutExpired:
         return {"ok": False, "reason": "engine timeout"}
     out = (p.stdout or "") + "\n" + (p.stderr or "")

@@ -19,7 +19,7 @@ WORKFLOWS = {
     "code-review": {
         "desc": "Run a ready change through the multi-lens gauntlet and land ONLY verified fixes.",
         "steps": [
-            ("auto", "Multi-lens review of the changed files (vendored CE personas + Lathe doctrine)", "review all {files}"),
+            ("auto", "Decider picks the right reviewer personas for the change, then reviews", "review auto {files}"),
             ("you",  "Triage: separate real findings from false positives; write the fix for each real one", ""),
             ("you",  "Fix UPSTREAM: fold each real finding into the OWNING plan and rebuild — never hand-edit generated code", ""),
             ("auto", "Rebuild the owning plan(s)", "build {plan}"),
@@ -37,7 +37,7 @@ WORKFLOWS = {
             ("you",  "Fix the SPEC/tests to pin the correct behavior (never hand-edit generated code), then rebuild", ""),
             ("auto", "Rebuild", "build {plan}"),
             ("gate", "Verify the tree is clean + no regression", ""),
-            ("auto", "Review the fix (adversarial + correctness)", "review adversarial correctness {files}"),
+            ("auto", "Review the fix — decider picks the appropriate personas for the code", "review auto {files}"),
             ("you",  "Resolve the issue in the shared queue + re-cut canonical (release immediately)", ""),
         ],
     },

@@ -2,6 +2,30 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.1.3 — 2026-07-02
+
+Hardening found by the harness reviewing **its own** recent output (`lathe review auto`, decider-selected lenses).
+- **`mcp_safe` CRITICAL + HIGH fixed** (the input guard that protects the MCP tool surface): `is_within_root` used
+  `abspath` and could be **escaped by a symlink/junction** inside root → now `realpath` + `commonpath` + `normcase`
+  (verified: a real symlink escape returns False); `reject_flags` **failed open** on non-string input → now fails
+  closed. Also fixes the drive-root and case-insensitive-filesystem edge cases. Rebuilt through the harness.
+- **Windows cp1252 crash fixed**: 5 subprocess captures decoded child output with the OS default and crashed on
+  non-cp1252 bytes — all now `encoding="utf-8", errors="replace"` (`lathe.py`, `lathe_mcp.py`, `hrun.py`, `autonomy_live.py`).
+- **Decider now fires on review**: `lathe review auto <files>` auto-selects the appropriate reviewer persona(s) for
+  the code's domain (correctness+adversarial + specialists like security/reliability); the `code-review`/`bug-fix`
+  workflows use it. Thinking-first, everywhere.
+
+## v2.1.2 — 2026-07-02
+
+- **On-demand agent subsystem** (the "load the program" layer): `lathe agent "<need>" [--spawn]` / `lathe agent refill`
+  — a catalog of expert personas (vendored + fetchable), a harness-built decider (`agent_router`), a hard license gate
+  (permissive only), and a local mirror that stores each source's LICENSE + refreshes-then-falls-back-to-cache.
+  LLM-independent (persona = prompt text injected into any endpoint). Decider also injects expert lenses into the
+  planner so a **goal auto-selects the thinking experts**.
+- **Claude-ecosystem distribution**: an MCP server (`lathe_mcp.py`) exposing `build/verify/gate/review/do` as tools,
+  a Claude **skill** (`skills/lathe/SKILL.md`), a **plugin** manifest, and a PyPI packaging scaffold.
+- Fixes the earlier export-completeness gap (the class of miss B4 exposed): the full curated set is now shipped.
+
 ## v2.1.1 — 2026-07-02
 
 Response to independent review v2 (`LATHE_REVIEW_V2.md`). The headline correction:

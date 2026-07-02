@@ -237,7 +237,30 @@ def cmd_review(args):
         print("usage: lathe review [lens|all] <file> [file...]")
         print("  default lenses: %s ; or one of: %s ; or 'all'" % (", ".join(_DEFAULT_LENSES), ", ".join(_ALL_LENSES)))
         return 2
-    if args[0] == "all":
+    if args[0] == "auto":                            # DECIDER fires: pick the appropriate persona(s) for the code's domain
+        files = args[1:]
+        _sample = ""
+        for f in files[:6]:
+            try:
+                _sample += open(f, encoding="utf-8", errors="ignore").read()[:2000] + "\n"
+            except Exception:
+                pass
+        try:
+            sys.path.insert(0, TOOLS)
+            from agent_router import select_agents_for_goal
+            _caps = [["security", "auth network subprocess fetch http url request input validation permission secret token git shell path traversal"],
+                     ["reliability", "error handling retry timeout exception async network io connection"],
+                     ["performance", "loop query cache io scale complexity memory"],
+                     ["data", "database sqlite schema migration sql json"],
+                     ["api", "api contract request response serialization version endpoint"],
+                     ["maintainability", "complexity coupling naming dead code duplication"],
+                     ["testing", "test assertion coverage mock fixture"]]
+            _picked = select_agents_for_goal(_sample, _caps, 2)
+        except Exception:
+            _picked = []
+        lenses = list(dict.fromkeys(_DEFAULT_LENSES + [p for p in _picked if p in _ALL_LENSES]))   # correctness+adversarial floor + domain specialists
+        print("decider selected lenses for this code: %s" % ", ".join(lenses))
+    elif args[0] == "all":
         lenses, files = _ALL_LENSES, args[1:]
     elif args[0] in _ALL_LENSES:
         n = 0                                         # consume ALL leading lens tokens (multi-lens: `review adversarial correctness <file>`)
@@ -841,7 +864,7 @@ def _agent_dirs():
 
 def _gh_json(url):
     import subprocess, json
-    r = subprocess.run(["curl", "-s", "-m", "25", url], capture_output=True, text=True)
+    r = subprocess.run(["curl", "-s", "-m", "25", url], capture_output=True, text=True, encoding="utf-8", errors="replace")
     return json.loads(r.stdout)
 
 def _store_license(repo):
@@ -933,7 +956,7 @@ def cmd_checkin(args):
     msg = " ".join(rest[1:]) if (rest and rest[0] == "-m") else (" ".join(rest) or "checkin")
     sys.path.insert(0, TOOLS)
     from checkin_logic import is_relic, checkin_blockers
-    g = lambda a: subprocess.run(["git", "-C", ROOT] + a, capture_output=True, text=True)
+    g = lambda a: subprocess.run(["git", "-C", ROOT] + a, capture_output=True, text=True, encoding="utf-8", errors="replace")
     gate_green = (cmd_gate([]) == 0)
     paths = [ln[3:].strip().strip('"') for ln in g(["status", "--porcelain", "-uall"]).stdout.splitlines() if ln.strip()]
     relics = [p for p in paths if is_relic(p)]

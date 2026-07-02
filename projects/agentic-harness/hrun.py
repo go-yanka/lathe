@@ -33,7 +33,7 @@ def main():
     name = os.path.basename(plan)
 
     _log("build", "Building " + name, "model=" + model, "wip")
-    r = subprocess.run([PY, ENGINE, plan, model, N], capture_output=True, text=True)
+    r = subprocess.run([PY, ENGINE, plan, model, N], capture_output=True, text=True, encoding="utf-8", errors="replace")
     out = (r.stdout or "") + (r.stderr or "")
     print(out)
 

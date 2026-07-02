@@ -73,6 +73,25 @@ $ python lathe.py flow bug-fix        # show the steps
 $ python lathe.py flow code-review --run   # execute the automatable steps
 ```
 
+## Expert agents on demand (the decider)
+
+Lathe starts with **thinking**: a *decider* selects the right expert personas for the task before any code is
+written. It's wired into the two thinking entry points — planning (`lathe do` injects goal-matched expert lenses)
+and review (`lathe review auto <files>` auto-picks the domain-appropriate reviewer personas, e.g. security +
+reliability for network code). Beyond the vendored personas, `lathe agent "<need>" --spawn` fetches expert agents
+**on demand** from permissively-licensed open-source catalogs (license-gated, mirrored locally with their LICENSE)
+— "load the program" for whatever capability a problem needs. All model-agnostic: a persona is just prompt text
+injected into whatever endpoint you configured.
+
+## Use it inside your existing agent (MCP)
+
+`lathe_mcp.py` is a stdio MCP server exposing `build / verify / gate / review / do` as tools, so Claude Code,
+Cursor, or Copilot get Lathe's hard test-gate + content-hash pinning + provenance **inside the agent you already
+use**. There's also a Claude **skill** (`skills/lathe/`) and a **plugin** manifest for one-step install.
+```json
+{ "mcpServers": { "lathe": { "command": "python", "args": ["lathe_mcp.py"] } } }
+```
+
 ## What makes it trustworthy (not just fast)
 
 - **Test-quality linter** (`lathe lint-spec`) — checks the tests are *good*, not just that they pass: a
