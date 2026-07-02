@@ -135,6 +135,27 @@ the gate in the middle".
 ```
 *Status: standalone ● , MCP ○ , embedded ● . Hermes = illustrative open model, not a special connector.*
 
+### 13 — "The methodology, enforced by the build" (the enforcement stack; 16:9) — GENERATED & FINAL
+*File: `13_methodology_enforced.png`. The payoff to #11's hook. The most-defensible graphic in the set —
+**every gate is a claim the review reproduced green** (traceability 12/12, regression-proof 8/8,
+mutation-score 9/9 + the v2.2.1 E1–E4 fixes). Only ships honestly WITH the bottom band: opt-in / bounded
+tripwire (not exhaustive) / per-function (not whole-system). All three clauses verified present on the
+render. Do NOT drop the band or the word "declared" in gate 1.*
+```
+[style guide]. Title: "The methodology, enforced by the build". Subtitle: "three gates a change must pass
+before it can ship — the model can't skip them". Center: a left-to-right flow. Far left a document icon
+"spec + tests + code" → through THREE tall gate cards (each icon + bold name + one line + a small red "✗
+refused" tag): Gate 1 "TRACEABILITY" (link) "every declared requirement maps to a named test"; Gate 2
+"REGRESSION-PROOF" (bug/shield) "a fix must ship a test that fails on the old code"; Gate 3 "MUTATION-SCORE"
+(target) "the suite must kill the code's mutants" → a green padlock-hash "PINNED — accepted". Above the
+gates a sage-green banner brace "LATHE_STRICT = 1 · forces all three, for every change". Bottom muted band:
+"⚙️ opt-in, off by default · mutation-score is a bounded tripwire for vacuous tests, not exhaustive
+coverage · gates each function, not your whole system". Footer ribbon: "the kind and thoroughness of
+testing come from the process — not the model's discretion".
+```
+*Status: all ✅ verified (#1/#2/#3 reproduced). #5 kind-of-test and #6 glue still open → the "each function,
+not your whole system" clause is mandatory, not optional.*
+
 ---
 
 ## Recommended order to generate
