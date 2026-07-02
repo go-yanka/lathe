@@ -16,6 +16,7 @@ through the harness itself** (`lathe review` with a vision-capable analyst).
 | `07_clean_tree.png` | Without vs with Lathe: a mess of `util_v2/util_final/util_OLD` the model guesses between, vs one canonical file enforced by the gate (+ `whatis`). "The gate keeps the tree honest." | ✅ Final |
 | `08_fewer_tokens.png` | Dump-the-files (~40k tokens) vs send-the-structure (ctags repo-map, ~2k) + skeleton-fill/complete. "Structure is ~20x cheaper than source." | ✅ Final (code-map text cleaned) |
 | `09_run_anywhere.png` | Three ways to run it: standalone CLI ● · inside your agent via MCP ○ · embedded ●; pluggable analyst + implementer. "Pluggable at both ends." | ✅ Final |
+| `10_safety_spine.png` | Three defense layers — plan validator (data-only) → sandbox (nonce-framed verdict) → isolation tiers (subprocess/docker/docker-ssh) + SSRF/provenance/MCP guards. Keeps SECURITY.md's honest floor. | ✅ Final (eyeball "allowlisted" spelling) |
 
 ## How determinism actually works (the point `04_determinism.png` makes explicit)
 "Same spec = same code, every time" is an outcome of **pinning**, not of deterministic generation. The
