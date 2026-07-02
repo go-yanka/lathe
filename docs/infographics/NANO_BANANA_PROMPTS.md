@@ -217,28 +217,41 @@ available". Footer ribbon: "a growing catalog — the decider brings the expert 
 
 ### 00 — "The Lathe capability map" (exhaustive one-page map; portrait) — GENERATED & FINAL (Nano Banana)
 *File: `00_capability_map.png` (Nano Banana render; `00_capability_map.svg` kept as the text-exact reference).
-The whole set is now Nano-Banana-consistent. This one carries the enforcement stack #05 was missing — 11
-buckets + a full-width `ENFORCE THE METHOD — LATHE_STRICT ⚙️` band (traceability · regression-proof ·
-mutation-score · test-ack). ~40 labels, no garble, ⚙️/○/● badges all verified on the render. Legend: ● live
-· ○ available · ⚙️ opt-in gate.*
+The whole set is now Nano-Banana-consistent. Carries the enforcement stack #05 was missing — 11 buckets + a
+full-width `ENFORCE THE METHOD — LATHE_STRICT ⚙️` band. ~40 labels, zero garble on the final render (all
+verified). This is the **card-by-card explicit** prompt — the form that cracked the density (see below); the
+earlier prose-blob version garbled and hallucinated card labels.*
 ```
-[style guide]. Portrait, dense but legible. Legend top-right: "● live · ○ available · ⚙️ opt-in gate".
-Title: "The Lathe capability map". Subtitle: "everything it does — one page". A grid of 11 color-coded
-cards (bold header + 3–4 terse bullets, each with a status dot): 1 BUILD ENGINE (plan-driven build ●,
-per-function specs ●, best-of-N ●, module assembly ●); 2 REPRODUCIBLE (content-hash pins ●, zero-call
-rebuilds ●, failure banking ●); 3 VERIFY & GATE (hard test gate ●, nonce sandbox ●, six standing gates ●,
-mutation probe ●); 4 THINK & LEARN (analyst writes specs ●, repair loop no-escalation ●, 143 personas ●);
-5 AUTONOMY (goal loop ●, kanban board ●, rule-of-three ●, DAG dispatch ○); 6 CLEAN TREE (one canonical per
-capability ●, pristine gates ●, gated check-in ○); 7 FEWER TOKENS (repo-map ○, skeleton-fill ○, 0-token
-complete ○); 8 SAFETY (plan validator ●, sandbox tiers ●, SSRF guard ●, provenance ●); 9 RUN ANYWHERE
-(standalone CLI ●, MCP ○, embedded ●, any model ●); 10 WORKFLOWS (code-review · bug-fix · enhancement ·
-doc-review · new-project · sdlc ●); 11 OBSERVABILITY (run logs ●, metrics ●, honest benchmark ●). Below
-the grid, a wide sage-green band "ENFORCE THE METHOD — LATHE_STRICT ⚙️" with four ⚙️ items: traceability,
-regression-proof, mutation-score, test-ack. Footer ribbon: "spec + tests are the source of truth — code is
-a build output".
+Modern flat-vector portrait infographic on soft off-white (#F4EEE1) background. Rounded cards with soft
+shadows, thick consistent line weight. Warm palette (ink #3D2B22, teal #7EA8A1, coral #E4986B, sage #8DB26A,
+muted amber, soft grey). Friendly outline icons in soft colored circles. Large legible sans-serif, generous
+whitespace, no misspellings. RENDER EVERY LABEL BELOW EXACTLY AS WRITTEN — do not substitute, abbreviate, or
+invent any word. Each bullet prefixed by its status dot (● filled, ○ hollow). Title: "The Lathe capability
+map". Subtitle: "everything it does — one page". Legend top-right, each mark in a small colored circle:
+"● live  ○ available  ⚙️ opt-in gate". A grid of 11 SEPARATE rounded color-coded cards — each an individual
+panel, none merged or duplicated (3 columns × 4 rows; 12th cell empty):
+ Card 1 BUILD ENGINE: ● plan-driven build, ● per-function specs, ● best-of-N, ● module assembly
+ Card 2 REPRODUCIBLE: ● content-hash pins, ● zero-call rebuilds, ● failure banking
+ Card 3 VERIFY & GATE: ● hard test gate, ● nonce sandbox, ● six standing gates, ● mutation probe
+ Card 4 THINK & LEARN: ● analyst writes specs, ● repair loop no-escalation, ● 143 personas
+ Card 5 AUTONOMY: ● goal loop, ● kanban board, ● rule-of-three, ○ DAG dispatch
+ Card 6 CLEAN TREE: ● one canonical per capability, ● pristine gates, ○ gated check-in
+ Card 7 FEWER TOKENS: ○ repo-map, ○ skeleton-fill, ○ 0-token complete
+ Card 8 SAFETY: ● plan validator, ● sandbox tiers, ● SSRF guard, ● provenance
+ Card 9 RUN ANYWHERE: ● standalone CLI, ○ MCP, ● embedded, ● any model
+ Card 10 WORKFLOWS: ● code-review · bug-fix · enhancement · doc-review · new-project · sdlc
+ Card 11 OBSERVABILITY: ● run logs, ● metrics, ● honest benchmark
+Below the grid, a wide full-width sage-green band, bold "ENFORCE THE METHOD — LATHE_STRICT ⚙️", four inline
+⚙️ items: "traceability", "regression-proof (a fix must fail on old code)", "mutation-score (kill the
+mutants)", "test-ack". Small italic sub-line: "opt-in; composes the gates so testing thoroughness isn't left
+to discretion". Footer ribbon, full width, centered: "spec + tests are the source of truth — code is a build
+output".
 ```
-*Tip that cracked the density: the newer Nano Banana Pro / 2 models render ~40 labels cleanly where classic
-2.5 Flash garbles past ~15. Keep the `.svg` as the machine-exact reference behind the pretty render.*
+*What cracked the density (from asking Nano Banana how to prompt itself): (a) list labels CARD-BY-CARD, not
+as a prose blob; (b) the guard "render exactly as written, no substitutions" — this is what stops it
+hallucinating garbage labels; (c) "11 individual panels, none merged" stops the merge/duplicate failure;
+(d) the newer Nano Banana Pro / 2 hold ~40 labels where classic 2.5 Flash garbles past ~15. Keep the `.svg`
+as the machine-exact reference.*
 
 ## Recommended order to generate
 11 (the hook — leads any launch) → 6 (the loop — most-requested strength) → 7 (clean tree) → 10 (safety) →
@@ -247,6 +260,19 @@ a build output".
 → strengths recap (#3) → full map (SVG). A complete visual narrative for a launch page or deck.
 
 ## Honesty rules (carried from the review standard)
-Every graphic shows real ● / ○ status; never render a ○ capability as shipped-autonomous; frame local-model
-economics as default + invitation-to-test (not proven); omit anything not yet wired (e.g. decider
-auto-fetch, review §15 D7); illustrative numbers get "~" and are labeled illustrative.
+Every graphic shows real ● / ○ / ⚙️ status; never render a ○ capability as shipped-autonomous or a ⚙️ opt-in
+gate as always-on; frame local-model economics as default + invitation-to-test (not proven); illustrative
+numbers get "~" and are labeled illustrative.
+
+## Prompting rules for dense graphics (learned the hard way, incl. asking Nano Banana itself)
+- **List labels card-by-card, never as a prose blob** — "Card N HEADER: ● a, ● b" — the single biggest
+  anti-garble move for text-heavy pieces.
+- **Add the guard "render every label exactly as written — no substitutions, abbreviations, or invented
+  words."** Without it the model hallucinates plausible-looking garbage on dense cards (see the placeholder
+  candidate that produced "CRAFSEDE / Vaseability / Loar-firms").
+- **Specify "N individual panels, none merged or duplicated"** — stops the merge/column-duplication failure
+  (it duplicated the enforce column on #11 and dropped the band on #05).
+- **Use Nano Banana Pro / 2 for anything past ~15 labels** — classic 2.5 Flash garbles; the Pro/2 models hold
+  ~40 cleanly. This is what made #00 work in one pass.
+- **Verify on every render:** eyeball each label; re-run garbled ones with "fix the text to read exactly: …";
+  confirm ○/⚙️ badges didn't fill in; confirm no band/column was dropped or duplicated.
