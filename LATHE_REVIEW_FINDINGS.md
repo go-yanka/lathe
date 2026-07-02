@@ -159,3 +159,85 @@ still 0, but the output is alarming and unstructured.
    message (B5) and dispatcher noise (B7).
 5. Ship **one real multi-plan application** (even redacted) and the **harder benchmark** `BENCHMARK.md`
    already promises, so the scaling/cost/correctness claims become falsifiable.
+
+---
+
+## Appendix — Test environment & methodology (full detail, reproducible)
+
+### Environment
+- **Host:** an ephemeral, isolated Linux container (cloud sandbox allocated for this review session) —
+  Linux 6.x, Python **3.11.15**, repo cloned fresh at `/home/user/lathe`, checked out at `b75eddf`.
+- **Deliberately absent** (which is what made several findings visible): no GPU, no Ollama or
+  llama-server, no `claude` CLI binary (→ exposed B3), no universal-ctags (→ `map`'s graceful degrade),
+  no product-gates tree (→ `gate h3..h6/all` graceful degrade). Docker was not used; all sandbox runs
+  used Lathe's **default `subprocess` isolation tier**, which is what `run_unit()` selects when
+  `LATHE_SANDBOX` is unset.
+
+### How the two model endpoints were provided
+Lathe expects two OpenAI-chat-completions-compatible HTTP endpoints:
+
+| Role | Env var | Port used |
+|---|---|---|
+| Implementer ("local model") | `LOCAL_OPENAI_URL` | `http://127.0.0.1:8089/v1/chat/completions` |
+| Analyst ("frontier model") | `HARNESS_CLAUDE_URL` | `http://127.0.0.1:8787/v1/chat/completions` |
+
+A single ~100-line **stdlib-only Python file** (`scratch_mock_model.py`, `http.server`-based, since
+deleted in cleanup) was run twice — `python3 scratch_mock_model.py impl 8089` and
+`python3 scratch_mock_model.py analyst 8787`. Each instance:
+- answered `POST` with the exact wire shape the engine parses:
+  `{"choices":[{"message":{"role":"assistant","content": ...}}], "usage":{"prompt_tokens":N,"completion_tokens":N}}`;
+- answered `GET` with a health/models JSON (so `lathe status`/`selftest` probes read "up");
+- **logged every incoming prompt** to `scratch_prompts_<role>.log` so the run was auditable.
+
+**The completions were authored by the reviewing model (Claude) itself** — this was the "plug yourself
+into both places" design:
+- **Implementer role:** parsed the target function name from the engine's prompt (the engine asks
+  ``Return ONLY the Python function `NAME` ``) and returned a correct, hand-authored implementation for
+  it (`add`, `is_even`, `fizzbuzz`, `greet`, `token_overlap`, `parse_duration`), fenced in
+  ```` ```python ```` blocks exactly as a real model would.
+- **Analyst role:** returned a complete, valid **data-only Lathe plan** (`OUT_DIR`, `MODULE_NAME`,
+  `HEADER`, `FUNCTIONS` with ≥4 assert tests) for the requested goal — which the real
+  `plan_validator.py` then accepted, proving the validator path runs on analyst output.
+
+Everything downstream of the HTTP boundary was **stock Lathe, unmodified**: `engine_v2.py`,
+`plan_validator.py` (force-enabled by `lathe.py main()`), `sandbox.py` subprocess tier with the
+nonce-framed verdict, pinning to `.pins.json`, integration tests, the six `qa/` gates, the SQLite board,
+dispatcher, and the analyst repair loop.
+
+### Test sequence actually executed
+1. **Offline pin reuse (no endpoints at all):** `python3 lathe.py build examples/hello.py` → pin reused,
+   0 model calls, `build_ok:true` (validates the reproducibility story without any model).
+2. **Real generate→gate→pin:** deleted `examples/calc/.pins.json` + `calc.py`, ran
+   `python3 engine_v2.py examples/calc/plan_add.py openai:local 3` → 3/3 functions generated over HTTP,
+   each sandbox-gated, integration `PASS`, pins written. **Re-ran identically** → 3/3 `REUSED (pinned)`,
+   0 model calls, integration still green (reproducibility on the generate path). This run exposed **B1**
+   (output written to the literal `<LATHE_ROOT>\game_out` directory).
+3. **Both-endpoint autonomy:** `python3 lathe.py do "a function that parses a duration like 2h30m into
+   seconds"` → analyst drafted the plan, implementer built it, function passed its own tests — but the
+   standing regression gate failed on the missing `harness.db` and the repair loop spun (**B2**). After
+   `lathe decompose` created the board DB, the same command went green end-to-end (`DONE - 1 module(s)
+   built gated-green`), which isolated B2's root cause.
+4. **Full command matrix:** every one of the 27 subcommands run with a **per-command timeout** and output
+   captured to a file to read the **true exit code** (an earlier pass piping to `head` produced a
+   SIGPIPE false alarm of rc=1 on `build`/`verify` — re-verified via file capture: true rc=0).
+   `chat` was tested by piping `quit` on stdin; `auto`, `run 2`, `selftest`, `metrics summary`,
+   `logs --tail`, `wait/resume/waiting`, `lint-spec`, `dups`, `clean --dry`, `flow`, `checkpoint`,
+   `whatis`, `gate` (+product targets), `review` (confirmed hang at 120s and again at 20s → **B3**).
+5. **Cleanup / restore:** killed both mock servers, then discovered `do`/`auto`/`run` had created **two
+   real commits** (`autonomy: task`) on the working branch, committed a `harness.db` blob, and rewritten
+   `plans/M02_dedupe_keep_order.py` via the repair loop (**B4**). Restored with
+   `git reset --hard b75eddf && git clean -fd`; verified `git status` empty and ports 8089/8787 free.
+   The junk commits were never pushed.
+
+### What this methodology can and cannot claim
+- **Validates:** the harness plumbing end-to-end — wire contracts, validator, sandbox verdict path,
+  pinning/reproducibility, integration gating, board/dispatcher, repair-loop wiring, every CLI surface,
+  and the four High-priority bugs (each reproduced with the stock code path, not a modified one).
+- **Does not validate:** implementer-model quality claims. The stand-in implementer returned
+  known-correct code on the first try, so first-pass/tries/cost numbers here say nothing about a real
+  quantized ~12B local model. Also untested: docker / docker-ssh sandbox tiers (no docker in the
+  container), UI/ARTIFACTS plans with Playwright functional gates, and Windows-specific paths.
+
+### To reproduce
+Any OpenAI-compatible stub (or a real model) on the two URLs above reproduces every result; the bug
+repros in B1–B4 each include their exact command. Total wall time for the full matrix: ~10 minutes.
