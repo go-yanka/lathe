@@ -1,15 +1,26 @@
 {
-  "_comment": "Copy to lathe.config.json (gitignored) and edit. An explicit env var ALWAYS overrides a value here (env > config > default). NEVER put a push token in this file — use env or the git credential helper.",
-
-  "analyst":     { "url": "http://127.0.0.1:8787/v1/chat/completions", "model": "sonnet" },
-  "implementer": { "url": "http://127.0.0.1:8089/v1/chat/completions", "model": "openai:local" },
-
+  "_comment": "Copy to lathe.config.json (gitignored) and edit. An explicit env var ALWAYS overrides a value here (env > config > default). NEVER put a push token in this file \u2014 use env or the git credential helper.",
+  "analyst": {
+    "url": "http://127.0.0.1:8787/v1/chat/completions",
+    "model": "sonnet"
+  },
+  "implementer": {
+    "url": "http://127.0.0.1:8089/v1/chat/completions",
+    "model": "openai:local"
+  },
   "tries": 3,
-
-  "checkin":     { "remote": "origin" },
-
+  "checkin": {
+    "remote": "origin"
+  },
   "_notes": {
     "subscription": "Point analyst.url at claude_proxy.py (wraps the Claude subscription as an OpenAI endpoint, $0/token) for the thinking; keep implementer local for the bulk. That is the cost leverage.",
-    "higher+higher": "For max correctness (no cost constraint), set implementer.model to 'claude' too — both roles then use the strong model."
+    "higher+higher": "For max correctness (no cost constraint), set implementer.model to 'claude' too \u2014 both roles then use the strong model.",
+    "personas": "priority: name->weight multiplier on the decider's match score (user preference beats raw overlap). mandatory: persona names injected on EVERY review/planning invocation - vendored lens names (e.g. 'testing') or catalog personas (fetched license-gated)."
+  },
+  "personas": {
+    "priority": {
+      "security-reviewer": 2.0
+    },
+    "mandatory": []
   }
 }

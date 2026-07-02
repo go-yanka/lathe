@@ -47,24 +47,20 @@ def mutate_code(code, limit):
         return []
 
 def mutation_gate(env_value, killed, total):
+    if env_value is None or not isinstance(env_value, str) or not env_value.strip():
+        return [False, 'mutation score not required']
     try:
-        if env_value is None or not isinstance(env_value, str) or not env_value.strip():
-            return [False, 'mutation score not required']
-        try:
-            threshold = float(env_value.strip())
-        except (ValueError, TypeError):
-            return [False, 'unrecognized LATHE_MUTATION_SCORE value - gate skipped']
-        if not (0.0 <= threshold <= 1.0):
-            return [False, 'unrecognized LATHE_MUTATION_SCORE value - gate skipped']
-        if not isinstance(total, int) or isinstance(total, bool) or total <= 0:
-            return [False, 'no mutants generated - nothing to judge']
-        score = killed / total
-        if score + 1e-9 >= threshold:
-            return [False, 'mutation score ok: killed %s/%s' % (killed, total)]
-        return [True,
-                'REFUSED: tests kill only %s/%s mutants (score %.2f < threshold %.2f) - '
-                'the suite cannot distinguish the accepted code from its mutants; '
-                'strengthen the tests' % (killed, total, score, threshold)]
-    except Exception:
+        threshold = float(env_value.strip())
+    except (ValueError, TypeError):
         return [False, 'unrecognized LATHE_MUTATION_SCORE value - gate skipped']
+    if not (0.0 <= threshold <= 1.0):
+        return [False, 'unrecognized LATHE_MUTATION_SCORE value - gate skipped']
+    if isinstance(total, bool) or not isinstance(total, int) or total <= 0:
+        return [False, 'no mutants generated - nothing to judge']
+    if isinstance(killed, bool) or not isinstance(killed, int) or killed < 0 or killed > total:
+        return [True, 'REFUSED: malformed mutation-gate inputs (killed=%s total=%s) - failing closed' % (killed, total)]
+    score = killed / total
+    if score + 1e-9 >= threshold:
+        return [False, 'mutation score ok: killed %d/%d' % (killed, total)]
+    return [True, 'REFUSED: tests kill only %d/%d mutants (score %.2f < threshold %.2f) - the suite cannot distinguish the accepted code from its mutants; strengthen the tests' % (killed, total, score, threshold)]
 

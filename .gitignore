@@ -23,3 +23,4 @@ metrics/
 lathe.config.json
 **/agents/_fetched/
 **/agents/licenses/
+**/agents/ratings.json

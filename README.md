@@ -67,6 +67,7 @@ the automatable steps, halting on failure. Definitions are data in `projects/age
 | `enhancement` | Scope (vendor-don't-fork) → build **through** the harness → integrate → review → document → release. |
 | `doc-review` | Coherence/accuracy review + the docs-drift gate (every command documented with an example). |
 | `new-project` | Vendor Lathe → configure endpoints → verify → land the first gated build. |
+| `sdlc` | **The full process, enforced**: RTM-gated requirements (UC→BR→FR→TS) → criteria-mapped plan → STRICT build → trace matrix → review. |
 
 ```
 $ python lathe.py flow bug-fix        # show the steps
@@ -149,7 +150,9 @@ so it's model- and host-agnostic and drops into several setups:
 - [SECURITY.md](SECURITY.md) — the threat model and isolation tiers
 - [DATA_QUALITY.md](DATA_QUALITY.md) — gating "unit-green but wrong on real data"
 - [VENDORING.md](VENDORING.md) — one canonical copy; projects vendor, don't fork
-- [CHANGELOG.md](CHANGELOG.md) — release notes (current: v2.1.4)
+- [CHANGELOG.md](CHANGELOG.md) — release notes (current: v2.2.0)
+- [PERSONAS.md](PERSONAS.md) — the expert market: sources, the decider pipeline, ratings, your controls
+- [REPRODUCIBILITY.md](REPRODUCIBILITY.md) — what's guaranteed (pinned rebuilds) vs what isn't (regeneration), measured
 - [BENCHMARK.md](BENCHMARK.md) — an honest (warts-included) benchmark vs Aider/raw-Claude
 
 ## Status & honesty

@@ -62,6 +62,19 @@ WORKFLOWS = {
             ("you",  "Fix any gaps/inaccuracies; keep every skill's example runnable", ""),
         ],
     },
+    "sdlc": {
+        "desc": "Full SDLC: requirements (UC->BR->FR->TS, RTM-gated) -> criteria-mapped plan -> STRICT build -> trace -> review -> release.",
+        "steps": [
+            ("auto", "Author LAYERED, ID-traced requirements; the RTM gate refuses orphans/dangling refs", "sdlc {goal}"),
+            ("you",  "Review REQUIREMENTS.md; turn the suggested CRITERIA block into a plan (each TS -> criterion -> named tests)", ""),
+            ("auto", "Acknowledge the test set (the tests define 'correct')", "ack {plan}"),
+            ("auto", "Build under STRICT mode - criteria+ack+stub-proof+change-proof+mutation-score all forced (LATHE_STRICT=1)", "build {plan}"),
+            ("auto", "Emit the requirement->test->pin->model traceability matrix (the compliance artifact)", "trace {plan}"),
+            ("auto", "Review - decider picks the appropriate personas", "review auto {files}"),
+            ("gate", "Tree clean + no regression", ""),
+            ("you",  "Release: checkin + re-cut canonical", ""),
+        ],
+    },
     "new-project": {
         "desc": "Vendor Lathe into a project, configure endpoints, verify, and land the first gated build.",
         "steps": [
@@ -99,6 +112,12 @@ CONTRACTS = {
         "entry": "The docs/plans to review exist.",
         "deliverable": "A coherence/accuracy review + a passing docs-drift gate.",
         "done": "Review clear, docs-drift gate green (every command documented with a runnable example)."},
+    "sdlc": {
+        "when": "You want the FULL process enforced end-to-end: requirements with IDs, traceability, and every proof gate.",
+        "entry": "A goal statement; analyst + implementer endpoints configured.",
+        "deliverable": "RTM-gated REQUIREMENTS.md + a criteria-mapped plan built under STRICT + the trace matrix.",
+        "done": "RTM gate PASS, STRICT build green, trace shows every criterion covered, review clear, released.",
+    },
     "new-project": {
         "when": "You're onboarding a fresh project onto Lathe.",
         "entry": "You have a project repo and access to an implementer + analyst endpoint.",

@@ -2,6 +2,32 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.2.0 — 2026-07-02
+
+The full enforcement + persona-market release. Every mechanism built THROUGH the harness with an
+acceptance test in `review_tests/` (a claim ships only when its test passes).
+
+- **Mechanism #3 — mutation-score threshold** (`LATHE_MUTATION_SCORE`): deterministic AST mutants of the
+  ACCEPTED code must be killed by the suite before it may pin — comprehensiveness measured, not assumed.
+  Hardened after the harness's own review found it failed OPEN on malformed inputs: an armed gate now
+  fails CLOSED.
+- **Enforcement scorecard 3/6 -> plus the STRICT umbrella**: strict mode now also forces the mutation
+  score (0.5) on top of criteria/ack/stub-proof/change-proof.
+- **REPRODUCIBILITY.md** — the two-claims split measured live: pinned rebuilds byte-identical x3 +
+  clean-checkout at 0 tokens (guaranteed); regeneration produced byte-DIFFERENT green code (recorded —
+  "a lockfile for AI code: the rebuild is deterministic, not the model").
+- **Persona market, complete**: catalog -> **143** (12 vendored MIT, 129 fetchable wshobson MIT, 2 refused
+  NOASSERTION) with name-weighted matching (7/8 top-3 on the probe suite); **empirical ratings**
+  (`lathe agent rate` — probe + independent judge -> 0-10, decider reweights 0.5x..1.5x; proven live);
+  **user overrides** (`personas.priority` + `personas.mandatory` in config); **PERSONAS.md** documents the
+  exact sources, the decider pipeline, and the controls.
+- **SDLC authoring** (`lathe sdlc "<goal>"`): the analyst writes UC->BR->FR->TS with stable IDs and
+  traces_to; the harness-built **RTM gate** refuses orphans/dangling refs (one gap-feedback retry, then
+  fail loud); emits REQUIREMENTS.md + rtm.json + a CRITERIA block; the new `sdlc` WORKFLOW chains it into
+  ack -> STRICT build -> trace -> review. Proven live (21 traced items, gate PASS).
+- Ops fixes from the self-review: persona fetch timeouts tightened (8s/3s connect), config overrides
+  type-validated, a dead persona market now reports to stderr instead of dying silently.
+
 ## v2.1.4 — 2026-07-02
 
 The round-6 review's consolidated fix list (§15), closed with claim-level tests. Every fix's decision

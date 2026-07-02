@@ -34,7 +34,11 @@ FUNCTIONS = [
                 "is None, not a str, or blank after strip -> [False, 'mutation score not required']. Try "
                 "float(env_value.strip()); on failure or if the value is not within 0.0..1.0 inclusive -> "
                 "[False, 'unrecognized LATHE_MUTATION_SCORE value - gate skipped']. If total is not a positive "
-                "int -> [False, 'no mutants generated - nothing to judge']. Let score = killed / total. If score "
+                "int (bools excluded) -> [False, 'no mutants generated - nothing to judge']. The gate is now "
+                "ARMED: if killed is not an int (bools excluded), or killed < 0, or killed > total -> "
+                "[True, 'REFUSED: malformed mutation-gate inputs (killed=<killed> total=<total>) - failing "
+                "closed'] with the values substituted (an armed quality gate must never be skipped by garbage "
+                "inputs). Let score = killed / total. If score "
                 "+ 1e-9 >= threshold -> [False, 'mutation score ok: killed K/T']. Else -> [True, 'REFUSED: tests "
                 "kill only K/T mutants (score S.SS < threshold X.XX) - the suite cannot distinguish the accepted "
                 "code from its mutants; strengthen the tests'] with K, T, score to 2 decimals and threshold to 2 "
@@ -49,5 +53,9 @@ FUNCTIONS = [
         "assert mutation_gate('0.5', 2, 5)[0] is True",
         "r = mutation_gate('0.9', 1, 2); assert r[0] is True and '1/2' in r[1] and '0.50' in r[1] and '0.90' in r[1]",
         "assert mutation_gate('1.0', 5, 5)[0] is False",
+        "r = mutation_gate('0.8', None, 10); assert r[0] is True and 'failing' in r[1]",
+        "assert mutation_gate('0.8', 15, 10)[0] is True",
+        "assert mutation_gate('0.8', True, 1)[0] is True",
+        "assert mutation_gate('0.8', -1, 5)[0] is True",
      ]},
 ]

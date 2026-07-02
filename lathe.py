@@ -33,6 +33,8 @@ Usage:
                                refuses to build un-acked or rewritten tests — the tests define 'correct')
   lathe trace <plan> [model]   requirement->test->pin->model traceability matrix; the validator refuses a
                                plan whose declared CRITERIA aren't each mapped to a named test
+  lathe sdlc "<goal>" [--out]  SDLC authoring: analyst writes UC->BR->FR->TS (ID-traced); the RTM gate
+                               refuses orphans/dangling refs; emits REQUIREMENTS.md + a CRITERIA block
   lathe selftest               exercise every capability and report PASS/FAIL
   lathe help                   this help
 
@@ -263,6 +265,15 @@ def cmd_review(args):
         except Exception:
             _picked = []
         lenses = list(dict.fromkeys(_DEFAULT_LENSES + [p for p in _picked if p in _ALL_LENSES]))   # correctness+adversarial floor + domain specialists
+        try:                                        # #43: user config steers the market — mandatory personas are
+            from persona_spawn import persona_overrides       # injected on EVERY invocation; priority reweights picks
+            _prio, _mand = persona_overrides()
+            for _m in _mand:
+                if _m in _ALL_LENSES and _m not in lenses:
+                    lenses.append(_m)
+                    print("mandatory persona (config): %s" % _m)
+        except Exception:
+            pass
         print("decider selected lenses for this code: %s" % ", ".join(lenses))
         try:                                        # D7: a needed-but-absent expert is FETCHED (license-gated) and injected
             from persona_spawn import auto_spawn_for_goal
@@ -885,11 +896,44 @@ def cmd_agent(args):
     permissive agents for fast/offline spawn. Decider is harness-built (tools/agent_router.py); inventory is agents/catalog.json."""
     import json
     sys.path.insert(0, TOOLS)
-    from agent_router import pick_best, license_ok
+    from agent_router import pick_best, license_ok, score_match
     try:
         entries = json.load(open(os.path.join(INNER, "agents", "catalog.json"), encoding="utf-8")).get("agents", [])
     except Exception as ex:
         print("agent: catalog unavailable (%s)" % ex); return 1
+    if args and args[0] == "ratings":                         # #39: show the measured persona ratings
+        from persona_spawn import load_ratings
+        r = load_ratings()
+        if not r:
+            print("no ratings yet — run: lathe agent rate \"<need>\" [k]"); return 0
+        for n, v in sorted(r.items(), key=lambda kv: -(kv[1].get("rating") or 0) if isinstance(kv[1], dict) else 0):
+            print("  %-28s %4.1f  (probe: %s)" % (n, v.get("rating", -1), (v.get("need") or "")[:50]))
+        return 0
+    if args and args[0] == "rate":                            # #39: EVALUATE the matched personas on a field probe
+        from persona_spawn import auto_spawn_for_goal, load_ratings, save_rating, persona_overrides
+        from persona_ratings import parse_judge_score
+        need = " ".join(a for a in args[1:] if not a.startswith("--")).strip()
+        if not need:
+            print('usage: lathe agent rate "<need>" '); return 2
+        sys.path.insert(0, TOOLS)
+        from request_spec import request_spec
+        rated = 0
+        cands = auto_spawn_for_goal(need, 3)                  # fetched bodies (license-gated) for the top matches
+        for name, _md, body in cands:
+            probe = ("You are this specialist:\n%s\n\nTASK: list the 3 most critical, CONCRETE checks you "
+                     "would run for: %s. Number them; one line each; be specific to the domain." % (body[:1500], need))
+            ans = request_spec(probe) or ""
+            judge = request_spec("Rate 0-10 how specific, actionable and domain-expert this answer is (10 = "
+                                 "precise expert checks; 0 = generic filler). Reply with exactly 'SCORE: <n>'.\n\n"
+                                 "NEED: %s\n\nANSWER:\n%s" % (need, ans[:2000])) or ""
+            s = parse_judge_score(judge)
+            if s >= 0:
+                save_rating(name, s, need)
+                print("  rated %-26s %.1f / 10" % (name, s)); rated += 1
+            else:
+                print("  %-26s judge gave no usable score — skipped" % name)
+        print("%d persona(s) rated -> agents/ratings.json (the decider now weighs these; `lathe agent ratings` to view)" % rated)
+        return 0 if rated else 1
     if args and args[0] == "refill":                          # pre-mirror all permissive agents + their licenses
         n = 0
         for e in entries:
@@ -902,7 +946,10 @@ def cmd_agent(args):
     need = " ".join(a for a in args if not a.startswith("--")).strip()
     if not need:
         print('usage: lathe agent "<need>" [--spawn]   |   lathe agent refill'); return 2
-    name = pick_best(need, [[e["name"], e.get("capability", "")] for e in entries])
+    _scored = [[e["name"], score_match(need, e["name"].replace("-", " ") + " " + e.get("capability", ""))
+                + score_match(need, e["name"].replace("-", " "))] for e in entries]   # name weighted (as auto_spawn)
+    _best = max(_scored, key=lambda p: p[1]) if _scored else ["", 0]
+    name = _best[0] if _best[1] > 0 else ""
     if not name:
         print("no catalogued agent matches '%s'." % need); return 1
     e = next(x for x in entries if x["name"] == name)
@@ -966,6 +1013,72 @@ def cmd_ack(args):
     open(ack_file, "w", encoding="utf-8").write(json.dumps(acks, indent=1))
     print("acknowledged: %s (digest %s...) -> %s" % (os.path.basename(plan_path), digest[:12], ack_file))
     print("(the engine enforces this only when LATHE_TEST_ACK=1; any test rewrite forces a re-ack)")
+    return 0
+
+
+def cmd_sdlc(args):
+    """SDLC authoring (#41): from a goal, the analyst writes LAYERED, ID-TRACED requirements —
+    UC (use case) -> BR (business req) -> FR (functional req) -> TS (technical spec) — and the harness-built
+    RTM gate REFUSES the set unless every item traces down AND is covered up (no orphans, no dangling refs).
+    Output: <out>/REQUIREMENTS.md + <out>/rtm.json + a suggested plan CRITERIA block (TS -> criteria), ready
+    for a STRICT-mode build. The proven template shipped a real product; this makes it a first-class command."""
+    import json as _json, re as _re
+    goal = " ".join(a for a in args if not a.startswith("--")).strip()
+    if "--out" in args:
+        goal = " ".join(a for a in args[:args.index("--out")] if not a.startswith("--")).strip()
+    if not goal:
+        print('usage: lathe sdlc "<goal>" [--out <dir>]'); return 2
+    out_dir = INNER
+    if "--out" in args:
+        try:
+            out_dir = os.path.abspath(args[args.index("--out") + 1])
+        except IndexError:
+            print("--out needs a directory"); return 2
+    if TOOLS not in sys.path:
+        sys.path.insert(0, TOOLS)
+    from sdlc_rtm import rtm_gaps
+    from request_spec import request_spec
+    prompt = (
+        "You are a rigorous requirements analyst following a strict SDLC. GOAL:\n%s\n\n"
+        "Produce the LAYERED requirement set as PURE JSON (no prose, no markdown fence):\n"
+        '{"UC": [{"id": "UC-1", "text": "..."}], "BR": [{"id": "BR-1", "text": "...", "traces_to": ["UC-1"]}], '
+        '"FR": [{"id": "FR-1", "text": "...", "traces_to": ["BR-1"]}], "TS": [{"id": "TS-1", "text": "...", "traces_to": ["FR-1"]}]}\n'
+        "Rules: 2-4 UC; each UC covered by >=1 BR; each BR by >=1 FR; each FR by >=1 TS; ids unique; every "
+        "traces_to references only the layer directly above; TS entries must be concrete, testable technical "
+        "contracts (they become acceptance criteria)." % goal)
+    gaps = ["no attempt"]
+    for attempt in (1, 2):
+        raw = request_spec(prompt) or ""
+        m = _re.search(r"\{.*\}", raw, _re.S)
+        try:
+            layers = _json.loads(m.group(0)) if m else None
+        except Exception:
+            layers = None
+        gaps = rtm_gaps(layers)
+        if not gaps:
+            break
+        print("RTM GATE (attempt %d): %d gap(s) — %s" % (attempt, len(gaps), "; ".join(gaps[:4])))
+        prompt += "\n\nYOUR PREVIOUS ATTEMPT FAILED THE RTM GATE:\n- " + "\n- ".join(gaps[:10]) + "\nFix EVERY gap."
+    if gaps:
+        print("sdlc: REFUSED — the analyst could not produce a fully-traceable requirement set (%d gaps remain)." % len(gaps))
+        return 1
+    lines = ["# %s — Requirements (layered, ID-traced)" % goal[:60], "",
+             "Chain: UC -> BR -> FR -> TS, enforced by the RTM gate (no orphans, no dangling refs).", ""]
+    for layer, title in (("UC", "Business use cases"), ("BR", "Business requirements"),
+                         ("FR", "Functional requirements"), ("TS", "Technical specifications")):
+        lines += ["## %s (%s)" % (title, layer), "", "| ID | Text | Traces to |", "|---|---|---|"]
+        lines += ["| **%s** | %s | %s |" % (it["id"], it["text"], ", ".join(it.get("traces_to") or []) or "—")
+                  for it in layers.get(layer, [])]
+        lines += [""]
+    lines += ["## Suggested plan CRITERIA (each TS becomes an acceptance criterion)", "", "```python", "CRITERIA = ["]
+    lines += ["    {'id': %r, 'text': %r, 'tests': ['<fn or fn:idx>']}," % (t["id"], t["text"]) for t in layers.get("TS", [])]
+    lines += ["]", "```", "", "Build under STRICT mode (`LATHE_STRICT=1`) so the chain is enforced end-to-end."]
+    os.makedirs(out_dir, exist_ok=True)
+    req_md = os.path.join(out_dir, "REQUIREMENTS.md")
+    open(req_md, "w", encoding="utf-8").write("\n".join(lines))
+    open(os.path.join(out_dir, "rtm.json"), "w", encoding="utf-8").write(_json.dumps(layers, indent=1))
+    n = sum(len(layers.get(k, [])) for k in ("UC", "BR", "FR", "TS"))
+    print("RTM gate: PASS — %d traced items -> %s (+ rtm.json)" % (n, req_md))
     return 0
 
 
@@ -1110,7 +1223,7 @@ def main(argv):
         "metrics": cmd_metrics, "plans": cmd_plans, "dups": cmd_dups, "whatis": cmd_whatis,
         "clean": cmd_clean, "wait": cmd_wait, "resume": cmd_resume, "waiting": cmd_waiting,
         "report": cmd_report, "issues": cmd_issues, "logs": cmd_logs, "lint-spec": cmd_lint_spec,
-        "flow": cmd_flow, "map": cmd_map, "checkin": cmd_checkin, "agent": cmd_agent, "ack": cmd_ack, "trace": cmd_trace,
+        "flow": cmd_flow, "map": cmd_map, "checkin": cmd_checkin, "agent": cmd_agent, "ack": cmd_ack, "trace": cmd_trace, "sdlc": cmd_sdlc,
     }
     if cmd in table:
         return table[cmd](rest)

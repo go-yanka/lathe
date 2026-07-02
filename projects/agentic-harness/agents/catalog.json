@@ -1,19 +1,1301 @@
 {
-  "_meta": {
-    "purpose": "Inventory of expert agent personas — the ones we KNOW are out there. 'vendored:true' ship in-repo (license-compliant, attributed). The rest are fetched ON DEMAND (the Matrix 'load the program' model) IF their license is permissive. Cataloging metadata is not redistribution.",
-    "compliance": "Auto-fetch is gated by agent_router.license_ok (MIT / Apache / BSD / ISC / Unlicense / CC0 only). Non-permissive or unlicensed (e.g. NOASSERTION) sources are cataloged but NEVER auto-fetched — verify + vendor manually. Fetched files land in agents/_fetched/ (gitignored — a per-user runtime cache, not redistributed) with a SOURCE attribution note.",
-    "llm_independent": "An agent = persona (prompt text) + role. Spawning = inject that text into a chat call to whatever endpoint is configured (any OpenAI-compatible agent / Claude subscription proxy / Claude API / local). No coupling to any LLM."
+ "_meta": {
+  "purpose": "Inventory of expert agent personas. 'vendored:true' ship in-repo (license-compliant, attributed). The rest are fetched ON DEMAND (the 'load the program' model) IF their license is permissive. Cataloging metadata is not redistribution.",
+  "compliance": "Auto-fetch is gated by agent_router.license_ok (MIT/Apache/BSD/ISC/Unlicense/CC0 only). Non-permissive or unlicensed (e.g. NOASSERTION) sources are cataloged but NEVER auto-fetched. Fetched files land in agents/_fetched/ (gitignored per-user cache) with a SOURCE note; the source LICENSE is mirrored to agents/licenses/.",
+  "llm_independent": "An agent = persona (prompt text) + role. Spawning = inject that text into a chat call to whatever endpoint is configured (subscription proxy / API / local). No coupling to any LLM.",
+  "counts": {
+   "vendored": 12,
+   "fetchable_permissive": 129,
+   "refused": 2
+  }
+ },
+ "agents": [
+  {
+   "name": "correctness-reviewer",
+   "role": "reviewer",
+   "capability": "logic errors edge cases state management bugs error propagation intent implementation correctness",
+   "source": "EveryInc/compound-engineering-plugin",
+   "license": "MIT",
+   "vendored": true,
+   "path": "projects/agentic-harness/ce_personas/correctness-reviewer.md"
   },
-  "agents": [
-    {"name": "correctness-reviewer", "role": "reviewer", "capability": "logic errors edge cases state management bugs intent vs implementation correctness review", "source": "EveryInc/compound-engineering-plugin", "license": "MIT", "vendored": true, "path": "projects/agentic-harness/ce_personas/correctness-reviewer.md"},
-    {"name": "adversarial-reviewer", "role": "reviewer", "capability": "adversarial failure scenarios break the implementation attack review", "source": "EveryInc/compound-engineering-plugin", "license": "MIT", "vendored": true, "path": "projects/agentic-harness/ce_personas/adversarial-reviewer.md"},
-    {"name": "security-reviewer", "role": "reviewer", "capability": "security auth vulnerabilities exploit input validation permissions", "source": "EveryInc/compound-engineering-plugin", "license": "MIT", "vendored": true, "path": "projects/agentic-harness/ce_personas/security-reviewer.md"},
-
-    {"name": "backend-architect", "role": "analyst", "capability": "backend api design microservices scalability distributed systems architecture rest graphql grpc", "repo": "wshobson/agents", "path": "plugins/backend-development/agents/backend-architect.md", "license": "MIT", "vendored": false},
-    {"name": "graphql-architect", "role": "analyst", "capability": "graphql api schema design federation resolvers", "repo": "wshobson/agents", "path": "plugins/api-scaffolding/agents/graphql-architect.md", "license": "MIT", "vendored": false},
-    {"name": "event-sourcing-architect", "role": "analyst", "capability": "event sourcing cqrs event driven architecture messaging", "repo": "wshobson/agents", "path": "plugins/backend-development/agents/event-sourcing-architect.md", "license": "MIT", "vendored": false},
-
-    {"name": "spec-analyst", "role": "analyst", "capability": "requirements analysis user stories acceptance criteria scoping stakeholder", "repo": "zhsama/claude-sub-agent", "path": "agents/spec-agents/spec-analyst.md", "license": "NOASSERTION", "vendored": false},
-    {"name": "spec-architect", "role": "analyst", "capability": "system design technical specification architecture", "repo": "zhsama/claude-sub-agent", "path": "agents/spec-agents/spec-architect.md", "license": "NOASSERTION", "vendored": false}
-  ]
+  {
+   "name": "adversarial-reviewer",
+   "role": "reviewer",
+   "capability": "adversarial failure scenarios break implementation attack auth payments data mutation external api",
+   "source": "EveryInc/compound-engineering-plugin",
+   "license": "MIT",
+   "vendored": true,
+   "path": "projects/agentic-harness/ce_personas/adversarial-reviewer.md"
+  },
+  {
+   "name": "security-reviewer",
+   "role": "reviewer",
+   "capability": "security auth middleware public endpoints user input permission checks vulnerabilities exploit injection",
+   "source": "EveryInc/compound-engineering-plugin",
+   "license": "MIT",
+   "vendored": true,
+   "path": "projects/agentic-harness/ce_personas/security-reviewer.md"
+  },
+  {
+   "name": "reliability-reviewer",
+   "role": "reviewer",
+   "capability": "error handling retries circuit breakers timeouts health checks background jobs async production reliability failure",
+   "source": "EveryInc/compound-engineering-plugin",
+   "license": "MIT",
+   "vendored": true,
+   "path": "projects/agentic-harness/ce_personas/reliability-reviewer.md"
+  },
+  {
+   "name": "performance-reviewer",
+   "role": "reviewer",
+   "capability": "database queries loops data transforms caching io performance scalability complexity",
+   "source": "EveryInc/compound-engineering-plugin",
+   "license": "MIT",
+   "vendored": true,
+   "path": "projects/agentic-harness/ce_personas/performance-reviewer.md"
+  },
+  {
+   "name": "maintainability-reviewer",
+   "role": "reviewer",
+   "capability": "structural quality complexity coupling naming dead code type boundary abstraction debt maintainability",
+   "source": "EveryInc/compound-engineering-plugin",
+   "license": "MIT",
+   "vendored": true,
+   "path": "projects/agentic-harness/ce_personas/maintainability-reviewer.md"
+  },
+  {
+   "name": "testing-reviewer",
+   "role": "reviewer",
+   "capability": "test coverage gaps weak assertions brittle tests edge case coverage testing mocks fixtures",
+   "source": "EveryInc/compound-engineering-plugin",
+   "license": "MIT",
+   "vendored": true,
+   "path": "projects/agentic-harness/ce_personas/testing-reviewer.md"
+  },
+  {
+   "name": "api-contract-reviewer",
+   "role": "reviewer",
+   "capability": "api routes request response types serialization versioning exported type signatures breaking contract",
+   "source": "EveryInc/compound-engineering-plugin",
+   "license": "MIT",
+   "vendored": true,
+   "path": "projects/agentic-harness/ce_personas/api-contract-reviewer.md"
+  },
+  {
+   "name": "data-integrity-guardian",
+   "role": "reviewer",
+   "capability": "database migrations data models persistent data constraints transaction boundaries privacy integrity",
+   "source": "EveryInc/compound-engineering-plugin",
+   "license": "MIT",
+   "vendored": true,
+   "path": "projects/agentic-harness/ce_personas/data-integrity-guardian.md"
+  },
+  {
+   "name": "data-migration-reviewer",
+   "role": "reviewer",
+   "capability": "migration files schema dumps backfills data transformations schema drift mapping deploy window",
+   "source": "EveryInc/compound-engineering-plugin",
+   "license": "MIT",
+   "vendored": true,
+   "path": "projects/agentic-harness/ce_personas/data-migration-reviewer.md"
+  },
+  {
+   "name": "project-standards-reviewer",
+   "role": "reviewer",
+   "capability": "project standards conventions naming cross platform portability tool selection frontmatter",
+   "source": "EveryInc/compound-engineering-plugin",
+   "license": "MIT",
+   "vendored": true,
+   "path": "projects/agentic-harness/ce_personas/project-standards-reviewer.md"
+  },
+  {
+   "name": "julik-frontend-races-reviewer",
+   "role": "reviewer",
+   "capability": "async ui stimulus turbo lifecycle dom timing race conditions janky frontend",
+   "source": "EveryInc/compound-engineering-plugin",
+   "license": "MIT",
+   "vendored": true,
+   "path": "projects/agentic-harness/ce_personas/julik-frontend-races-reviewer.md"
+  },
+  {
+   "name": "accessibility-expert",
+   "role": "reviewer",
+   "capability": "accessibility expert specialist ensuring wcag compliance inclusive design assistive technology compatibility masters screen reader optimization keyboard navigation a11y testing methodologies proactively auditing remediating issues",
+   "repo": "wshobson/agents",
+   "path": "plugins/ui-design/agents/accessibility-expert.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "ai-engineer",
+   "role": "implementer",
+   "capability": "engineer build production ready llm applications advanced rag systems intelligent agents implements vector search multimodal agent orchestration enterprise integrations proactively features chatbots powered",
+   "repo": "wshobson/agents",
+   "path": "plugins/llm-application-dev/agents/ai-engineer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "api-documenter",
+   "role": "implementer",
+   "capability": "api documenter master documentation openapi powered tools modern developer experience practices create interactive docs generate sdks build comprehensive portals proactively portal creation",
+   "repo": "wshobson/agents",
+   "path": "plugins/documentation-generation/agents/api-documenter.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "architect",
+   "role": "analyst",
+   "capability": "architect agent reads orchestrator output agents project doc produce numbered step implementation plan pauses human approval before begins",
+   "repo": "wshobson/agents",
+   "path": "plugins/ship-mate/agents/architect.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "architect-review",
+   "role": "reviewer",
+   "capability": "architect review master software specializing modern architecture patterns clean microservices event driven systems ddd reviews system designs code changes architectural integrity scalability maintainability proactively",
+   "repo": "wshobson/agents",
+   "path": "plugins/framework-migration/agents/architect-review.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "arm-cortex-expert",
+   "role": "implementer",
+   "capability": "arm cortex expert",
+   "repo": "wshobson/agents",
+   "path": "plugins/arm-cortex-microcontrollers/agents/arm-cortex-expert.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "backend-architect",
+   "role": "analyst",
+   "capability": "backend architect expert specializing scalable api design microservices architecture distributed systems masters rest graphql grpc apis event driven architectures service mesh patterns modern frameworks",
+   "repo": "wshobson/agents",
+   "path": "plugins/api-scaffolding/agents/backend-architect.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "backend-security-coder",
+   "role": "reviewer",
+   "capability": "backend security coder expert secure coding practices specializing input validation authentication api proactively implementations code reviews",
+   "repo": "wshobson/agents",
+   "path": "plugins/backend-api-security/agents/backend-security-coder.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "bash-pro",
+   "role": "implementer",
+   "capability": "bash pro master defensive scripting production automation pipelines system utilities expert safe portable testable shell scripts",
+   "repo": "wshobson/agents",
+   "path": "plugins/shell-scripting/agents/bash-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "blockchain-developer",
+   "role": "implementer",
+   "capability": "blockchain developer build production ready web3 applications smart contracts decentralized systems implements defi protocols nft platforms daos enterprise integrations proactively apps infrastructure",
+   "repo": "wshobson/agents",
+   "path": "plugins/blockchain-web3/agents/blockchain-developer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "business-analyst",
+   "role": "analyst",
+   "capability": "business analyst master modern analysis powered analytics real time dashboards data driven insights build comprehensive kpi frameworks predictive models strategic recommendations proactively intelligence",
+   "repo": "wshobson/agents",
+   "path": "plugins/business-analytics/agents/business-analyst.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "c-pro",
+   "role": "implementer",
+   "capability": "pro write efficient code proper memory management pointer arithmetic system calls handles embedded systems kernel modules performance critical proactively optimization issues programming",
+   "repo": "wshobson/agents",
+   "path": "plugins/systems-programming/agents/c-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "c4-code",
+   "role": "implementer",
+   "capability": "code expert level documentation specialist analyzes directories create comprehensive including function signatures arguments dependencies structure documenting lowest individual modules",
+   "repo": "wshobson/agents",
+   "path": "plugins/c4-architecture/agents/c4-code.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "c4-component",
+   "role": "analyst",
+   "capability": "component expert level documentation specialist synthesizes code architecture defining boundaries interfaces relationships creates diagrams synthesizing logical components",
+   "repo": "wshobson/agents",
+   "path": "plugins/c4-architecture/agents/c4-component.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "c4-container",
+   "role": "analyst",
+   "capability": "container expert level documentation specialist synthesizes component architecture mapping components deployment units documenting interfaces apis creating diagrams synthesizing containers system",
+   "repo": "wshobson/agents",
+   "path": "plugins/c4-architecture/agents/c4-container.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "c4-context",
+   "role": "analyst",
+   "capability": "context expert level documentation specialist creates high system diagrams documents personas user journeys features external dependencies synthesizes container component create comprehensive architecture creating highest",
+   "repo": "wshobson/agents",
+   "path": "plugins/c4-architecture/agents/c4-context.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "cloud-architect",
+   "role": "analyst",
+   "capability": "cloud architect expert specializing aws azure gcp oci multi infrastructure design advanced iac terraform opentofu cdk finops cost optimization modern architectural patterns masters serverless",
+   "repo": "wshobson/agents",
+   "path": "plugins/cicd-automation/agents/cloud-architect.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "code-reviewer",
+   "role": "reviewer",
+   "capability": "code reviewer elite review expert specializing modern powered analysis security vulnerabilities performance optimization production reliability masters static tools scanning configuration 2024 2025 best practices",
+   "repo": "wshobson/agents",
+   "path": "plugins/tdd-workflows/agents/code-reviewer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "conductor-validator",
+   "role": "reviewer",
+   "capability": "conductor validator validates project artifacts completeness consistency correctness after setup diagnosing issues before implementation verify context",
+   "repo": "wshobson/agents",
+   "path": "plugins/conductor/agents/conductor-validator.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "content-marketer",
+   "role": "analyst",
+   "capability": "content marketer elite marketing strategist specializing powered creation omnichannel distribution seo optimization data driven performance masters modern tools social media automation conversion 2024 2025",
+   "repo": "wshobson/agents",
+   "path": "plugins/content-marketing/agents/content-marketer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "context-manager",
+   "role": "analyst",
+   "capability": "context manager elite engineering specialist mastering dynamic management vector databases knowledge graphs intelligent memory systems orchestrates across multi agent workflows enterprise long running projects",
+   "repo": "wshobson/agents",
+   "path": "plugins/context-management/agents/context-manager.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "cpp-pro",
+   "role": "implementer",
+   "capability": "cpp pro write idiomatic code modern features raii smart pointers stl algorithms handles templates move semantics performance optimization proactively refactoring memory safety complex patterns",
+   "repo": "wshobson/agents",
+   "path": "plugins/systems-programming/agents/cpp-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "csharp-pro",
+   "role": "implementer",
+   "capability": "csharp pro write modern code advanced features like records pattern matching async await optimizes net applications implements enterprise patterns ensures comprehensive testing proactively refactoring",
+   "repo": "wshobson/agents",
+   "path": "plugins/jvm-languages/agents/csharp-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "customer-support",
+   "role": "implementer",
+   "capability": "customer support elite powered specialist mastering conversational automated ticketing sentiment analysis omnichannel experiences integrates modern tools chatbot platforms optimization 2024 2025 best practices proactively",
+   "repo": "wshobson/agents",
+   "path": "plugins/customer-sales-automation/agents/customer-support.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "data-engineer",
+   "role": "analyst",
+   "capability": "data engineer build scalable pipelines modern warehouses real time streaming architectures implements apache spark dbt airflow cloud native platforms proactively pipeline design analytics infrastructure",
+   "repo": "wshobson/agents",
+   "path": "plugins/data-engineering/agents/data-engineer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "data-scientist",
+   "role": "implementer",
+   "capability": "data scientist expert advanced analytics machine learning statistical modeling handles complex analysis predictive business intelligence proactively tasks driven insights",
+   "repo": "wshobson/agents",
+   "path": "plugins/machine-learning-ops/agents/data-scientist.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "database-admin",
+   "role": "analyst",
+   "capability": "database admin expert administrator specializing modern cloud databases automation reliability engineering masters aws azure gcp oci services infrastructure code high availability disaster recovery performance",
+   "repo": "wshobson/agents",
+   "path": "plugins/database-migrations/agents/database-admin.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "database-architect",
+   "role": "analyst",
+   "capability": "database architect expert specializing data layer design scratch technology selection schema modeling scalable architectures masters sql nosql timeseries normalization strategies migration planning performance first",
+   "repo": "wshobson/agents",
+   "path": "plugins/database-design/agents/database-architect.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "database-optimizer",
+   "role": "analyst",
+   "capability": "database optimizer expert specializing modern performance tuning query optimization scalable architectures masters advanced indexing resolution multi tier caching partitioning strategies cloud handles complex analysis",
+   "repo": "wshobson/agents",
+   "path": "plugins/database-migrations/agents/database-optimizer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "debugger",
+   "role": "implementer",
+   "capability": "debugger debugging specialist errors test failures unexpected behavior proactively encountering any issues",
+   "repo": "wshobson/agents",
+   "path": "plugins/unit-testing/agents/debugger.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "deployment-engineer",
+   "role": "implementer",
+   "capability": "deployment engineer expert specializing modern pipelines gitops workflows advanced automation masters github actions argocd flux progressive delivery container security platform engineering handles zero downtime",
+   "repo": "wshobson/agents",
+   "path": "plugins/cicd-automation/agents/deployment-engineer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "design-system-architect",
+   "role": "analyst",
+   "capability": "design system architect expert specializing tokens component libraries theming infrastructure scalable operations masters token architecture multi brand systems development collaboration proactively building creating architectures",
+   "repo": "wshobson/agents",
+   "path": "plugins/ui-design/agents/design-system-architect.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "devops-troubleshooter",
+   "role": "implementer",
+   "capability": "devops troubleshooter expert specializing rapid incident response advanced debugging modern observability masters log analysis distributed tracing kubernetes performance optimization root cause handles production outages",
+   "repo": "wshobson/agents",
+   "path": "plugins/cicd-automation/agents/devops-troubleshooter.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "django-pro",
+   "role": "analyst",
+   "capability": "django pro master async views drf celery channels build scalable web applications proper architecture testing deployment proactively development orm optimization complex patterns",
+   "repo": "wshobson/agents",
+   "path": "plugins/api-scaffolding/agents/django-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "docs-architect",
+   "role": "analyst",
+   "capability": "docs architect creates comprehensive technical documentation existing codebases analyzes architecture design patterns implementation details produce long form manuals ebooks proactively system guides deep dives",
+   "repo": "wshobson/agents",
+   "path": "plugins/code-documentation/agents/docs-architect.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "dotnet-architect",
+   "role": "reviewer",
+   "capability": "dotnet architect expert net backend specializing asp core entity framework dapper enterprise application patterns masters async await dependency injection caching strategies performance optimization proactively",
+   "repo": "wshobson/agents",
+   "path": "plugins/dotnet-contribution/agents/dotnet-architect.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "dx-optimizer",
+   "role": "implementer",
+   "capability": "optimizer developer experience specialist improves tooling setup workflows proactively setting new projects after team feedback development friction noticed",
+   "repo": "wshobson/agents",
+   "path": "plugins/debugging-toolkit/agents/dx-optimizer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "elixir-pro",
+   "role": "implementer",
+   "capability": "elixir pro write idiomatic code otp patterns supervision trees phoenix liveview masters concurrency fault tolerance distributed systems proactively refactoring design complex beam optimizations",
+   "repo": "wshobson/agents",
+   "path": "plugins/functional-programming/agents/elixir-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "error-detective",
+   "role": "reviewer",
+   "capability": "error detective search logs codebases patterns stack traces anomalies correlates errors across systems identifies root causes proactively debugging issues analyzing investigating production",
+   "repo": "wshobson/agents",
+   "path": "plugins/error-debugging/agents/error-detective.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "eval-judge",
+   "role": "reviewer",
+   "capability": "eval judge llm plugin quality assessment scores skills triggering accuracy orchestration fitness output scope calibration anchored rubrics",
+   "repo": "wshobson/agents",
+   "path": "plugins/plugin-eval/agents/eval-judge.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "eval-orchestrator",
+   "role": "implementer",
+   "capability": "eval orchestrator orchestrates plugin quality evaluation proactively evaluating scoring certifying",
+   "repo": "wshobson/agents",
+   "path": "plugins/plugin-eval/agents/eval-orchestrator.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "event-sourcing-architect",
+   "role": "reviewer",
+   "capability": "event sourcing architect expert cqrs driven architecture patterns masters store design projection building saga orchestration eventual consistency proactively sourced systems audit trail requirements complex",
+   "repo": "wshobson/agents",
+   "path": "plugins/backend-development/agents/event-sourcing-architect.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "fastapi-pro",
+   "role": "analyst",
+   "capability": "fastapi pro build high performance async apis sqlalchemy pydantic master microservices websockets modern python patterns proactively development optimization api architecture",
+   "repo": "wshobson/agents",
+   "path": "plugins/api-scaffolding/agents/fastapi-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "firmware-analyst",
+   "role": "reviewer",
+   "capability": "firmware analyst expert specializing embedded systems iot security hardware reverse engineering masters extraction analysis vulnerability research routers devices automotive industrial controllers proactively audits penetration",
+   "repo": "wshobson/agents",
+   "path": "plugins/reverse-engineering/agents/firmware-analyst.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "flutter-expert",
+   "role": "analyst",
+   "capability": "flutter expert master development dart advanced widgets multi platform deployment handles state management animations testing performance optimization mobile web desktop embedded platforms proactively architecture",
+   "repo": "wshobson/agents",
+   "path": "plugins/multi-platform-apps/agents/flutter-expert.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "frontend-developer",
+   "role": "analyst",
+   "capability": "frontend developer build react components implement responsive layouts handle client side state management masters next modern architecture optimizes performance ensures accessibility proactively creating fixing",
+   "repo": "wshobson/agents",
+   "path": "plugins/multi-platform-apps/agents/frontend-developer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "frontend-security-coder",
+   "role": "reviewer",
+   "capability": "frontend security coder expert secure coding practices specializing xss prevention output sanitization client side patterns proactively implementations code reviews",
+   "repo": "wshobson/agents",
+   "path": "plugins/frontend-mobile-security/agents/frontend-security-coder.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "gallery-researcher",
+   "role": "implementer",
+   "capability": "gallery researcher",
+   "repo": "wshobson/agents",
+   "path": "plugins/meigen-ai-design/agents/gallery-researcher.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "golang-pro",
+   "role": "analyst",
+   "capability": "golang pro master modern patterns advanced concurrency performance optimization production ready microservices expert latest ecosystem including generics workspaces cutting edge frameworks proactively development architecture",
+   "repo": "wshobson/agents",
+   "path": "plugins/systems-programming/agents/golang-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "graphql-architect",
+   "role": "analyst",
+   "capability": "graphql architect master modern federation performance optimization enterprise security build scalable schemas implement advanced caching design real time systems proactively architecture",
+   "repo": "wshobson/agents",
+   "path": "plugins/api-scaffolding/agents/graphql-architect.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "haskell-pro",
+   "role": "analyst",
+   "capability": "haskell pro expert engineer specializing advanced type systems pure functional design high reliability software proactively level programming concurrency architecture guidance",
+   "repo": "wshobson/agents",
+   "path": "plugins/functional-programming/agents/haskell-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "hr-pro",
+   "role": "implementer",
+   "capability": "pro professional ethical partner hiring onboarding offboarding pto leave performance compliant policies employee relations ask jurisdiction company context before advising produce structured bias mitigated",
+   "repo": "wshobson/agents",
+   "path": "plugins/hr-legal-compliance/agents/hr-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "hybrid-cloud-architect",
+   "role": "analyst",
+   "capability": "hybrid cloud architect expert specializing complex multi solutions across aws azure gcp oci private clouds openstack vmware masters connectivity workload placement optimization edge computing",
+   "repo": "wshobson/agents",
+   "path": "plugins/cloud-infrastructure/agents/hybrid-cloud-architect.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "image-generator",
+   "role": "implementer",
+   "capability": "image generator",
+   "repo": "wshobson/agents",
+   "path": "plugins/meigen-ai-design/agents/image-generator.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "implement",
+   "role": "analyst",
+   "capability": "implement developer agent implements architect plan step guided agents guardrails writes tests leaves todos flags deviations rather than silently skipping them",
+   "repo": "wshobson/agents",
+   "path": "plugins/ship-mate/agents/implement.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "incident-responder",
+   "role": "implementer",
+   "capability": "incident responder expert sre specializing rapid problem resolution modern observability comprehensive management masters command blameless post mortems error budget system reliability patterns handles critical",
+   "repo": "wshobson/agents",
+   "path": "plugins/incident-response/agents/incident-responder.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "ios-developer",
+   "role": "implementer",
+   "capability": "ios developer develop native applications swift swiftui masters uikit integration core data networking app store optimization proactively specific features development",
+   "repo": "wshobson/agents",
+   "path": "plugins/multi-platform-apps/agents/ios-developer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "java-pro",
+   "role": "analyst",
+   "capability": "java pro master modern features like virtual threads pattern matching spring boot expert latest ecosystem including graalvm project loom cloud native patterns proactively development",
+   "repo": "wshobson/agents",
+   "path": "plugins/jvm-languages/agents/java-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "javascript-pro",
+   "role": "implementer",
+   "capability": "javascript pro master modern es6 async patterns node apis handles promises event loops browser compatibility proactively optimization debugging complex",
+   "repo": "wshobson/agents",
+   "path": "plugins/javascript-typescript/agents/javascript-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "julia-pro",
+   "role": "implementer",
+   "capability": "julia pro master modern features performance optimization multiple dispatch production ready practices expert ecosystem including package management scientific computing high numerical code proactively development",
+   "repo": "wshobson/agents",
+   "path": "plugins/julia-development/agents/julia-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "kubernetes-architect",
+   "role": "analyst",
+   "capability": "kubernetes architect expert specializing cloud native infrastructure advanced gitops workflows argocd flux enterprise container orchestration masters eks aks gke oke service mesh istio linkerd",
+   "repo": "wshobson/agents",
+   "path": "plugins/cicd-automation/agents/kubernetes-architect.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "legacy-modernizer",
+   "role": "implementer",
+   "capability": "legacy modernizer refactor codebases migrate outdated frameworks implement gradual modernization handles technical debt dependency updates backward compatibility proactively system framework migrations reduction",
+   "repo": "wshobson/agents",
+   "path": "plugins/code-refactoring/agents/legacy-modernizer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "legal-advisor",
+   "role": "analyst",
+   "capability": "legal advisor draft privacy policies terms service disclaimers notices creates gdpr compliant texts cookie data processing agreements proactively documentation compliance regulatory requirements",
+   "repo": "wshobson/agents",
+   "path": "plugins/hr-legal-compliance/agents/legal-advisor.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "malware-analyst",
+   "role": "analyst",
+   "capability": "malware analyst expert specializing defensive research threat intelligence incident response masters sandbox analysis behavioral family identification handles static dynamic unpacking ioc extraction proactively triage",
+   "repo": "wshobson/agents",
+   "path": "plugins/reverse-engineering/agents/malware-analyst.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "mermaid-expert",
+   "role": "analyst",
+   "capability": "mermaid expert create diagrams flowcharts sequences erds architectures masters syntax all diagram types styling proactively visual documentation system process flows",
+   "repo": "wshobson/agents",
+   "path": "plugins/documentation-generation/agents/mermaid-expert.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "minecraft-bukkit-pro",
+   "role": "analyst",
+   "capability": "minecraft bukkit pro master server plugin development spigot paper apis specializes event driven architecture command systems world manipulation player management performance optimization proactively gameplay",
+   "repo": "wshobson/agents",
+   "path": "plugins/game-development/agents/minecraft-bukkit-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "ml-engineer",
+   "role": "implementer",
+   "capability": "engineer build production systems pytorch tensorflow modern frameworks implements model serving feature engineering testing monitoring proactively deployment inference optimization infrastructure",
+   "repo": "wshobson/agents",
+   "path": "plugins/machine-learning-ops/agents/ml-engineer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "mlops-engineer",
+   "role": "implementer",
+   "capability": "mlops engineer build comprehensive pipelines experiment tracking model registries mlflow kubeflow modern tools implements automated training deployment monitoring across cloud platforms proactively infrastructure management",
+   "repo": "wshobson/agents",
+   "path": "plugins/machine-learning-ops/agents/mlops-engineer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "mobile-developer",
+   "role": "analyst",
+   "capability": "mobile developer develop react native flutter apps modern architecture patterns masters cross platform development integrations offline sync app store optimization proactively features code",
+   "repo": "wshobson/agents",
+   "path": "plugins/multi-platform-apps/agents/mobile-developer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "mobile-security-coder",
+   "role": "reviewer",
+   "capability": "mobile security coder expert secure coding practices specializing input validation webview specific patterns proactively implementations code reviews",
+   "repo": "wshobson/agents",
+   "path": "plugins/frontend-mobile-security/agents/mobile-security-coder.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "model-advisor",
+   "role": "analyst",
+   "capability": "model advisor",
+   "repo": "wshobson/agents",
+   "path": "plugins/runapi-mcp/agents/model-advisor.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "monorepo-architect",
+   "role": "analyst",
+   "capability": "monorepo architect expert architecture build systems dependency management scale masters turborepo bazel lerna efficient multi project development proactively setup optimization scaling workflows across teams",
+   "repo": "wshobson/agents",
+   "path": "plugins/developer-essentials/agents/monorepo-architect.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "network-engineer",
+   "role": "analyst",
+   "capability": "network engineer expert specializing modern cloud networking security architectures performance optimization masters multi connectivity service mesh zero trust ssl tls global load balancing advanced",
+   "repo": "wshobson/agents",
+   "path": "plugins/cloud-infrastructure/agents/network-engineer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "observability-engineer",
+   "role": "implementer",
+   "capability": "observability engineer build production ready monitoring logging tracing systems implements comprehensive strategies sli slo management incident response workflows proactively infrastructure performance optimization reliability",
+   "repo": "wshobson/agents",
+   "path": "plugins/application-performance/agents/observability-engineer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "orchestrate",
+   "role": "implementer",
+   "capability": "orchestrate product orchestrator agent reads active story file asks clarifying questions one time confirms task type frontend backend produces complete unambiguous spec output",
+   "repo": "wshobson/agents",
+   "path": "plugins/ship-mate/agents/orchestrate.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "payment-integration",
+   "role": "implementer",
+   "capability": "payment integration integrate stripe paypal processors handles checkout flows subscriptions webhooks pci compliance proactively implementing payments billing subscription features",
+   "repo": "wshobson/agents",
+   "path": "plugins/payment-processing/agents/payment-integration.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "performance-engineer",
+   "role": "reviewer",
+   "capability": "performance engineer profile optimize application including response times memory usage query efficiency scalability review during feature development",
+   "repo": "wshobson/agents",
+   "path": "plugins/backend-development/agents/performance-engineer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "php-pro",
+   "role": "implementer",
+   "capability": "php pro write idiomatic code generators iterators spl data structures modern oop features proactively high performance applications",
+   "repo": "wshobson/agents",
+   "path": "plugins/web-scripting/agents/php-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "playwright",
+   "role": "implementer",
+   "capability": "playwright testing agent only runs frontend tasks verifies acceptance criteria real browser page object pattern passes success routes back developer failure",
+   "repo": "wshobson/agents",
+   "path": "plugins/ship-mate/agents/playwright.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "policy-enforcer",
+   "role": "reviewer",
+   "capability": "policy enforcer cedar author reviewer claude code tool calls writes audits explains policies govern bash edit write webfetch other tools need declarative formally verifiable",
+   "repo": "wshobson/agents",
+   "path": "plugins/protect-mcp/agents/policy-enforcer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "posix-shell-pro",
+   "role": "implementer",
+   "capability": "posix shell pro expert strict scripting maximum portability across unix like systems specializes scripts run any compliant dash ash bash",
+   "repo": "wshobson/agents",
+   "path": "plugins/shell-scripting/agents/posix-shell-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "prompt-crafter",
+   "role": "implementer",
+   "capability": "prompt crafter",
+   "repo": "wshobson/agents",
+   "path": "plugins/meigen-ai-design/agents/prompt-crafter.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "prompt-engineer",
+   "role": "implementer",
+   "capability": "prompt engineer expert specializing advanced prompting techniques llm optimization system design masters chain thought constitutional production strategies building features improving agent performance crafting prompts",
+   "repo": "wshobson/agents",
+   "path": "plugins/llm-application-dev/agents/prompt-engineer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "python-pro",
+   "role": "implementer",
+   "capability": "python pro master modern features async programming performance optimization production ready practices expert latest ecosystem including ruff pydantic fastapi proactively development advanced patterns",
+   "repo": "wshobson/agents",
+   "path": "plugins/python-development/agents/python-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "qa",
+   "role": "implementer",
+   "capability": "agent tests all acceptance criteria edge cases orchestrator output generates structured report pass fail criterion bug triage loops back implement bugs found max iterations",
+   "repo": "wshobson/agents",
+   "path": "plugins/ship-mate/agents/qa.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "quant-analyst",
+   "role": "analyst",
+   "capability": "quant analyst build financial models backtest trading strategies analyze market data implements risk metrics portfolio optimization statistical arbitrage proactively quantitative finance algorithms analysis",
+   "repo": "wshobson/agents",
+   "path": "plugins/quantitative-trading/agents/quant-analyst.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "receipt-verifier",
+   "role": "reviewer",
+   "capability": "receipt verifier expert ed25519 signed receipts jcs canonicalization hash chains offline verification need verify authenticity audit chain detect tampering explain why failed",
+   "repo": "wshobson/agents",
+   "path": "plugins/protect-mcp/agents/receipt-verifier.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "reference-builder",
+   "role": "implementer",
+   "capability": "reference builder creates exhaustive technical references api documentation generates comprehensive parameter listings configuration guides searchable materials proactively docs complete specifications",
+   "repo": "wshobson/agents",
+   "path": "plugins/documentation-generation/agents/reference-builder.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "reverse-engineer",
+   "role": "implementer",
+   "capability": "reverse engineer expert specializing binary analysis disassembly decompilation software masters ida pro ghidra radare2 x64dbg modern toolchains handles executable library inspection protocol extraction vulnerability",
+   "repo": "wshobson/agents",
+   "path": "plugins/reverse-engineering/agents/reverse-engineer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "review",
+   "role": "reviewer",
+   "capability": "review reviewer agent reviews implemented code tier taxonomy critical fix consider auto resolves minor issues pauses ones applies security guardrails outputs report",
+   "repo": "wshobson/agents",
+   "path": "plugins/ship-mate/agents/review.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "review-policy-author",
+   "role": "reviewer",
+   "capability": "review policy author cedar specialized gating agent actions comments reviews merges edits behind human approval writing auditing extending governance bot",
+   "repo": "wshobson/agents",
+   "path": "plugins/review-agent-governance/agents/review-policy-author.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "risk-manager",
+   "role": "analyst",
+   "capability": "risk manager monitor portfolio multiples position limits creates hedging strategies calculates expectancy implements stop losses proactively assessment trade tracking protection",
+   "repo": "wshobson/agents",
+   "path": "plugins/quantitative-trading/agents/risk-manager.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "ruby-pro",
+   "role": "implementer",
+   "capability": "ruby pro write idiomatic code metaprogramming rails patterns performance optimization specializes gem development testing frameworks proactively refactoring complex features",
+   "repo": "wshobson/agents",
+   "path": "plugins/web-scripting/agents/ruby-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "rust-pro",
+   "role": "implementer",
+   "capability": "rust pro master modern async patterns advanced type system features production ready systems programming expert latest ecosystem including tokio axum cutting edge crates proactively",
+   "repo": "wshobson/agents",
+   "path": "plugins/systems-programming/agents/rust-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "sales-automator",
+   "role": "implementer",
+   "capability": "sales automator draft cold emails follow ups proposal templates creates pricing pages case studies scripts proactively outreach lead nurturing",
+   "repo": "wshobson/agents",
+   "path": "plugins/customer-sales-automation/agents/sales-automator.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "scala-pro",
+   "role": "analyst",
+   "capability": "scala pro master enterprise grade development functional programming distributed systems big data processing expert apache pekko akka spark zio cats effect reactive architectures proactively",
+   "repo": "wshobson/agents",
+   "path": "plugins/jvm-languages/agents/scala-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "search-specialist",
+   "role": "implementer",
+   "capability": "search specialist expert web researcher advanced techniques synthesis masters operators result filtering multi source verification handles competitive analysis fact checking proactively deep research information",
+   "repo": "wshobson/agents",
+   "path": "plugins/content-marketing/agents/search-specialist.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "security-auditor",
+   "role": "reviewer",
+   "capability": "security auditor expert specializing devsecops comprehensive cybersecurity compliance frameworks masters vulnerability assessment threat modeling secure authentication oauth2 oidc owasp standards cloud automation handles integration",
+   "repo": "wshobson/agents",
+   "path": "plugins/security-scanning/agents/security-auditor.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "seo-authority-builder",
+   "role": "implementer",
+   "capability": "seo authority builder analyzes content signals suggests improvements build trust identifies missing credibility elements proactively ymyl topics",
+   "repo": "wshobson/agents",
+   "path": "plugins/seo-analysis-monitoring/agents/seo-authority-builder.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "seo-cannibalization-detector",
+   "role": "reviewer",
+   "capability": "seo cannibalization detector analyzes multiple provided pages identify keyword overlap potential issues suggests differentiation strategies proactively reviewing similar content",
+   "repo": "wshobson/agents",
+   "path": "plugins/seo-analysis-monitoring/agents/seo-cannibalization-detector.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "seo-content-auditor",
+   "role": "reviewer",
+   "capability": "seo content auditor analyzes provided quality signals best practices scores provides improvement recommendations based established guidelines proactively review",
+   "repo": "wshobson/agents",
+   "path": "plugins/seo-content-creation/agents/seo-content-auditor.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "seo-content-planner",
+   "role": "analyst",
+   "capability": "seo content planner creates comprehensive outlines topic clusters plans calendars identifies gaps proactively strategy planning",
+   "repo": "wshobson/agents",
+   "path": "plugins/seo-content-creation/agents/seo-content-planner.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "seo-content-refresher",
+   "role": "implementer",
+   "capability": "seo content refresher identifies outdated elements provided suggests updates maintain freshness finds statistics dates examples need updating proactively older",
+   "repo": "wshobson/agents",
+   "path": "plugins/seo-analysis-monitoring/agents/seo-content-refresher.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "seo-content-writer",
+   "role": "implementer",
+   "capability": "seo content writer writes optimized based provided keywords topic briefs creates engaging comprehensive following best practices proactively creation tasks",
+   "repo": "wshobson/agents",
+   "path": "plugins/seo-content-creation/agents/seo-content-writer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "seo-keyword-strategist",
+   "role": "analyst",
+   "capability": "seo keyword strategist analyzes usage provided content calculates density suggests semantic variations lsi keywords based topic prevents over optimization proactively",
+   "repo": "wshobson/agents",
+   "path": "plugins/seo-technical-optimization/agents/seo-keyword-strategist.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "seo-meta-optimizer",
+   "role": "implementer",
+   "capability": "seo meta optimizer creates optimized titles descriptions url suggestions based character limits best practices generates compelling keyword rich metadata proactively new content",
+   "repo": "wshobson/agents",
+   "path": "plugins/seo-technical-optimization/agents/seo-meta-optimizer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "seo-snippet-hunter",
+   "role": "implementer",
+   "capability": "seo snippet hunter formats content eligible featured snippets serp features creates optimized blocks based best practices proactively question",
+   "repo": "wshobson/agents",
+   "path": "plugins/seo-technical-optimization/agents/seo-snippet-hunter.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "seo-structure-architect",
+   "role": "analyst",
+   "capability": "seo structure architect analyzes optimizes content including header hierarchy suggests schema markup internal linking opportunities creates search friendly organization proactively structuring",
+   "repo": "wshobson/agents",
+   "path": "plugins/seo-technical-optimization/agents/seo-structure-architect.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "service-mesh-expert",
+   "role": "analyst",
+   "capability": "service mesh expert architect specializing istio linkerd cloud native networking patterns masters traffic management security policies observability integration multi cluster configurations proactively architecture zero",
+   "repo": "wshobson/agents",
+   "path": "plugins/cloud-infrastructure/agents/service-mesh-expert.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "social-publishing-publisher",
+   "role": "implementer",
+   "capability": "social publishing publisher",
+   "repo": "wshobson/agents",
+   "path": "plugins/social-publishing/agents/social-publishing-publisher.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "sql-pro",
+   "role": "implementer",
+   "capability": "sql pro master modern cloud native databases oltp olap optimization advanced query techniques expert performance tuning data modeling hybrid analytical systems proactively database complex",
+   "repo": "wshobson/agents",
+   "path": "plugins/database-design/agents/sql-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "startup-analyst",
+   "role": "analyst",
+   "capability": "startup analyst expert business specializing market sizing financial modeling competitive analysis strategic planning early stage companies proactively user asks about opportunity tam sam som",
+   "repo": "wshobson/agents",
+   "path": "plugins/startup-business-analyst/agents/startup-analyst.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "task-executor",
+   "role": "implementer",
+   "capability": "task executor",
+   "repo": "wshobson/agents",
+   "path": "plugins/runapi-mcp/agents/task-executor.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "tdd-orchestrator",
+   "role": "implementer",
+   "capability": "tdd orchestrator master specializing red green refactor discipline multi agent workflow coordination comprehensive test driven development practices enforces best across teams assisted testing modern",
+   "repo": "wshobson/agents",
+   "path": "plugins/tdd-workflows/agents/tdd-orchestrator.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "team-debugger",
+   "role": "implementer",
+   "capability": "team debugger hypothesis driven debugging investigator investigates one assigned gathering evidence confirm falsify file line citations confidence levels complex issues multiple potential root causes",
+   "repo": "wshobson/agents",
+   "path": "plugins/agent-teams/agents/team-debugger.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "team-implementer",
+   "role": "implementer",
+   "capability": "team implementer parallel feature builder implements components within strict file ownership boundaries coordinating integration points messaging building features across multiple agents coordination",
+   "repo": "wshobson/agents",
+   "path": "plugins/agent-teams/agents/team-implementer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "team-lead",
+   "role": "implementer",
+   "capability": "team lead orchestrator decomposes work parallel tasks file ownership boundaries manages lifecycle synthesizes results coordinating multi agent teams decomposing complex managing workstreams",
+   "repo": "wshobson/agents",
+   "path": "plugins/agent-teams/agents/team-lead.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "team-reviewer",
+   "role": "reviewer",
+   "capability": "team reviewer multi dimensional code operates one assigned review dimension security performance architecture testing accessibility structured finding format performing parallel reviews across multiple quality",
+   "repo": "wshobson/agents",
+   "path": "plugins/agent-teams/agents/team-reviewer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "temporal-python-pro",
+   "role": "implementer",
+   "capability": "temporal python pro master workflow orchestration sdk implements durable workflows saga patterns distributed transactions covers async await testing strategies production deployment proactively design microservice",
+   "repo": "wshobson/agents",
+   "path": "plugins/backend-development/agents/temporal-python-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "terraform-specialist",
+   "role": "implementer",
+   "capability": "terraform specialist expert opentofu mastering advanced iac automation state management enterprise infrastructure patterns handles complex module design multi cloud deployments gitops workflows policy code",
+   "repo": "wshobson/agents",
+   "path": "plugins/cicd-automation/agents/terraform-specialist.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "test-automator",
+   "role": "implementer",
+   "capability": "test automator master powered automation modern frameworks self healing tests comprehensive quality engineering build scalable testing strategies advanced integration proactively assurance",
+   "repo": "wshobson/agents",
+   "path": "plugins/unit-testing/agents/test-automator.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "threat-modeling-expert",
+   "role": "reviewer",
+   "capability": "threat modeling expert methodologies security architecture review risk assessment masters stride pasta attack trees requirement extraction proactively reviews identification building secure design systems",
+   "repo": "wshobson/agents",
+   "path": "plugins/security-scanning/agents/threat-modeling-expert.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "tutorial-engineer",
+   "role": "implementer",
+   "capability": "tutorial engineer creates step tutorials educational content code transforms complex concepts progressive learning experiences hands examples proactively onboarding guides feature concept explanations",
+   "repo": "wshobson/agents",
+   "path": "plugins/code-documentation/agents/tutorial-engineer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "typescript-pro",
+   "role": "analyst",
+   "capability": "typescript pro master advanced types generics strict type safety handles complex systems decorators enterprise grade patterns proactively architecture inference optimization typing",
+   "repo": "wshobson/agents",
+   "path": "plugins/javascript-typescript/agents/typescript-pro.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "ui-designer",
+   "role": "analyst",
+   "capability": "designer expert specializing component creation layout systems visual design implementation masters modern patterns responsive layouts code workflows proactively building components designing creating mockups implementing",
+   "repo": "wshobson/agents",
+   "path": "plugins/ui-design/agents/ui-designer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "ui-ux-designer",
+   "role": "analyst",
+   "capability": "designer create interface designs wireframes design systems masters user research accessibility standards modern tools specializes tokens component libraries inclusive proactively flows optimization",
+   "repo": "wshobson/agents",
+   "path": "plugins/multi-platform-apps/agents/ui-ux-designer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "ui-visual-validator",
+   "role": "reviewer",
+   "capability": "visual validator rigorous validation expert specializing testing design system compliance accessibility verification masters screenshot analysis regression component proactively verify modifications have achieved their intended",
+   "repo": "wshobson/agents",
+   "path": "plugins/accessibility-compliance/agents/ui-visual-validator.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "unity-developer",
+   "role": "implementer",
+   "capability": "unity developer build games optimized scripts efficient rendering proper asset management masters lts urp hdrp pipelines cross platform deployment handles gameplay systems implementation optimization",
+   "repo": "wshobson/agents",
+   "path": "plugins/game-development/agents/unity-developer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "vector-database-engineer",
+   "role": "implementer",
+   "capability": "vector database engineer expert databases embedding strategies semantic search implementation masters pinecone weaviate qdrant milvus pgvector rag applications recommendation systems similarity proactively optimization retrieval",
+   "repo": "wshobson/agents",
+   "path": "plugins/llm-application-dev/agents/vector-database-engineer.md",
+   "license": "MIT",
+   "vendored": false
+  },
+  {
+   "name": "spec-analyst",
+   "role": "analyst",
+   "capability": "requirements analysis user stories acceptance criteria scoping stakeholder",
+   "repo": "zhsama/claude-sub-agent",
+   "path": "agents/spec-agents/spec-analyst.md",
+   "license": "NOASSERTION",
+   "vendored": false
+  },
+  {
+   "name": "spec-architect",
+   "role": "analyst",
+   "capability": "system design technical specification architecture",
+   "repo": "zhsama/claude-sub-agent",
+   "path": "agents/spec-agents/spec-architect.md",
+   "license": "NOASSERTION",
+   "vendored": false
+  }
+ ]
 }

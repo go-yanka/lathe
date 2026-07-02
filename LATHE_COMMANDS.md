@@ -245,6 +245,18 @@ AC-2     add2               8c41d2a90b7f   openai:local   assert add2(-2) == 0
 2 criteria, 2 covered, 0 unresolved; 3 matrix rows.
 ```
 
+### `lathe sdlc "<goal>" [--out <dir>]`
+**SDLC authoring, enforced.** The analyst writes LAYERED, ID-traced requirements — UC (use case) → BR
+(business requirement) → FR (functional requirement) → TS (technical spec) — and the harness-built **RTM
+gate refuses** the set unless every item traces down AND is covered up (no orphans, no dangling refs; one
+retry with the gaps fed back, then fail loud). Output: `REQUIREMENTS.md` + `rtm.json` + a suggested plan
+`CRITERIA` block (each TS becomes an acceptance criterion) — feed it to a **STRICT-mode** build and
+`lathe trace` closes the loop. The whole process is a named workflow: `lathe flow sdlc`.
+```
+$ python lathe.py sdlc "a CLI tool that watches a folder and mirrors new files" --out qa/
+RTM gate: PASS — 21 traced items -> qa/REQUIREMENTS.md (+ rtm.json)
+```
+
 ## Maintenance — keep the tree pristine + file issues
 
 ### `lathe clean [--dry]`
