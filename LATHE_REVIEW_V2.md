@@ -13,6 +13,9 @@ not an *independent* oracle. Treat "verified" in this document as "checked again
 where that evidence is named; elsewhere read it as "the reviewer's reasoning, uncorroborated by a second party."
 **Date:** 2026-07-02 · **Commit reviewed:** `ca4d8d1` (v2.1.0) · previous review: `b75eddf` (v2.0.0), see `LATHE_REVIEW_FINDINGS.md`.
 **Test system:** `review_tests/` (in this repo) — reusable, one command: `python review_tests/run_all.py`.
+⚠️ **This command mutates git:** the B4 phase runs `lathe auto`, which on a repo where the bug is unfixed
+(e.g. v2.1.0) creates real `autonomy: task` commits (and stages `harness.db`). It resets afterward, but run
+it on a scratch branch/clone; if it aborts mid-run, `git reset --hard` to your prior HEAD. (Fix noted in §13.)
 
 ---
 
@@ -28,8 +31,9 @@ where that evidence is named; elsewhere read it as "the reviewer's reasoning, un
 >   changelog's explanation is not. It says "the v2.1.0 export dropped `autonomy_live.py`," but
 >   `git show ca4d8d1:...autonomy_live.py` shows the file **shipped, just unguarded** (exactly my v2 finding).
 >   What was missing was the guard *wiring*, not the file. The fix itself is verified two independent ways:
->   their `tools/test_b4_autocommit.py` passes all 4 cases, and my git-HEAD repro confirms `lathe auto` leaves
->   HEAD untouched (unset **and** `=0`), commits only at `=1`, never stages `harness.db` (now gitignored too).
+>   their `tools/test_b4_autocommit.py` passes all 4 cases, and my own git-HEAD repro independently confirms
+>   all three states — `lathe auto` leaves HEAD untouched at unset **and** `=0`, moves it only at `=1`
+>   (`60a421a→dadc2e2`, reset after), never stages `harness.db` (now gitignored too).
 >   Full detail and why the pattern matters: §12a.
 > - **D2, D3 fixed and verified** — Linux test now portable (repo's own suite is green on Linux); `review`
 >   now lets an explicit `HARNESS_CLAUDE_URL` win with CLI fallback on *any* non-usable response.
@@ -138,7 +142,7 @@ that runs `lathe auto` in a scratch repo and asserts HEAD is unchanged unless `L
 
 | Phase | Result | Detail |
 |---|---|---|
-| Security battery — validator | ✅ 24/24 | accepts 4 legitimate plan shapes; rejects all 20 escape classes (imports, dunders, getattr, f-string/concat non-literals, tuple-unpack & subscript scan-then-swap, bytes tests, `dict()` smuggling, traversal names, untested functions, `types`, `attrgetter`…) |
+| Security battery — validator | ✅ 24/24 *(against the enumerated classes only)* | accepts 4 legitimate plan shapes; rejects all 20 escape classes (imports, dunders, getattr, f-string/concat non-literals, tuple-unpack & subscript scan-then-swap, bytes tests, `dict()` smuggling, traversal names, untested functions, `types`, `attrgetter`…). **Caveat (harness-flagged): I authored these cases *and* judge them — adversary = oracle — so "24/24" proves the validator blocks the 24 attacks I imagined, not that it is secure. Coverage is bounded by my threat model; an independent auditor with a different one is exactly what's absent.** |
 | Security battery — sandbox | ✅ 8/8 | honest pass/fail; hang killed in ~6s; **forged nonce-less verdict rejected**; `os._exit` fails closed; `SystemExit` contained; stdout spam harmless |
 | Security battery — spec-lint | ✅ 2/2 | stub-satisfiable tests flagged; strong tests pass the mutation probe |
 | Unit tests — toolchain + ledger | ✅ 9/9 groups | incl. all five v2.1.0 fix helpers, config precedence, board/DAG dependency flow, and the generated ledger modules |
@@ -228,7 +232,12 @@ independently found verification structure beats model scale for small-model cod
 
 ## 8. Market comparison — is anyone already doing this?
 
-Summary of five research sweeps (2025–26 landscape; sources in the reports, key ones linked here):
+Summary of five research sweeps (2025–26 landscape; sources in the reports, key ones linked here).
+**Disclosure (harness-flagged), same standard as the byline:** the quantitative figures below (star counts,
+funding, survey percentages, regulatory dates, the "68% don't run" and insurance-exclusion claims) are
+**reviewer web-research, model-gathered and not independently re-verified** here — except the GitHub star
+count, which I checked live via the API. Treat them as directional order-of-magnitude evidence, not audited
+fact; a decision-maker should re-confirm any figure they lean on.
 
 **Spec-driven development is now a mass-market category — without Lathe's mechanics.** (All third-party
 figures in this section are point-in-time, as of 2026-07-02, and will rot; treat them as order-of-magnitude.)
@@ -439,7 +448,7 @@ full sweep is GREEN, 46/46 — the B4 red from §4 is closed.**
 
 | Item | v2.1.0 status | v2.1.2 | How I verified |
 |---|---|---|---|
-| **B4 / D1** — silent autonomy commits | ❌ phantom (unwired) | ✅ **FIXED & PROVEN** (fix, not the story) | `autonomy_live.py:277` now guards `commit()` with `should_auto_commit(...)` and drops `harness.db` from staged paths. Their `tools/test_b4_autocommit.py` passes all 4 cases (incl. the opt-in path asserting `harness.db` absent from the real commit); **my git-HEAD repro** ran `lathe auto` var-unset → HEAD unchanged (`2de2ca3`→`2de2ca3`). `harness.db` is now also gitignored. **But see 12a-note: the changelog's root-cause is false.** |
+| **B4 / D1** — silent autonomy commits | ❌ phantom (unwired) | ✅ **FIXED & PROVEN** (fix, not the story) | `autonomy_live.py:277` now guards `commit()` with `should_auto_commit(...)` and drops `harness.db` from staged paths. **My own git-HEAD repro now covers all three states independently** (not just via the author's test): `lathe auto` with the var **unset → HEAD unchanged**, `=0 → HEAD unchanged`, `=1 → HEAD moved` (`60a421a→dadc2e2`, reset after). Their `tools/test_b4_autocommit.py` corroborates and adds the "`harness.db` absent from the real commit" assertion; `harness.db` is now also gitignored. **But see 12a-note: the changelog's root-cause is false.** |
 | **D2** — `test_safe_write.py` red on Linux | ❌ | ✅ **FIXED** | OS-conditional system path (`/etc/hosts` on POSIX); repo's own suite now green on Linux (repo_own_tests phase GREEN, was RED) |
 | **D3** — `review` ignores configured URL | ⚠️ design | ✅ **FIXED** | `hreview.py:156-163` orders analyst methods by explicit config: `HARNESS_CLAUDE_URL` set → endpoint first, CLI fallback; fallback now triggers on **any** non-usable response (connection error, non-2xx, empty completion) — matching this review's own Rec #4 |
 | **D4** — CI didn't run claim-level tests | ⚠️ | ✅ **FIXED** | CI now runs the repo's `test_*.py` incl. the B4 e2e, so a regression turns CI red — closing the exact gap that let the phantom ship |
@@ -469,7 +478,16 @@ plausible and self-flattering to accept — it's credible when the artifacts sup
 | ledger offline rebuild | ✅ | ✅ |
 | CI steps local | ✅ | ✅ |
 | CLI + workflow matrix | ⚠️ 45/46 (B4) | ✅ **46/46** |
-| **Overall** | RED (1 defect) | ✅ **GREEN** |
+| **Overall** | RED (1 defect) | ✅ **GREEN** — but see label caveat below |
+
+**Read "46/46 GREEN" correctly (harness-flagged, and it's the exact drift-class this review indicts in
+Lathe).** Only a handful of these checks are model-*independent* (the B4 git-HEAD repro, the offline pinned
+rebuild, the deterministic security guards); the end-to-end greens are **contingent on my stand-in
+implementer returning perfect code on the first try**. So 46/46 means "the plumbing runs when fed flawless
+completions," **not** "a real cheap local model passes." A reader who takes the banner as validation of the
+core thesis would be making the same mistake — a green label that means less than it looks — that this
+review flags in the project. The honest split: *plumbing verified; implementer-quality thesis still
+untested in anything shipped.*
 
 **Two small open items surfaced by the harness's adversarial pass (folded in for honesty):**
 - **D5 (Low/design):** the B3 and D3 fixes compose incorrectly on one untested path — `HARNESS_CLAUDE_URL`
@@ -570,6 +588,17 @@ D6). All were folded in. Note the pattern across three passes: the harness's LLM
 **unstated assumptions, internal contradictions, and self-flattering narratives the author is blind to** —
 and on the B4 root cause it pushed me to a git check that overturned a claim I'd have otherwise printed. It
 is not an independent oracle (it's Claude reading Claude), but as an adversarial forcing-function it earned
-its place three times over. The full findings of all three passes are archived by the harness at
-`projects/agentic-harness/docs/ce/review_adversarial.txt`. Verdict from `lathe flow doc-review --run`:
-recorded in the commit history alongside this file.
+its place three times over. A **fourth adversarial pass** was run after §13 (round-4) was added — its findings, all folded in: two HIGH
+(the security battery's coverage is bounded by my own threat model — adversary = oracle, now stated; and the
+"46/46 GREEN" banner needed its model-contingency caveat attached at the banner, not just in §4 — done), a
+MEDIUM that caught my B4 "PROVEN (unset **and** =0)" claim overstating what my *independent* repro had run
+(I only had unset independently — so I **ran the =0 and =1 states independently** too, recorded the hashes,
+and the claim is now true), a MEDIUM that the advertised one-command mutates git (warning moved to §1), and
+two LOW (the §8 market figures are uncorroborated web-research — now disclosed; and a warn-log suggestion
+for `LATHE_AUTO_COMMIT`, which is the author's to add). The pattern across four passes is consistent and
+worth stating plainly: **the harness's adversarial reviewer reliably catches the reviewer's own
+label-drift, overclaims, and unstated assumptions** — here it forced a real extra repro and three honesty
+qualifications. It remains Claude-reading-Claude (not independent), but as a forcing-function against my own
+blind spots it has earned its keep every round. The full findings of all four passes are archived by the
+harness at `projects/agentic-harness/docs/ce/review_adversarial.txt`. Verdict from `lathe flow doc-review
+--run`: recorded in the commit history alongside this file.
