@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lathe-harness"
+version = "2.1.1"
+description = "Deterministic, test-gated, reproducible AI code generation — hard sandbox test gate as the acceptance condition, content-hash-pinned byte-identical rebuilds, no-hand-edit discipline. Local-first, model-agnostic."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "go-yanka" }]
+keywords = ["spec-driven", "test-gated", "reproducible", "deterministic", "codegen", "local-first", "mcp"]
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Software Development :: Code Generators",
+]
+dependencies = []   # the engine is stdlib-only; optional gates (ruff, coverage, playwright) install separately
+
+[project.urls]
+Homepage = "https://github.com/go-yanka/lathe"
+Repository = "https://github.com/go-yanka/lathe"
+Changelog = "https://github.com/go-yanka/lathe/blob/main/CHANGELOG.md"
+
+[project.scripts]
+lathe = "lathe:_cli"
+
+# NOTE (packaging status): the engine spine (lathe.py, engine_v2.py, lathe_mcp.py) is import-clean and stdlib-only,
+# and this declares the `lathe` console script. A fully self-contained wheel additionally needs the
+# projects/agentic-harness/ tree shipped as package data + import paths made install-relative — tracked as the
+# remaining part of "distribution basics" (review rec #6). Until then, use from a clone.
+[tool.setuptools]
+py-modules = ["lathe", "engine_v2", "lathe_mcp", "claude_proxy"]

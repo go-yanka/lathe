@@ -37,6 +37,14 @@ def main():
     print(("  PASS  " if a_ok else "  FAIL  ") + "auto-commit OFF (unset) -> HEAD unchanged")
     a_ok or fails.append("off")
 
+    # A0) explicit LATHE_AUTO_COMMIT=0 -> HEAD must NOT move (falsy, not just unset)
+    os.environ["LATHE_AUTO_COMMIT"] = "0"
+    open(os.path.join(repo, "tools", "x.py"), "w").write("# changed A0\n")
+    commit("autonomy: task")
+    a0_ok = git(repo, "rev-parse", "HEAD").stdout.strip() == head0
+    print(("  PASS  " if a0_ok else "  FAIL  ") + "LATHE_AUTO_COMMIT=0 -> HEAD unchanged")
+    a0_ok or fails.append("zero")
+
     # B) LATHE_AUTO_COMMIT=1 -> HEAD MUST move
     os.environ["LATHE_AUTO_COMMIT"] = "1"
     open(os.path.join(repo, "tools", "x.py"), "w").write("# changed B\n")

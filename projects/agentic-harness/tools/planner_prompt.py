@@ -62,6 +62,29 @@ def _existing_inventory(tools_dir=None):
     return "\n".join(parts)
 
 
+def _expert_lenses(goal):
+    """Decider: pick the expert personas most relevant to THIS goal and tell the analyst to think through their
+    lenses — so the thinking harness auto-spawns the right experts per goal. Selection is harness-built
+    (agent_router.select_agents_for_goal) over agents/catalog.json. Token-lean (names + capabilities). Best-effort."""
+    try:
+        import sys, json
+        _here = os.path.dirname(os.path.abspath(__file__))
+        if _here not in sys.path:
+            sys.path.insert(0, _here)
+        from agent_router import select_agents_for_goal
+        cat = json.load(open(os.path.join(os.path.dirname(_here), "agents", "catalog.json"), encoding="utf-8"))
+        ents = cat.get("agents", [])
+        names = select_agents_for_goal(goal, [[e["name"], e.get("capability", "")] for e in ents], 3)
+        if not names:
+            return ""
+        by = {e["name"]: e for e in ents}
+        out = ["EXPERT LENSES (think through these specialists for THIS goal — adopt their concerns in the spec + tests):"]
+        out += ["- %s: %s" % (n, by[n].get("capability", "")) for n in names]
+        return "\n".join(out)
+    except Exception:
+        return ""
+
+
 def build_planner_prompt(objective, done_list, last_blocker=None):
     lines = []
     lines.append("OBJECTIVE: " + objective)
@@ -75,6 +98,10 @@ def build_planner_prompt(objective, done_list, last_blocker=None):
     if _inv:
         lines.append("")
         lines.append(_inv)
+    _lenses = _expert_lenses(objective)                # decider: auto-select expert lenses for THIS goal
+    if _lenses:
+        lines.append("")
+        lines.append(_lenses)
     if last_blocker is not None and last_blocker != "":
         lines.append("LAST BLOCKER (fix this): " + last_blocker)
     # STRICT output contract — the analyst's reply is saved verbatim as a Python plan file and parsed by a

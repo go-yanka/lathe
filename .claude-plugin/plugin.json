@@ -1,0 +1,10 @@
+{
+  "name": "lathe",
+  "version": "2.1.1",
+  "description": "Deterministic, test-gated, reproducible AI code generation. A hard sandbox test gate is the acceptance condition (not just repair behavior); passing code is content-hash-pinned for byte-identical rebuilds; no hand-editing generated output — fix the spec. Local-first and model-agnostic.",
+  "author": { "name": "go-yanka" },
+  "homepage": "https://github.com/go-yanka/lathe",
+  "repository": "https://github.com/go-yanka/lathe",
+  "license": "MIT",
+  "keywords": ["spec-driven", "test-gated", "reproducible", "deterministic", "codegen", "local-first", "mcp"]
+}

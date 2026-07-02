@@ -836,6 +836,92 @@ def cmd_flow(args):
     return 0
 
 
+def _agent_dirs():
+    return os.path.join(INNER, "agents", "_fetched"), os.path.join(INNER, "agents", "licenses")
+
+def _gh_json(url):
+    import subprocess, json
+    r = subprocess.run(["curl", "-s", "-m", "25", url], capture_output=True, text=True)
+    return json.loads(r.stdout)
+
+def _store_license(repo):
+    """Download the source repo's LICENSE locally (compliance — kept alongside any cached agent). Best-effort."""
+    import base64
+    _, lic_dir = _agent_dirs()
+    dest = os.path.join(lic_dir, repo.replace("/", "__") + ".LICENSE.txt")
+    try:
+        d = _gh_json("https://api.github.com/repos/%s/license" % repo)
+        os.makedirs(lic_dir, exist_ok=True)
+        open(dest, "w", encoding="utf-8").write("Source repo: %s  (SPDX: %s)\n\n" % (repo, d.get("license", {}).get("spdx_id", "")) +
+                                                base64.b64decode(d["content"]).decode("utf-8", "replace"))
+        return True
+    except Exception:
+        return os.path.exists(dest)      # already have a copy -> fine
+
+def _spawn_one(e):
+    """Refresh the agent .md from source if reachable, else use the local copy; ALWAYS keep its license. Compliant + resilient."""
+    import base64
+    cache, _ = _agent_dirs()
+    os.makedirs(cache, exist_ok=True)
+    md = os.path.join(cache, e["name"] + ".md")
+    fresh = False
+    try:                                  # try to refresh to latest before launch
+        d = _gh_json("https://api.github.com/repos/%s/contents/%s" % (e["repo"], e["path"]))
+        _content = base64.b64decode(d["content"]).decode("utf-8", "replace")   # decode BEFORE opening — a failed fetch must not truncate/create the file
+        open(md, "w", encoding="utf-8").write(_content); fresh = True
+    except Exception:
+        fresh = False
+    if not os.path.exists(md):
+        return None, "source unreachable and no local copy cached"
+    _store_license(e["repo"])
+    open(os.path.join(cache, e["name"] + ".SOURCE.txt"), "w", encoding="utf-8").write(
+        "%s\nsource: %s (%s)\npath: %s\nused under its %s license (see ../licenses/%s.LICENSE.txt).\n"
+        % (e["name"], e["repo"], e["license"], e["path"], e["license"], e["repo"].replace("/", "__")))
+    return md, ("refreshed from source" if fresh else "used local cache (source unreachable)")
+
+def cmd_agent(args):
+    """Load-the-program: instantiate the best expert persona for a NEED — from the vendored set, or a locally-mirrored
+    copy fetched ON DEMAND from a permissively-licensed source (refreshed if reachable, else the cached copy).
+    LLM-INDEPENDENT: outputs a persona (prompt text) to inject into whatever endpoint is configured.
+    `lathe agent "<need>"` matches; `--spawn` mirrors it (with its LICENSE); `lathe agent refill` pre-mirrors all
+    permissive agents for fast/offline spawn. Decider is harness-built (tools/agent_router.py); inventory is agents/catalog.json."""
+    import json
+    sys.path.insert(0, TOOLS)
+    from agent_router import pick_best, license_ok
+    try:
+        entries = json.load(open(os.path.join(INNER, "agents", "catalog.json"), encoding="utf-8")).get("agents", [])
+    except Exception as ex:
+        print("agent: catalog unavailable (%s)" % ex); return 1
+    if args and args[0] == "refill":                          # pre-mirror all permissive agents + their licenses
+        n = 0
+        for e in entries:
+            if e.get("vendored") or not license_ok(e.get("license", "")):
+                continue
+            md, how = _spawn_one(e)
+            print(("  mirrored %-22s [%s] %s" % (e["name"], e["license"], how)) if md else ("  skip     %-22s (%s)" % (e["name"], how)))
+            n += 1 if md else 0
+        print("refill: %d permissive agents mirrored locally (+ their licenses)." % n); return 0
+    need = " ".join(a for a in args if not a.startswith("--")).strip()
+    if not need:
+        print('usage: lathe agent "<need>" [--spawn]   |   lathe agent refill'); return 2
+    name = pick_best(need, [[e["name"], e.get("capability", "")] for e in entries])
+    if not name:
+        print("no catalogued agent matches '%s'." % need); return 1
+    e = next(x for x in entries if x["name"] == name)
+    print("best match: %s  [%s · %s]\n  %s" % (name, e.get("source") or e.get("repo"), e.get("license"), e.get("capability", "")))
+    if e.get("vendored"):
+        print("  VENDORED (ready): %s" % e["path"]); return 0
+    if not license_ok(e.get("license", "")):
+        print("  NOT auto-fetchable — license '%s' is not permissive; verify + vendor manually." % e.get("license")); return 1
+    if "--spawn" not in args:
+        print("  fetchable under %s. Add --spawn to mirror it locally (with its license)." % e.get("license")); return 0
+    md, how = _spawn_one(e)
+    if not md:
+        print("  spawn failed: %s" % how); return 1
+    print("  SPAWNED (%s): agents/_fetched/%s.md + license stored. Ready to inject into any endpoint." % (how, name))
+    return 0
+
+
 def cmd_checkin(args):
     """Gated check-in — extends the pristine model to the remote: refuse to commit/push unless the standing gates
     are green, the tree has NO relics (caches, logs, _fn_fails, journals), and you're not behind the upstream.
@@ -923,12 +1009,16 @@ def main(argv):
         "metrics": cmd_metrics, "plans": cmd_plans, "dups": cmd_dups, "whatis": cmd_whatis,
         "clean": cmd_clean, "wait": cmd_wait, "resume": cmd_resume, "waiting": cmd_waiting,
         "report": cmd_report, "issues": cmd_issues, "logs": cmd_logs, "lint-spec": cmd_lint_spec,
-        "flow": cmd_flow, "map": cmd_map, "checkin": cmd_checkin,
+        "flow": cmd_flow, "map": cmd_map, "checkin": cmd_checkin, "agent": cmd_agent,
     }
     if cmd in table:
         return table[cmd](rest)
     # bare `lathe "<goal>"` -> treat the whole argv as a goal
     return cmd_do(argv)
+
+
+def _cli():                                    # console-script entry point (see pyproject.toml)
+    sys.exit(main(sys.argv[1:]))
 
 
 if __name__ == "__main__":

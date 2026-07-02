@@ -113,44 +113,65 @@ def main():
     os.makedirs(os.path.join(ROOT, "docs", "ce"), exist_ok=True)
     out = os.path.join(ROOT, "docs", "ce", "review_%s.txt" % lens)
     _log("CE review: " + lens, "%d file(s)" % len(files), "wip")
-    # B3: prefer the `claude` CLI when present (opus, plan-mode) WITH a hard timeout; otherwise fall back to the
-    # pluggable HARNESS_CLAUDE_URL analyst (reusing request_spec). Never hang; always produce a clear result.
+    # B3/D3: try analyst methods in an order set by explicit config; fall back to the next on ANY non-usable
+    # response (connection failure, error, timeout, or empty/whitespace completion). Never hang.
     import tempfile, shutil
     _timeout = int(os.environ.get("CLAUDE_TIMEOUT", "180"))
-    txt, rc = "", 0
-    _force = os.environ.get("LATHE_REVIEW_USE_CLI")       # "1"=force CLI, "0"=force endpoint, unset=auto
-    _url_set = bool(os.environ.get("HARNESS_CLAUDE_URL"))  # D3: an explicitly-configured endpoint wins over a silent CLI (CLI stays the default when no URL is set)
-    if shutil.which("claude") and _force != "0" and (_force == "1" or not _url_set):
-        # Windows: `claude` is an npm .CMD shim — shell=True, prompt on stdin (claude -p reads stdin).
+    _force = os.environ.get("LATHE_REVIEW_USE_CLI")       # "1"=CLI-first, "0"=endpoint-only, unset=auto
+    _url_set = bool(os.environ.get("HARNESS_CLAUDE_URL"))  # D3: a user-configured endpoint wins; CLI is the fallback
+    _have_cli = bool(shutil.which("claude"))
+
+    def _via_cli():
         _pf = tempfile.NamedTemporaryFile("w", suffix=".txt", delete=False, encoding="utf-8")
         _pf.write(prompt); _pf.close()
-        try:
+        try:                                              # Windows: `claude` is an npm .CMD shim -> shell=True, stdin
             r = subprocess.run('claude -p --model opus --permission-mode plan --max-budget-usd 6 < "%s"' % _pf.name,
                                shell=True, capture_output=True, text=True, cwd=_root, timeout=_timeout)
-            txt, rc = (r.stdout or "") + (r.stderr or ""), r.returncode
-        except subprocess.TimeoutExpired:
-            sys.stderr.write("hreview: `claude` CLI timed out after %ss — falling back to HARNESS_CLAUDE_URL\n" % _timeout)
-            txt, rc = "", 1
+            return (r.stdout or "") + (r.stderr or "")
+        except Exception as _e:
+            sys.stderr.write("hreview: claude CLI unusable (%s) — trying next analyst\n" % _e)
+            return ""
         finally:
             try: os.unlink(_pf.name)
             except Exception: pass
-    if not txt.strip():                                      # no CLI, or it timed out/failed -> pluggable analyst endpoint
+
+    def _via_endpoint():
         try:
             _td = os.path.join(ROOT, "tools")
             if _td not in sys.path:
                 sys.path.insert(0, _td)
             from request_spec import request_spec
-            _blobs = []                                       # endpoint models can't read files — embed contents inline
+            _blobs = []                                   # endpoint models can't read files — embed contents inline
             for _f in abs_files:
                 try:
                     _blobs.append("### FILE: %s\n```\n%s\n```" % (_f, open(_f, encoding="utf-8", errors="replace").read()))
                 except Exception as _e:
                     _blobs.append("### FILE: %s (unreadable: %s)" % (_f, _e))
             _eprompt = prompt + "\n\n## FILE CONTENTS (review THESE directly — do not ask for access)\n" + "\n\n".join(_blobs)
-            txt = request_spec(_eprompt) or ""
-            rc = 0 if txt.strip() else 1
-        except Exception as e:
-            txt, rc = "[review unavailable: no `claude` CLI and analyst endpoint failed: %s]" % e, 1
+            return request_spec(_eprompt) or ""
+        except Exception as _e:
+            sys.stderr.write("hreview: analyst endpoint unusable (%s) — trying next analyst\n" % _e)
+            return ""
+
+    if _force == "0":
+        _order = [_via_endpoint]
+    elif _force == "1":
+        _order = [_via_cli, _via_endpoint]
+    elif _url_set:                                        # D3: explicit URL preferred, CLI fallback
+        _order = [_via_endpoint, _via_cli]
+    else:
+        _order = [_via_cli, _via_endpoint]
+
+    txt = ""
+    for _method in _order:
+        if _method is _via_cli and not _have_cli:
+            continue
+        txt = _method()
+        if txt.strip():                                   # usable -> done; else fall back to the next method
+            break
+    if not txt.strip():
+        txt = "[review unavailable: no usable analyst — CLI and HARNESS_CLAUDE_URL both failed]"
+    rc = 0 if (txt.strip() and not txt.startswith("[review unavailable")) else 1
     with open(out, "w", encoding="utf-8") as f:
         f.write(txt)
     print(txt[-4000:])

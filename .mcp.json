@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "lathe": {
+      "command": "python",
+      "args": ["lathe_mcp.py"],
+      "description": "Lathe — deterministic build/gate/pin/review as MCP tools (local-first, model-agnostic)."
+    }
+  }
+}
