@@ -31,6 +31,8 @@ Usage:
   lathe issues [resolved]      maintainer: list open (or resolved) issues in the shared queue
   lathe ack <plan> [--yes]     review + acknowledge a plan's TEST SET (with LATHE_TEST_ACK=1 the engine
                                refuses to build un-acked or rewritten tests — the tests define 'correct')
+  lathe trace <plan> [model]   requirement->test->pin->model traceability matrix; the validator refuses a
+                               plan whose declared CRITERIA aren't each mapped to a named test
   lathe selftest               exercise every capability and report PASS/FAIL
   lathe help                   this help
 
@@ -967,6 +969,60 @@ def cmd_ack(args):
     return 0
 
 
+def cmd_trace(args):
+    """Requirement→test→pin→model traceability matrix (enforcement mechanism #2 / the compliance artifact).
+    A plan may declare acceptance CRITERIA; the validator REFUSES any criterion not mapped to ≥1 named,
+    existing test (unmapped = a requirement nothing verifies). `lathe trace <plan>` emits the matrix."""
+    import importlib.util, json, hashlib
+    paths = [a for a in args if not a.startswith("--")]
+    if not paths:
+        print("usage: lathe trace <plan.py> [model]   (matrix for the plan's declared CRITERIA)"); return 2
+    plan_path = os.path.abspath(paths[0])
+    if not os.path.exists(plan_path):
+        print("trace: no such plan: %s" % plan_path); return 2
+    spec = importlib.util.spec_from_file_location("plan", plan_path)
+    plan = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(plan)
+    except Exception as e:
+        print("trace: plan does not load: %s" % e); return 1
+    fns = getattr(plan, "FUNCTIONS", []) or []
+    criteria = getattr(plan, "CRITERIA", None)
+    if not criteria:
+        print("trace: plan declares no CRITERIA — nothing to trace. (Declare CRITERIA=[{'id','text','tests'}] "
+              "to get requirement→test enforcement + this matrix.)"); return 0
+    model = paths[1] if len(paths) > 1 else os.environ.get("LATHE_MODEL", "openai:local")
+    # per-function pin lookup — the same key the engine uses: sha256(name+prompt+tests+model)
+    out_dir = getattr(plan, "OUT_DIR", "") or os.path.dirname(plan_path)
+    pin_file = os.path.join(out_dir if os.path.isabs(out_dir) else os.path.join(ROOT, out_dir), ".pins.json")
+    try:
+        pins = json.loads(open(pin_file, encoding="utf-8").read())
+    except Exception:
+        pins = {}
+    fn_tests, fn_pins = {}, {}
+    for f in fns:
+        name = f.get("name", ""); tests = f.get("tests", []) or []
+        fn_tests[name] = tests
+        prompt = f.get("prompt", "") + (("\n\n" + f["context"]) if f.get("context") else "")
+        fmodel = f.get("model") or model
+        pkey = hashlib.sha256((name + "\x00" + prompt + "\x00" + repr(tests) + "\x00" + fmodel).encode()).hexdigest()
+        if pkey in pins:
+            fn_pins[name] = [pkey[:12], fmodel]
+    if TOOLS not in sys.path:
+        sys.path.insert(0, TOOLS)
+    from trace_logic import trace_rows
+    rows = trace_rows(criteria, fn_tests, fn_pins)
+    print("TRACEABILITY MATRIX — %s  (model=%s; UNPINNED = not yet built/pinned for this model)" % (os.path.basename(plan_path), model))
+    print("%-8s %-18s %-14s %-14s %s" % ("CRIT", "FUNCTION", "PIN", "MODEL", "TEST"))
+    unresolved = 0
+    for r in rows:
+        unresolved += 1 if r["fn"] == "(unresolved)" else 0
+        print("%-8s %-18s %-14s %-14s %s" % (r["criterion"], r["fn"], r["pin"], r["model"], r["test"][:80]))
+    covered = len({r["criterion"] for r in rows if r["fn"] != "(unresolved)"})
+    print("\n%d criteria, %d covered, %d unresolved; %d matrix rows." % (len(criteria), covered, unresolved, len(rows)))
+    return 0 if unresolved == 0 else 1
+
+
 def cmd_checkin(args):
     """Gated check-in — extends the pristine model to the remote: refuse to commit/push unless the standing gates
     are green, the tree has NO relics (caches, logs, _fn_fails, journals), and you're not behind the upstream.
@@ -1054,7 +1110,7 @@ def main(argv):
         "metrics": cmd_metrics, "plans": cmd_plans, "dups": cmd_dups, "whatis": cmd_whatis,
         "clean": cmd_clean, "wait": cmd_wait, "resume": cmd_resume, "waiting": cmd_waiting,
         "report": cmd_report, "issues": cmd_issues, "logs": cmd_logs, "lint-spec": cmd_lint_spec,
-        "flow": cmd_flow, "map": cmd_map, "checkin": cmd_checkin, "agent": cmd_agent, "ack": cmd_ack,
+        "flow": cmd_flow, "map": cmd_map, "checkin": cmd_checkin, "agent": cmd_agent, "ack": cmd_ack, "trace": cmd_trace,
     }
     if cmd in table:
         return table[cmd](rest)

@@ -211,6 +211,27 @@ TESTS UNDER REVIEW — these asserts DEFINE correct behavior for this build:
 acknowledged: hello.py (digest 3f2a91c04b7e...) -> examples/.test_ack.json
 ```
 
+### `lathe trace <plan> [model]`
+**Requirement→test→pin→model traceability** — the compliance artifact, enforced at the validator. A plan may
+declare acceptance criteria; **a criterion not mapped to ≥1 named, existing test is refused** (an unmapped
+requirement is a requirement nothing verifies — dangling function refs and out-of-range test indexes are
+refused too). `lathe trace` then emits the matrix: which test proves which criterion, the content-hash **pin**
+of the accepted implementation, and the model that wrote it.
+```python
+CRITERIA = [
+  {"id": "AC-1", "text": "adds two to any int",  "tests": ["add2"]},      # all of add2's tests
+  {"id": "AC-2", "text": "handles negatives",    "tests": ["add2:1"]},    # one named assert
+]
+```
+```
+$ python lathe.py trace plans/my_plan.py
+TRACEABILITY MATRIX — my_plan.py  (model=openai:local)
+CRIT     FUNCTION           PIN            MODEL          TEST
+AC-1     add2               8c41d2a90b7f   openai:local   assert add2(1) == 3
+AC-2     add2               8c41d2a90b7f   openai:local   assert add2(-2) == 0
+2 criteria, 2 covered, 0 unresolved; 3 matrix rows.
+```
+
 ## Maintenance — keep the tree pristine + file issues
 
 ### `lathe clean [--dry]`

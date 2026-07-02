@@ -255,4 +255,55 @@ def is_valid_plan(text):
             return {'ok': False, 'reason': '%s must be a literal string (no tuple-unpack/concatenation/f-strings)' % key}
         if _code_danger(node.value):
             return {'ok': False, 'reason': '%s contains a disallowed operation (dunder/import/danger)' % key}
+
+    # 6) TRACEABILITY (enforcement mechanism #2): if a plan declares acceptance CRITERIA, EVERY criterion
+    #    must map to >=1 named, existing test — refs are 'fn_name' (all of that function's tests) or
+    #    'fn_name:<idx>' (one assert). An unmapped/dangling criterion is a requirement nothing verifies,
+    #    so the plan is REFUSED (closed-rule, same AST-literal discipline as everything above).
+    if 'CRITERIA' in names and names['CRITERIA'] is not None:
+        cnode = names['CRITERIA']
+        if not isinstance(cnode, ast.List) or not cnode.elts:
+            return {'ok': False, 'reason': 'CRITERIA must be a non-empty literal list of dicts'}
+        # collect fn name -> test count from the FUNCTIONS AST (literals only — guaranteed above)
+        _fn_tests = {}
+        fl = names.get('FUNCTIONS')
+        if isinstance(fl, ast.List):
+            for el in fl.elts:
+                if isinstance(el, ast.Dict):
+                    _nm = next((v.value for k, v in zip(el.keys, el.values)
+                                if isinstance(k, ast.Constant) and k.value == 'name'
+                                and isinstance(v, ast.Constant) and isinstance(v.value, str)), None)
+                    _tn = next((v for k, v in zip(el.keys, el.values)
+                                if isinstance(k, ast.Constant) and k.value == 'tests'), None)
+                    if _nm is not None and isinstance(_tn, (ast.List, ast.Tuple)):
+                        _fn_tests[_nm] = len(_tn.elts)
+        _seen_ids = set()
+        for el in cnode.elts:
+            if not isinstance(el, ast.Dict) or not _is_pure_literal(el):
+                return {'ok': False, 'reason': 'each CRITERIA entry must be a pure-literal dict'}
+            kv = {k.value: v for k, v in zip(el.keys, el.values) if isinstance(k, ast.Constant)}
+            cid, ctext, ctests = kv.get('id'), kv.get('text'), kv.get('tests')
+            if not (isinstance(cid, ast.Constant) and isinstance(cid.value, str)
+                    and re.match(r'^[A-Za-z][A-Za-z0-9_.-]*$', cid.value)):
+                return {'ok': False, 'reason': "each criterion needs a simple string 'id' (e.g. 'AC-1')"}
+            if cid.value in _seen_ids:
+                return {'ok': False, 'reason': "duplicate criterion id '%s'" % cid.value}
+            _seen_ids.add(cid.value)
+            if not (isinstance(ctext, ast.Constant) and isinstance(ctext.value, str) and ctext.value.strip()):
+                return {'ok': False, 'reason': "criterion '%s' needs a non-empty 'text'" % cid.value}
+            if not (isinstance(ctests, ast.List) and ctests.elts):
+                return {'ok': False, 'reason': "criterion '%s' is UNMAPPED — it needs a non-empty 'tests' list "
+                                               "(a requirement nothing verifies)" % cid.value}
+            for t in ctests.elts:
+                if not (isinstance(t, ast.Constant) and isinstance(t.value, str)):
+                    return {'ok': False, 'reason': "criterion '%s': test refs must be literal strings" % cid.value}
+                ref = t.value
+                fn, _, idx = ref.partition(':')
+                if fn not in _fn_tests:
+                    return {'ok': False, 'reason': "criterion '%s' maps to unknown function '%s' (dangling ref)"
+                                                   % (cid.value, fn)}
+                if idx:
+                    if not idx.isdigit() or int(idx) >= _fn_tests[fn]:
+                        return {'ok': False, 'reason': "criterion '%s': test ref '%s' is out of range (%s has %d tests)"
+                                                       % (cid.value, ref, fn, _fn_tests[fn])}
     return {'ok': True, 'reason': 'valid plan'}

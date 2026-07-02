@@ -126,6 +126,11 @@ so it's model- and host-agnostic and drops into several setups:
   files, no real-bug lint, docs can't drift. The tree stays pristine *intrinsically*, not via git.
 - **Structured logging** — every run writes `runs/<id>.jsonl` (with secrets redacted); a bug report is
   self-diagnosing.
+- **Requirement→test traceability, by construction** — a plan may declare acceptance criteria
+  (`CRITERIA`); the validator **refuses** any criterion not mapped to a named, existing test, and
+  `lathe trace` emits the criterion→test→pin→model matrix (which test proves which requirement, and which
+  model wrote the accepted code). Scope stated honestly: enforced for *declared* criteria — declaring them
+  is opt-in.
 - **Honest metrics** — `lathe metrics summary` shows build success, cost, and churn. No hand-waving.
 
 ## Docs
