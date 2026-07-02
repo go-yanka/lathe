@@ -30,10 +30,12 @@ Hardening found by the harness reviewing **its own** recent output (`lathe revie
 
 Response to independent review v2 (`LATHE_REVIEW_V2.md`). The headline correction:
 
-- **B4 was a phantom in the v2.1.0 *public* artifact — now fixed for real and proven.** The guard was wired
-  in the source tree, but the v2.1.0 export dropped `autonomy_live.py`, so the shipped repo still auto-committed
-  and still staged `harness.db`. The reviewer was correct about what shipped. Fixed: the complete export now
-  includes `autonomy_live.py`, and — per the lesson — a **claim-level end-to-end regression test**
+- **B4 was a phantom in the v2.1.0 *public* artifact — now fixed for real and proven.** Whatever the internal
+  tree contained, what *shipped* in v2.1.0 lacked the guard in `autonomy_live.py`, so the public repo still
+  auto-committed and still staged `harness.db`. The reviewer was correct about what shipped. (An earlier note
+  attributed this to the export dropping the file; from the public history alone that root cause isn't
+  independently verifiable, so we simply own the shipped defect.) Fixed: the complete export now includes
+  `autonomy_live.py`, and — per the lesson — a **claim-level end-to-end regression test**
   (`tools/test_b4_autocommit.py`) proves it in a scratch repo: HEAD unchanged unless `LATHE_AUTO_COMMIT=1`, and
   `harness.db` is never staged. **Discipline going forward: a bug is "Fixed" only when an executable repro passes,
   not when the helper unit-passes.**
