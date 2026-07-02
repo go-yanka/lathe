@@ -10,6 +10,8 @@ through the harness itself** (`lathe review` with a vision-capable analyst).
 | `02_division_of_labor.png` | **Big brain thinks, small brain builds** — analyst (frontier) vs implementer (local by default); model-agnostic ribbon. | ✅ Final (model-agnostic) |
 | `03_strengths.png` | **Why Lathe is trustworthy** — TEST-GATED · PINNED · NO HAND-EDITS · LOCAL OR ANY MODEL · PROVENANCE. | ✅ Final (NO HAND-EDITS wording corrected) |
 | `04_determinism.png` | **Same spec, same code — every time. Here's how.** First-build lane (requirements → higher model writes spec → local model generates code → gate → pin) vs rebuild lane (same spec → hash matches → reuse pin, no model call → same code). Callout: "the model is random; the PIN makes it deterministic — reuse, don't re-roll." | ✅ Final |
+| `00_capability_map.svg` (+ `.png` render) | Full capability map: 11 buckets (A–K), ~60 capabilities, exact text, status dots (green=live, amber=available, purple=analyst), bold=flagship. Hand-rendered SVG, not model-generated. | ✅ Final |
+| `05_capability_map_poster.png` | Poster version of the map: 9 buckets, punchier, Nano Banana. Fewer items, no analyst-status color. | ✅ Final |
 
 ## How determinism actually works (the point `04_determinism.png` makes explicit)
 "Same spec = same code, every time" is an outcome of **pinning**, not of deterministic generation. The
