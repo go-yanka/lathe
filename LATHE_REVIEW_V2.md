@@ -795,6 +795,16 @@ the commit history alongside this file.
 
 ## 16. v2.2.0 edge-case findings — the mutation-score gate (adversarial pass)
 
+> **RESOLVED — v2.2.1 (`915c3eb`): all four (E1–E4) fixed, and I independently reproduced every fix** against
+> the shipped tag with a local implementer stub. `test_mutation_equiv.py` ALL PASS — including **AT-E2a: my
+> exact `scale` (n=5 guard-slack) repro now builds GREEN** (equivalent mutants excluded via
+> `tools/mutation_equiv.py`'s differential probe) and **AT-E2b: the weak `square` suite still BLOCKS**.
+> `test_mutation_coverage.py` ALL PASS — **E1** operators broadened (bool/membership/`is`), a weak boolean
+> suite now blocks, and an unmutatable function emits a loud `unmeasurable` warning + `mutation_unmeasured`
+> ledger flag instead of a silent fail-open; **E3** an ARTIFACTS-only plan under STRICT is refused; **E4** a
+> `parse_v1`→`parse_v2` rename with a passes-on-old test is refused. My original findings-repro
+> (`test_v220_edge_findings.py`) is retired — superseded by these. The items below are the historical record.
+
 After reproducing every v2.2.0 acceptance test on the happy path, I ran an **adversarial edge pass** on the
 new mechanisms, hunting for "should work but doesn't." Four confirmed, all with executable repros. The two
 sharpest both concern the flagship #3 mutation-score gate — which turns out to be simultaneously **too

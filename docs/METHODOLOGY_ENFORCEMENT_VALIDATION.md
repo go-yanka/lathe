@@ -104,14 +104,15 @@ and the ornith-9b benchmark, previously maintainer-reported, are now maintainer-
    *measured and gated* — a suite that can't distinguish the code from its mutants doesn't pin." This is the
    mechanism that earns the word "comprehensiveness" — *scoped to the gated function's test adequacy under a
    bounded, deterministic operator set*; it is not whole-program coverage (see #5, #6).
-   **⚠️ v2.2.0 adversarial pass (LATHE_REVIEW_V2.md §16) found two boundary defects that scope this further:**
-   **E2 (High)** — equivalent mutants FALSELY BLOCK correct, fully-tested code (a constant-with-slack yields
-   unkillable mutants; reproduced end-to-end: `scale(x)=x*2` refused at 0.40 with impossible "strengthen the
-   tests" advice, then churns the repair loop). **E1 (Med-High)** — the gate free-passes any function with no
-   arith/compare/int-const nodes (string/list/dict/bool/membership/`is None`/format → 0 mutants → silent
-   PASS), failing *open* under a mode that advertises measured comprehensiveness. Net: the honest claim is
-   "comprehensiveness is measured **where mutable**, per gated function" — NOT "measured, period." Keep the
-   scoped-comprehensiveness copy off the whitepaper until E1/E2 are fixed or explicitly caveated.
+   **✅ v2.2.0 boundary defects (LATHE_REVIEW_V2.md §16) — FIXED in v2.2.1, reproduced here.** E2 (equivalent
+   mutants falsely blocking correct code) is closed by a deterministic differential probe (`mutation_equiv.py`)
+   that excludes provably-equivalent survivors from the denominator — my exact `scale` repro now builds GREEN,
+   while a genuinely weak suite still blocks. E1 (silent fail-open on no-mutants) is closed by broadened
+   operators plus a loud `unmeasurable` warning + `mutation_unmeasured` ledger flag. **The scoped-
+   comprehensiveness copy is now CLEAR TO SHIP**, and the maintainer added the exact scoping clause the claim
+   needs — mutation score is *"a bounded tripwire for vacuous tests (small operator set, capped per function,
+   equivalent mutants excluded), not exhaustive mutation coverage."* Keep that clause wherever the claim
+   appears; without it "measured comprehensiveness" over-reads.
 4. ⚠️ **Independent oracle.** *PARTIAL as of v2.1.4.* The **test-ack gate** (`LATHE_TEST_ACK=1`, `lathe ack`,
    `tools/test_ack.py`, wired at `engine_v2.py:90`) now forces a human to read/approve a plan's test set
    before build, and re-forces it on any rewrite (incl. the repair loop). Verified present + wired locally.
@@ -160,10 +161,13 @@ composition), so the SDLC claim covers the gated leaf-function core, not glue/en
 
 ## Go-forward gate (the reflexive rule)
 - The **floor** claim: verified since v2.1.3, ship freely.
-- The **comprehensiveness** claim: mechanisms 1–3 are now **built, reproduced, and CI-gated** (v2.1.5/2.1.6/
-  2.2.0), so the whitepaper/marketing MAY now make the scoped comprehensiveness claim — *test comprehensiveness
-  is measured and gated (mutation-score); every declared criterion maps to a named test; a change ships no fix
-  without a reproducing test* — provided the copy keeps the scope: **per gated function, not whole-program.**
+- The **comprehensiveness** claim: mechanisms 1–3 are **built, reproduced, and CI-gated** (v2.1.5/2.1.6/2.2.0),
+  and the v2.2.0 boundary defects (E1/E2) are **fixed and reproduced (v2.2.1)** — so the whitepaper/marketing
+  are now **CLEAR** to make the scoped comprehensiveness claim — *test comprehensiveness is measured and gated
+  (mutation-score); every declared criterion maps to a named test; a change ships no fix without a reproducing
+  test* — provided the copy keeps **both** scope clauses: **(a)** per gated function, not whole-program; and
+  **(b)** the maintainer's tripwire clause — *"a bounded tripwire for vacuous tests (small operator set, capped
+  per function, equivalent mutants excluded), not exhaustive mutation coverage."*
 - The remaining honest limits to preserve in copy: #4 is a human-ack (not a second independent test-author),
   #5 (required kind of test) and #6 (glue/entry-point coverage) are open. So: never "your whole system is
   comprehensively tested"; always "the code Lathe gates is." Keep "function", not "anything," for glue.
