@@ -23,8 +23,10 @@ it on a scratch branch/clone; if it aborts mid-run, `git reset --hard` to your p
 >
 > The author shipped two more releases (v2.1.1, v2.1.2) responding to this review. **I re-audited against
 > `2a4bd67` with the same test system and direct repros. The single red — B4 — is now genuinely fixed
-> (confirmed by git-HEAD comparison, a model-*independent* check), and the full sweep is GREEN (46/46).**
-> *Caveat, stated up front: 46/46 counts plumbing that runs correctly when my stand-in implementer feeds it
+> (confirmed by git-HEAD comparison, a model-*independent* check), and all 6 sweep phases are GREEN (the
+> CLI+workflow matrix, the largest single phase, is 46/46 — that number is that phase's count, not the whole
+> sweep; other phases report their own: battery 34/34, unit 9/9 groups, repo tests 10/10, etc.).**
+> *Caveat, stated up front: the matrix's 46/46 counts plumbing that runs correctly when my stand-in implementer feeds it
 > perfect code; it does **not** test whether a real cheap local model would pass — that core claim remains
 > unproven in anything shipped (see §4 model-contingency split).* Details in **§12** (appended). Headlines:
 > - **B4 fixed and proven — author's *root-cause story* contradicted by git.** The fix is real; the
@@ -442,13 +444,16 @@ claim-verification culture must harden *before* the surface area grows.
 
 Same protocol as §1: pulled the new `main` (three releases past the reviewed commit: v2.1.0 → v2.1.1 →
 v2.1.2), re-ran the `review_tests/` system, and verified each fix claim with a direct repro. **Result: the
-full sweep is GREEN, 46/46 — the B4 red from §4 is closed.**
+all 6 sweep phases are GREEN and the B4 red from §4 is closed. (Precisely: the CLI+workflow matrix phase is
+46/46; the other phases report their own totals — see §12b. "46/46" is that one phase's count, not a
+whole-sweep denominator — a distinction the harness's own reviewer rightly forced, since conflating them
+would be the very green-label-drift this review flags in Lathe.)**
 
 ### 12a. Fix verification (the three open v2 defects + D1/B4)
 
 | Item | v2.1.0 status | v2.1.2 | How I verified |
 |---|---|---|---|
-| **B4 / D1** — silent autonomy commits | ❌ phantom (unwired) | ✅ **FIXED & PROVEN** (fix, not the story) | `autonomy_live.py:277` now guards `commit()` with `should_auto_commit(...)` and drops `harness.db` from staged paths. **My own git-HEAD repro now covers all three states independently** (not just via the author's test): `lathe auto` with the var **unset → HEAD unchanged**, `=0 → HEAD unchanged`, `=1 → HEAD moved` (`60a421a→dadc2e2`, reset after). Their `tools/test_b4_autocommit.py` corroborates and adds the "`harness.db` absent from the real commit" assertion; `harness.db` is now also gitignored. **But see 12a-note: the changelog's root-cause is false.** |
+| **B4 / D1** — silent autonomy commits | ❌ phantom (unwired) | ✅ **FIXED & PROVEN** (fix, not the story) | `autonomy_live.py:277` now guards `commit()` with `should_auto_commit(...)` and drops `harness.db` from staged paths. **My own git-HEAD repro across all three states:** `lathe auto` **unset → HEAD unchanged**, `=0 → HEAD unchanged` (these two are genuinely *model-independent* — no commit occurs regardless of implementer output), `=1 → HEAD moved` (`60a421a→dadc2e2` in my run; this branch is *model-contingent* — it requires the implementer to succeed enough to reach `commit()`, so it proves "the guard permits a commit," not more). The author's `tools/test_b4_autocommit.py` is a **separate** scratch-repo run (different hashes) that corroborates the *behavior* and adds the "`harness.db` absent from the real commit" assertion. `harness.db` is now gitignored. **But see 12a-note: the changelog's root-cause is false.** |
 | **D2** — `test_safe_write.py` red on Linux | ❌ | ✅ **FIXED** | OS-conditional system path (`/etc/hosts` on POSIX); repo's own suite now green on Linux (repo_own_tests phase GREEN, was RED) |
 | **D3** — `review` ignores configured URL | ⚠️ design | ✅ **FIXED** | `hreview.py:156-163` orders analyst methods by explicit config: `HARNESS_CLAUDE_URL` set → endpoint first, CLI fallback; fallback now triggers on **any** non-usable response (connection error, non-2xx, empty completion) — matching this review's own Rec #4 |
 | **D4** — CI didn't run claim-level tests | ⚠️ | ✅ **FIXED** | CI now runs the repo's `test_*.py` incl. the B4 e2e, so a regression turns CI red — closing the exact gap that let the phantom ship |
@@ -478,23 +483,33 @@ plausible and self-flattering to accept — it's credible when the artifacts sup
 | ledger offline rebuild | ✅ | ✅ |
 | CI steps local | ✅ | ✅ |
 | CLI + workflow matrix | ⚠️ 45/46 (B4) | ✅ **46/46** |
-| **Overall** | RED (1 defect) | ✅ **GREEN** — but see label caveat below |
+| **Overall** | RED (1 defect) | ✅ **all 6 phases GREEN** — but read the two caveats below |
 
-**Read "46/46 GREEN" correctly (harness-flagged, and it's the exact drift-class this review indicts in
-Lathe).** Only a handful of these checks are model-*independent* (the B4 git-HEAD repro, the offline pinned
-rebuild, the deterministic security guards); the end-to-end greens are **contingent on my stand-in
-implementer returning perfect code on the first try**. So 46/46 means "the plumbing runs when fed flawless
-completions," **not** "a real cheap local model passes." A reader who takes the banner as validation of the
-core thesis would be making the same mistake — a green label that means less than it looks — that this
-review flags in the project. The honest split: *plumbing verified; implementer-quality thesis still
-untested in anything shipped.*
+**Caveat 1 — "46/46" is one phase's count, not the sweep total (harness-flagged; it's the exact
+label-drift this review indicts in Lathe).** 46/46 is the **CLI+workflow matrix** phase only. The full run
+is 6 phases with their own denominators (battery 34/34, unit 9/9 groups, repo tests 10/10, ledger 3/3, CI
+3/3, matrix 46/46). Do not attach "46/46" to the word "sweep" — say "matrix 46/46; all 6 phases green."
+**Caveat 2 — the green is model-contingent.** Only a handful of checks are model-*independent* (the B4
+git-HEAD repro's negative branches, the offline pinned rebuild, the deterministic security guards); the
+end-to-end greens are **contingent on my stand-in implementer returning perfect code on the first try**. So
+"green" means "the plumbing runs when fed flawless completions," **not** "a real cheap local model passes."
+The honest split: *plumbing verified; implementer-quality thesis still untested in anything shipped.*
 
-**Two small open items surfaced by the harness's adversarial pass (folded in for honesty):**
-- **D5 (Low/design):** the B3 and D3 fixes compose incorrectly on one untested path — `HARNESS_CLAUDE_URL`
-  set, endpoint returns a *usable-looking but wrong* 200 or non-2xx, **and** no `claude` CLI present (the
-  air-gapped niche this review champions). The URL is rejected as non-usable → fallback to CLI → CLI absent.
-  Behavior on that both-backends-dead path isn't specified/tested; it should fail loud with "no usable
-  analyst backend" and rc≠0, and be added to the matrix.
+**Open items surfaced by the harness's review passes (folded in for honesty).** The round-4 *persona*
+critique (correctness + adversarial personas) sharpened my earlier D5 into two distinct cases — my original
+framing wrongly lumped a *usable-looking 200* with a *rejected* response, and wrongly claimed the D3 fix
+"matches Rec #4." Corrected:
+- **D5a (Low/design):** on the both-backends-dead path — `HARNESS_CLAUDE_URL` set, endpoint returns
+  **non-2xx / empty / connection error**, **and** no `claude` CLI — the URL is correctly rejected as
+  non-usable, fallback to CLI, CLI absent. This path isn't specified/tested; it should **fail loud** with
+  "no usable analyst backend" and rc≠0, and be added to the matrix.
+- **D5b / Rec #4 correction (Medium):** a **well-formed, non-empty, semantically-wrong 200** is **not
+  detectable** by the D3 fix's trigger set (connection / non-2xx / empty completion) — it passes all three,
+  is *accepted*, and yields a **silent junk verdict**. So my earlier claim that the D3 fix "matches Rec #4"
+  is **wrong**: Rec #4 demanded fallback on exactly this garbage-200 case, and no content-blind check can
+  provide it. Honest statement: the fix covers connection/non-2xx/empty failures; the semantically-wrong-200
+  case is **unresolved** and needs schema/content validation or a second-opinion oracle — a real limitation,
+  not a closed item.
 - **D6 (Low):** `should_auto_commit`'s accepted enable-tokens are the closed set `{1,true,yes,on}`; a user
   who writes `LATHE_AUTO_COMMIT=enabled` or `=2` gets silent *disable*. Direction is safe (fails closed),
   but a warn-log on an unrecognized non-empty value would prevent a mis-enabled user believing commits are on.
@@ -599,6 +614,33 @@ for `LATHE_AUTO_COMMIT`, which is the author's to add). The pattern across four 
 worth stating plainly: **the harness's adversarial reviewer reliably catches the reviewer's own
 label-drift, overclaims, and unstated assumptions** — here it forced a real extra repro and three honesty
 qualifications. It remains Claude-reading-Claude (not independent), but as a forcing-function against my own
-blind spots it has earned its keep every round. The full findings of all four passes are archived by the
-harness at `projects/agentic-harness/docs/ce/review_adversarial.txt`. Verdict from `lathe flow doc-review
---run`: recorded in the commit history alongside this file.
+blind spots it has earned its keep every round.
+
+**Round-5 — the persona-driven, multi-lens critique (the most comprehensive pass), with log verification.**
+On request, I ran the report through `lathe review auto LATHE_REVIEW_V2.md` — which fires the harness's
+**decider** to select the applicable expert personas rather than a single fixed lens. The decider chose
+**four**: correctness, adversarial, security, maintainability, each backed by its vendored CE persona
+injected into a **real Opus** call (not the mock). **I verified from the harness's own log that this
+genuinely happened before trusting it:** the run wrote four distinct archives under
+`projects/agentic-harness/docs/ce/review_{correctness,adversarial,security,maintainability}.txt` with
+staggered fresh mtimes (04:50:27 → 04:53:25, one per sequential Opus call), each containing substantive,
+document-specific output — the maintainability persona correctly recognized the file is prose not code and
+declined; the security persona found nothing material; correctness and adversarial each returned real
+defects. That per-persona distinctness + timestamp spread is the evidence it was four genuine model calls,
+not a stub. Findings folded in:
+- **Both correctness and adversarial independently caught the sharpest one:** "**full sweep GREEN 46/46**"
+  was label-drift — 46/46 is the CLI-matrix *phase* count, not the 6-phase sweep total; presenting it as
+  the whole-sweep denominator is the exact green-label-drift this review indicts in Lathe. Fixed everywhere
+  (§12b now lists per-phase totals).
+- **My D3/D5 was internally incoherent and over-claimed:** a well-formed-but-wrong 200 is undetectable by
+  the fix's connection/non-2xx/empty triggers, so my "D3 matches Rec #4" claim was false and D5 conflated
+  two different paths. Split into D5a (fail-loud gap) and D5b (the unresolved semantically-wrong-200 case).
+- **The B4 `=1` branch is model-contingent, not model-independent** (it needs the implementer to reach
+  `commit()`); and the `60a421a→dadc2e2` hash pair is my one run, not two independent confirmations (the
+  author's test is a separate scratch run with different hashes). Both corrected in §12a's row.
+
+That the *persona* pass surfaced strictly sharper, more specific defects than the four prior single-lens
+passes is itself a data point about the feature under review: the decider-selected multi-persona critique
+is materially more thorough. The full findings of all five passes are archived by the harness at
+`projects/agentic-harness/docs/ce/review_*.txt`. Verdict from `lathe flow doc-review --run`: recorded in
+the commit history alongside this file.
