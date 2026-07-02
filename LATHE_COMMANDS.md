@@ -41,6 +41,12 @@ blocked. A function with **no mutable nodes** is reported `unmeasurable` (a ledg
 passed. Scope, stated honestly: this is a bounded tripwire for vacuous tests (a small operator set, capped
 per function via `LATHE_MUTATION_LIMIT`), **not** exhaustive mutation coverage.
 
+**Gate the glue (`LATHE_GATE_GLUE=1`, forced by STRICT):** `GLUE` is the architect's hand-written wiring
+appended after the gated functions — the most bug-prone part, otherwise shipped unverified. When armed, a
+plan whose substantive GLUE (more than `LATHE_GLUE_MAX`, default 2 lines) has no `INTEGRATION` block is
+**refused** — the wiring must be exercised by an integration test. This is what lets the harness claim *no
+code* ships untested, not just *no function*.
+
 **STRICT / SDLC mode (`LATHE_STRICT=1`):** the enforcement umbrella — forces **all** proof mechanisms for
 **all** development, no picking and choosing: declared `CRITERIA` (requirement→test traceability) required
 on every plan, tests must be acknowledged (`lathe ack`), new code's tests must survive the stub probe

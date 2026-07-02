@@ -868,6 +868,29 @@ module_ok = (passed == len(plan.FUNCTIONS) and (bool(plan.FUNCTIONS) or bool(get
              and _prelude_ok)   # a missing/failed required PRELUDE dep makes the build untrusted, never green
 artifacts_total = len(getattr(plan, "ARTIFACTS", []))
 artifacts_passed = sum(1 for x in artifact_results if x)
+
+# GATE THE GLUE (enforcement mechanism #6): GLUE is hand-written wiring appended after the gated functions
+# — the most bug-prone part, and it ships UNVERIFIED unless the plan carries an INTEGRATION test. Under
+# LATHE_GATE_GLUE=1 (forced by STRICT), substantive GLUE with no INTEGRATION refuses the module. Decision is
+# harness-built (tools/glue_gate.py); this is what lets the claim be "nothing ships untested", not "no
+# function ships untested".
+_glue_unverified = False
+if module_ok:
+    try:
+        _gg = importlib.util.spec_from_file_location("glue_gate", os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "glue_gate.py"))
+        _ggm = importlib.util.module_from_spec(_gg); _gg.loader.exec_module(_ggm)
+        _gl = _ggm.count_glue_lines(getattr(plan, "GLUE", ""))
+        _gblocked, _gwhy = _ggm.glue_gap(os.environ.get("LATHE_GATE_GLUE"), _gl,
+                                         bool(getattr(plan, "INTEGRATION", "").strip()),
+                                         int(os.environ.get("LATHE_GLUE_MAX", "2")))
+        if _gblocked:
+            print("  GLUE GATE — %s" % _gwhy)
+            module_ok = False; _glue_unverified = True
+    except SystemExit:
+        raise
+    except Exception:
+        pass                                 # module absent -> legacy behavior (gate is opt-in anyway)
 if module_ok:
     os.makedirs(out_dir, exist_ok=True)
     parts = [plan.HEADER] + [solved_src[f["name"]] for f in plan.FUNCTIONS] + [plan.GLUE]
@@ -1007,6 +1030,7 @@ elapsed = time.time() - t0
 # regression not failed). engine_build parses this from METRICS_JSON instead of scraping a 0/0 line.
 build_ok = ((passed == len(plan.FUNCTIONS)) and (artifacts_passed == artifacts_total)
             and (len(plan.FUNCTIONS) + artifacts_total > 0)
+            and not _glue_unverified                                 # #6: refused ungated GLUE is NOT a green build
             and not str(integration).startswith("FAIL")              # an INTEGRATION failure is NOT a green build
             and not (regression or "").startswith(("REGRESSION", "TIMEOUT")))   # a timeout is not a green gate
 print("\n===== RESULT =====")

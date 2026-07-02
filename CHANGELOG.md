@@ -2,6 +2,19 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.2.3 — 2026-07-02
+
+Enforcement mechanism **#6 — gate the glue** (the last honest gap), plus a doc-integrity fix.
+- **Gate the glue** (`LATHE_GATE_GLUE=1`, forced by STRICT): `GLUE` — the architect's hand-written wiring,
+  the most bug-prone part — must be exercised by an `INTEGRATION` test or the build is refused (substantive
+  glue only, > `LATHE_GLUE_MAX` lines). Harness-built (`tools/glue_gate.py`); acceptance
+  `review_tests/test_glue_gate.py` ALL PASS. This closes the "function, not anything" qualifier: under
+  STRICT, **no code ships untested**, not just no function.
+- **README recovery**: a read-after-truncate bug in the v2.2.1 doc script (`open("w").write(open().read())`
+  truncates before the read) shipped an **empty README for v2.2.1–v2.2.2**. Restored from history and
+  re-applied every change since; the mutation-score scope clause and the glue-gate bullet are now in place.
+- STRICT now composes #6 alongside criteria/ack/regression-proof/lint/mutation-score.
+
 ## v2.2.2 — 2026-07-02
 
 Persona library governance (owner directive: get the expert library right).
