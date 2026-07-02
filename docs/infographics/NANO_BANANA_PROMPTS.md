@@ -215,6 +215,31 @@ available". Footer ribbon: "a growing catalog — the decider brings the expert 
 
 ---
 
+### 00 — "The Lathe capability map" (exhaustive one-page map; portrait) — GENERATED & FINAL (Nano Banana)
+*File: `00_capability_map.png` (Nano Banana render; `00_capability_map.svg` kept as the text-exact reference).
+The whole set is now Nano-Banana-consistent. This one carries the enforcement stack #05 was missing — 11
+buckets + a full-width `ENFORCE THE METHOD — LATHE_STRICT ⚙️` band (traceability · regression-proof ·
+mutation-score · test-ack). ~40 labels, no garble, ⚙️/○/● badges all verified on the render. Legend: ● live
+· ○ available · ⚙️ opt-in gate.*
+```
+[style guide]. Portrait, dense but legible. Legend top-right: "● live · ○ available · ⚙️ opt-in gate".
+Title: "The Lathe capability map". Subtitle: "everything it does — one page". A grid of 11 color-coded
+cards (bold header + 3–4 terse bullets, each with a status dot): 1 BUILD ENGINE (plan-driven build ●,
+per-function specs ●, best-of-N ●, module assembly ●); 2 REPRODUCIBLE (content-hash pins ●, zero-call
+rebuilds ●, failure banking ●); 3 VERIFY & GATE (hard test gate ●, nonce sandbox ●, six standing gates ●,
+mutation probe ●); 4 THINK & LEARN (analyst writes specs ●, repair loop no-escalation ●, 143 personas ●);
+5 AUTONOMY (goal loop ●, kanban board ●, rule-of-three ●, DAG dispatch ○); 6 CLEAN TREE (one canonical per
+capability ●, pristine gates ●, gated check-in ○); 7 FEWER TOKENS (repo-map ○, skeleton-fill ○, 0-token
+complete ○); 8 SAFETY (plan validator ●, sandbox tiers ●, SSRF guard ●, provenance ●); 9 RUN ANYWHERE
+(standalone CLI ●, MCP ○, embedded ●, any model ●); 10 WORKFLOWS (code-review · bug-fix · enhancement ·
+doc-review · new-project · sdlc ●); 11 OBSERVABILITY (run logs ●, metrics ●, honest benchmark ●). Below
+the grid, a wide sage-green band "ENFORCE THE METHOD — LATHE_STRICT ⚙️" with four ⚙️ items: traceability,
+regression-proof, mutation-score, test-ack. Footer ribbon: "spec + tests are the source of truth — code is
+a build output".
+```
+*Tip that cracked the density: the newer Nano Banana Pro / 2 models render ~40 labels cleanly where classic
+2.5 Flash garbles past ~15. Keep the `.svg` as the machine-exact reference behind the pretty render.*
+
 ## Recommended order to generate
 11 (the hook — leads any launch) → 6 (the loop — most-requested strength) → 7 (clean tree) → 10 (safety) →
 9 (distribution) → 8 (token efficiency). Then you have: hook → how it works (existing #1) → who does it
