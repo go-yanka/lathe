@@ -156,6 +156,27 @@ testing come from the process — not the model's discretion".
 *Status: all ✅ verified (#1/#2/#3 reproduced). #5 kind-of-test and #6 glue still open → the "each function,
 not your whole system" clause is mandatory, not optional.*
 
+### 14 — "Provenance, by construction" (the compliance / audit chain; 16:9) — GENERATED & FINAL
+*File: `14_provenance_chain.png`. The paying-niche / audit story (PRODUCT_STRATEGY §6). Mostly verified: the
+pin is `sha256(name+prompt+tests+model)` (spec+tests+model+hash bound by construction) and `lathe trace`
+emits criterion→test→pin→model. **Two honest scopes are mandatory in the band** and were verified present on
+the render: (a) the REQUIREMENT link exists only when CRITERIA are declared (traceability is opt-in);
+(b) the sandbox verdict is proven by the pin existing (only passing code pins), NOT a separate cryptographic
+attestation. Don't drop either — without them the compliance claim over-reads.*
+```
+[style guide]. Title: "Provenance, by construction". Subtitle: "every function carries its own record —
+built in, not assembled after". Center: a left-to-right chain of SIX linked cards (icon + bold label + one
+sub-line, chain-link connectors): (1) clipboard "REQUIREMENT" "declared criterion"; (2) document "SPEC"
+"the analyst's prompt"; (3) checklist "TESTS" "the asserts it passed"; (4) shield-check "GATE" "only
+passing code pins"; (5) chip "MODEL" "which model wrote it"; (6) padlock-hash "HASH" "content-hash pin"
+(emphasized sage green). Wide callout below: "one tamper-evident record per function — machine-generated at
+build time". Bottom muted band: "requirement link when criteria are declared · the verdict is proven by the
+pin (only passing code pins), not a separate attestation". Footer ribbon: "traceability isn't a report you
+assemble — it's a property of the artifact".
+```
+*Status: pin binding (spec+tests+model+hash) ✅ verified; `lathe trace` chain ✅ verified. Scopes: requirement
+needs declared criteria; verdict is proven-by-pin, not stored attestation — both in the band, mandatory.*
+
 ---
 
 ## Recommended order to generate
