@@ -665,6 +665,20 @@ this publish call, especially 14d item 1, before it drives a launch decision.*
 > REFUSED). Explicit env vars still override the umbrella; default off = no behavior change. Scorecard count
 > unchanged (2/6 done, 1/6 partial) — strict mode composes what's built, and #3 is still absent from it, so
 > the "comprehensiveness" line stays locked. Details in `docs/METHODOLOGY_ENFORCEMENT_VALIDATION.md`.
+>
+> **UPDATE — v2.2.0 (`594b700`): mechanism #3 (mutation-score threshold) landed — the "comprehensiveness"
+> line is now UNLOCKED (scoped), and I independently reproduced it.** `review_tests/test_mutation_score.py`
+> **9/9** on a real gated build (prompt-aware stub) + **17/17** on the pure logic (`tools/mutation_score.py`)
+> including **every fail-closed case** — the maintainer's own harness self-review caught the gate failing
+> *open* on malformed inputs (`killed > total`, negative, bool) and hardened it to fail *closed*; I confirmed
+> all four refuse. The load-bearing behavior holds: a weak suite (`square(2)==4`, which the `x+x` mutant also
+> satisfies) is BLOCKED at `LATHE_MUTATION_SCORE=0.5`; adding `square(3)==9` builds green. STRICT now composes
+> #3 (`LATHE_MUTATION_SCORE=0.5` in `strict_defaults`). Also reproduced the **SDLC RTM gate** (`lathe sdlc`)
+> — orphan use-cases / dangling refs refused, gap-then-fix retry works, refusal writes nothing. **Scorecard:
+> 3/6 done (#1/#2/#3) + #4-partial + STRICT umbrella.** The scoped claim is now honest: *comprehensiveness is
+> measured and gated per gated function* — NOT whole-program (#5 kind-of-test, #6 glue still open). The
+> persona catalog (→143), empirical ratings, and byte-different-but-green regeneration in `REPRODUCIBILITY.md`
+> are feature/market work, noted but outside the methodology-mechanism scorecard.
 
 Everything below is currently **not working as one would expect it to**, verified against the shipped tree.
 Grouped here so it can be fixed in one pass. D7–D8 are new from the persona/capability investigation
