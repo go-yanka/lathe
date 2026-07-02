@@ -229,6 +229,21 @@
   <div class="wrap narrow"><p class="note reveal">And if the cheap model genuinely can't? The gate <strong>refuses</strong> — it never ships wrong — and after three tries it escalates to you. It doesn't spin forever; it ends in an honest "no," not shipped garbage.</p></div>
 </div></section>
 
+<!-- ===================== CLARIFY (step 0) ===================== -->
+<section id="clarify"><div class="wrap narrow">
+  <div class="eyebrow reveal">Step zero</div>
+  <h2 class="reveal">Before it builds, it interviews you.</h2>
+  <p class="reveal">A vague goal produces confidently-wrong code — so Lathe interrogates the goal <em>first</em>. <code>lathe clarify</code> asks the fewest, sharpest questions — inputs, outputs, success criteria, edge cases, non-goals, with pick-from options where the answer space is bounded — then writes a brief with <strong>testable acceptance criteria</strong> the rest of the pipeline builds against. Ambiguity gets dragged into the open with you, up front — not discovered in production.</p>
+  <div class="miniterm reveal" style="margin-top:1.6rem">
+    <div class="bar"><i></i><i></i><i></i></div>
+    <div class="b"><span class="p">$</span> lathe clarify <span class="ok">"parse a money string"</span>
+  <span class="dim">1.</span> Which input format? [CSV | JSON | plain] (default: plain)
+  <span class="dim">2.</span> Negative amounts — reject, or allow?
+  <span class="dim">3.</span> What's out of scope? (currencies, locales…)
+  <span class="dim">→ writes CLARIFIED_GOAL.md with testable acceptance criteria</span></div>
+  </div>
+</div></section>
+
 <!-- ===================== VALUE ===================== -->
 <section style="padding-top:1rem"><div class="wrap">
   <div class="eyebrow reveal" style="text-align:center; display:block; margin-bottom:.5rem">What you actually get</div>
@@ -287,7 +302,7 @@
 <section class="honest"><div class="wrap narrow">
   <div class="eyebrow reveal">And here's where it stops</div>
   <h2 class="reveal">We tell you the limits — in the repo, on purpose.</h2>
-  <p class="reveal">Comprehensiveness is a <strong>bounded tripwire</strong>, measured per function — not your whole system. Glue and integration stay hand-written, which is where plenty of real bugs live. A model iterating until green can overfit the asserts — mutation-score fights that, but example tests are always gameable; property-based tests are the real answer, and they're on the roadmap, not shipped. On throwaway code a frontier one-shot is faster, and our own benchmark says so. Lathe industrializes the well-specified core — a leaf-function factory, not magic. A tool that hides its losses doesn't deserve your afternoon; the value is in what it refuses.</p>
+  <p class="reveal">Comprehensiveness is a <strong>bounded tripwire</strong>, measured per function — not whole-program certainty. Under STRICT, glue must be exercised by an integration test or the build refuses, so <strong>no code ships untested</strong> — but that's test-<em>existence</em> for glue, not the per-function mutation rigor. A model iterating until green can overfit the asserts — mutation-score fights that, and property tests can now be <strong>required per contract</strong>; still, example tests are gameable, so the honest frame is "harder to fool," not "unfoolable." On throwaway code a frontier one-shot is faster, and our own benchmark says so. Lathe industrializes the well-specified core, not magic. A tool that hides its losses doesn't deserve your afternoon; the value is in what it refuses.</p>
 </div></section>
 
 <!-- ===================== TRY IT ===================== -->
