@@ -104,6 +104,14 @@ and the ornith-9b benchmark, previously maintainer-reported, are now maintainer-
    *measured and gated* — a suite that can't distinguish the code from its mutants doesn't pin." This is the
    mechanism that earns the word "comprehensiveness" — *scoped to the gated function's test adequacy under a
    bounded, deterministic operator set*; it is not whole-program coverage (see #5, #6).
+   **⚠️ v2.2.0 adversarial pass (LATHE_REVIEW_V2.md §16) found two boundary defects that scope this further:**
+   **E2 (High)** — equivalent mutants FALSELY BLOCK correct, fully-tested code (a constant-with-slack yields
+   unkillable mutants; reproduced end-to-end: `scale(x)=x*2` refused at 0.40 with impossible "strengthen the
+   tests" advice, then churns the repair loop). **E1 (Med-High)** — the gate free-passes any function with no
+   arith/compare/int-const nodes (string/list/dict/bool/membership/`is None`/format → 0 mutants → silent
+   PASS), failing *open* under a mode that advertises measured comprehensiveness. Net: the honest claim is
+   "comprehensiveness is measured **where mutable**, per gated function" — NOT "measured, period." Keep the
+   scoped-comprehensiveness copy off the whitepaper until E1/E2 are fixed or explicitly caveated.
 4. ⚠️ **Independent oracle.** *PARTIAL as of v2.1.4.* The **test-ack gate** (`LATHE_TEST_ACK=1`, `lathe ack`,
    `tools/test_ack.py`, wired at `engine_v2.py:90`) now forces a human to read/approve a plan's test set
    before build, and re-forces it on any rewrite (incl. the repair loop). Verified present + wired locally.

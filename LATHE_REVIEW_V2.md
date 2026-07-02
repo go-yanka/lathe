@@ -790,3 +790,30 @@ passes is itself a data point about the feature under review: the decider-select
 is materially more thorough. The full findings of all five passes are archived by the harness at
 `projects/agentic-harness/docs/ce/review_*.txt`. Verdict from `lathe flow doc-review --run`: recorded in
 the commit history alongside this file.
+
+---
+
+## 16. v2.2.0 edge-case findings — the mutation-score gate (adversarial pass)
+
+After reproducing every v2.2.0 acceptance test on the happy path, I ran an **adversarial edge pass** on the
+new mechanisms, hunting for "should work but doesn't." Four confirmed, all with executable repros. The two
+sharpest both concern the flagship #3 mutation-score gate — which turns out to be simultaneously **too
+lenient** (E1) and **too strict** (E2). All were reproduced against the shipped v2.2.0 tag.
+
+| ID | Sev | What's wrong (reproduced) | Suggested fix |
+|---|---|---|---|
+| **E2** | **High** | **Equivalent mutants FALSELY BLOCK correctly + completely tested code.** A function with a constant that has slack (`n = 5; if n > 0: return x*2`) generates 5 mutants of which **3 are semantically equivalent** to the original (`n→6`, `n>0`→`n>=0`, `n>0`→`n>1` all keep the guard always-true). No test can kill an equivalent mutant, so a **perfect** suite kills at most 2/5 = 0.40 < STRICT's forced 0.50. Reproduced **end-to-end through the engine**: a `scale(x)=x*2` plan with 5 tests pinning every observable behavior → `build_ok: false`, `MUTATION-SCORE GATE — REFUSED: tests kill only 2/5 mutants … strengthen the tests`. The advice is **impossible to follow** (the survivors are unkillable), and the engine then routes it to `NEEDS SPEC REFINEMENT`, so the repair loop churns to Rule-of-Three escalation on a *correct* function. This hits any real code with a flag/limit/version/defensive constant. | Add equivalent-mutant tolerance: don't count a mutant that no possible input distinguishes (e.g. detect via the suite plus a fuzz pass, or let a plan mark a constant as config); or gate on *killable* mutants only; or make the threshold advisory-with-warning rather than a hard block at 0.5. At minimum, don't tell the user to "strengthen the tests" when the survivors are provably equivalent. |
+| **E1** | **Medium-High** | **The gate free-passes whole classes of functions — fails OPEN on "no mutants."** The operator set is arith/compare/int-const only, so `mutate_code` returns `[]` for string-method, list/dict-build, boolean-logic, membership (`in`), `is None`, and `%`-format functions. The gate then returns `no mutants generated - nothing to judge` → **PASS**. So under STRICT — which advertises "comprehensiveness is measured" — a string/collection function with a trivial suite sails through the mutation gate untouched. Note the asymmetry: the gate was hardened to fail **closed** on malformed inputs, but fails **open** on the far more common "nothing to mutate" case. (Partial mitigation: STRICT also runs the single-stub `LINT_SPEC=block` probe, which catches *some* trivial tests — but that is the weaker probe the mutation-score mechanism was meant to supersede.) | Treat "no mutants generated" under STRICT as *unmeasurable → warn loudly* (or require an explicit acknowledgement), not a silent pass; and/or broaden operators (boolean and/or/not, string/`None` constants, `in`↔`not in`) so common leaf functions are actually measured. Doc the operator scope wherever "comprehensiveness" is claimed. |
+| **E3** | Medium | **STRICT enforces nothing on ARTIFACTS-only plans.** `strict_plan_gaps` requires `CRITERIA` only when `has_functions` is true; an ARTIFACTS/whole-file plan returns `[]` (no traceability required), and the mutation/regression/test-ack gates all live in the FUNCTIONS loop — so artifact/glue development is entirely ungated under STRICT despite the "forces every proof mechanism for ALL development" framing. (Overlaps the known open #6 glue gap, but STRICT's "ALL development" wording makes it a stated-vs-actual divergence.) | Under STRICT, either require criteria/coverage for artifacts too, or narrow the claim to "all *function* development" and say so explicitly. |
+| **E4** | Low-Medium | **Regression-proof is bypassed by renaming the function in a fix.** The gate keys on the function name: `extract_def(OLD_SRC, new_name)` returns `''` when the fix renames the unit, which `proof_gate` reads as `no prior implementation - new function` → exempt. So "a bug fix must ship a reproducing test" is sidesteppable by renaming (`parse_v1`→`parse_v2`). | Match the changed unit by position/signature or plan-declared identity, not just name; or flag a rename in a bug-fix/enhancement workflow for explicit handling. |
+
+**Framing, in fairness to the maintainer:** E1's operator limit *is* documented ("arith/compare/int-const");
+what's undisclosed is its consequence — a silent vacuous pass, on the more common function shape, under a
+mode that advertises measured comprehensiveness. E2 is the classic equivalent-mutant problem that every
+real mutation-testing tool must confront; shipping a hard 0.5 block without equivalent-mutant handling makes
+it a *false-positive generator on correct code*, which is the more damaging failure mode for adoption (a
+false block trains users to distrust or disable the gate). Neither undermines the *floor* claims (#1/#2 and
+the passing-tests gate are unaffected); both scope the **#3 "comprehensiveness"** claim more tightly than
+the current docs do. Recommended: keep the scoped-comprehensiveness copy off the whitepaper until E1/E2 are
+addressed or explicitly caveated — the honest line remains "measured **where mutable**, per gated function,"
+not "measured, period."
