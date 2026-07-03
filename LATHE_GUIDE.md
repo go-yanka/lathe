@@ -314,6 +314,7 @@ push token in the file — use an env var or the git credential helper. (Parsing
 | `HARNESS_CLAUDE_URL` | **analyst** endpoint (OpenAI‑compatible) | `http://127.0.0.1:8787/v1/chat/completions` |
 | `HARNESS_MODEL` | default **implementer** model | `gemma4:12b` |
 | `LOCAL_OPENAI_URL` | endpoint for `openai:*` implementer models | llama‑server `:8089` |
+| `LOCAL_OPENAI_MAXTOK` / `LOCAL_GEN_TIMEOUT` | implementer `max_tokens` cap / generation timeout (s) | `16384` / `900` (openai) · `300` (ollama) |
 | `OLLAMA_URL` | endpoint for bare‑name (ollama) models | `http://localhost:11434` |
 | `LATHE_MODEL` / `LATHE_TRIES` | CLI default implementer / best‑of‑N | `openai:local` / `3` |
 | `LATHE_SANDBOX` | `subprocess` · `docker` · `0` | (autonomy sets `subprocess`) |
