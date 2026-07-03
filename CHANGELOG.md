@@ -2,6 +2,13 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.6.1 — 2026-07-02
+
+**`--accept-all` as an explicit opt-in** (owner refinement): bulk accept is useful, but must be a deliberate
+choice, never the default. `lathe assume <plan> --resolve --accept-all` accepts every blocker as-stated
+without individual review; the audit trail records each honestly as "accepted in bulk (not individually
+reviewed)", so the record shows it was the user's call. Default stays per-item (nothing auto-accepted).
+
 ## v2.6.0 — 2026-07-02
 
 **Assumption gate: resolve, don't rubber-stamp** (owner directive — "speculation brings noise; never let

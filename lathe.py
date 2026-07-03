@@ -1144,11 +1144,14 @@ def cmd_assume(args):
     blocking-materiality assumption is UNRESOLVED. `lathe assume <plan> --resolve` (alias `--confirm`) walks
     each blocker and makes YOU decide it: [a]ccept it as the real intent, pick an alternative the auditor
     offered, or type what you actually want — recorded as a stated decision in a committed `<plan>.decisions.md`.
-    There is NO blanket accept. `--answers <file>` gives one decision per blocker (for scripted/CI use, still
-    per-item). `--scrutiny all|high+med|high|off` (or config `assumptions.scrutiny`) sets what blocks.
+    The DEFAULT is per-item; nothing is auto-accepted. `--accept-all` is an EXPLICIT opt-in to accept every
+    blocker as-stated without individual review (your choice — logged as "accepted in bulk"); never the default.
+    `--answers <file>` gives one decision per blocker (for scripted/CI use, still per-item). Skipping leaves a
+    blocker blocking. `--scrutiny all|high+med|high|off` (or config `assumptions.scrutiny`) sets what blocks.
     Resolutions are keyed to a spec digest, so any spec change re-opens the audit."""
     import importlib.util, json
     resolve = ("--resolve" in args) or ("--confirm" in args)
+    accept_all = "--accept-all" in args        # explicit opt-in bulk accept (NEVER the default) — the user's own choice
     ans_file = args[args.index("--answers") + 1] if "--answers" in args else None
     # scrutiny: --scrutiny/--policy flag > config/env (LATHE_ASSUMPTION_POLICY) > default 'high'
     if "--scrutiny" in args:
@@ -1167,7 +1170,7 @@ def cmd_assume(args):
             _i += 1; continue
         pos.append(_a); _i += 1
     if not pos:
-        print('usage: lathe assume <plan.py> [--resolve] [--answers <file>] [--scrutiny all|high+med|high|off]'); return 2
+        print('usage: lathe assume <plan.py> [--resolve [--accept-all] | --answers <file>] [--scrutiny all|high+med|high|off]'); return 2
     plan_path = os.path.abspath(pos[0])
     if not os.path.exists(plan_path):
         print("assume: no such plan: %s" % plan_path); return 2
@@ -1205,6 +1208,25 @@ def cmd_assume(args):
         blockers = unconfirmed_blockers(entry.get("ledger"), confirmed, pol)
         if not blockers:
             print("assume: every blocking assumption is already a stated decision. (build may proceed)"); return 0
+        # EXPLICIT bulk accept — opt-in only (never default). The user chooses to accept all as-stated without
+        # individual review; the audit trail records that honestly ("accepted in bulk"), so it's their call on record.
+        if accept_all:
+            print("=== ACCEPT-ALL: %d blocking assumption(s) accepted as-stated WITHOUT individual review "
+                  "(your explicit choice) ===" % len(blockers))
+            for b in blockers:
+                clean = parse_options(b.get("text", ""))[0]
+                confirmed.append(b.get("text"))
+                decisions.append({"assumption_text": b.get("text"), "assumption": clean,
+                                  "materiality": b.get("materiality"), "category": b.get("category"),
+                                  "decision": clean, "via": "accepted in bulk (not individually reviewed)"})
+                print("  [%s | %s] %s" % (b.get("materiality"), b.get("category"), clean))
+            entry["confirmed"] = confirmed
+            entry["decisions"] = decisions
+            data[key] = entry
+            open(asm_file, "w", encoding="utf-8").write(json.dumps(data, indent=1))
+            _assume_write_decisions(plan_path, key, entry.get("ledger"), decisions, [])
+            print("\naccepted %d in bulk; build is UNBLOCKED. audit trail -> %s" % (len(blockers), _assume_decisions_md(plan_path)))
+            return 0
         scripted = None
         if ans_file:
             try:

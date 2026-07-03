@@ -100,6 +100,22 @@ check("artifact records the accepted decision", "accepted as-is" in dtxt)
 data2 = json.loads(open(os.path.join(tmp, ".assumptions.json"), encoding="utf-8").read())
 check("each decision stored with its resolution", len(data2["H_demo.py"].get("decisions", [])) == 2)
 
+# 3b) --accept-all is an EXPLICIT opt-in (not the default): change the spec so the audit re-opens fresh, then bulk-accept
+seq3 = ["[ASSUMPTION | high | data] Encoding is UTF-8.\n[ASSUMPTION | high | behavior] Header row skipped."]
+fake.request_spec = lambda p: seq3[0]
+open(plan_path, "w", encoding="utf-8").write(
+    'OUT_DIR="x"\nMODULE_NAME="demo"\nHEADER=""\nGLUE=""\n'
+    'FUNCTIONS=[{"name":"parse","prompt":"parse a csv file v2","tests":["assert parse"]}]\n')
+lathe.cmd_assume([plan_path])                              # re-audit the changed spec -> fresh blockers
+FNS2 = [{"name": "parse", "prompt": "parse a csv file v2", "tests": ["assert parse"]}]
+check("fresh audit blocks again", gate_blocks(FNS2, tmp, "H_demo.py") is True)
+rc = lathe.cmd_assume([plan_path, "--resolve", "--accept-all"])
+check("--accept-all exits 0", rc == 0, "rc=%r" % rc)
+check("gate UNBLOCKED after --accept-all", gate_blocks(FNS2, tmp, "H_demo.py") is False)
+d3 = json.loads(open(os.path.join(tmp, ".assumptions.json"), encoding="utf-8").read())
+via = [x.get("via") for x in d3["H_demo.py"].get("decisions", [])]
+check("bulk acceptance is honestly recorded ('accepted in bulk')", any("bulk" in (v or "") for v in via))
+
 # a spec change must RE-OPEN the audit (stale decisions don't carry)
 CHANGED = [{"name": "parse", "prompt": "parse a JSON file instead", "tests": ["assert parse"]}]
 check("gate re-BLOCKS after spec change (digest mismatch)", gate_blocks(CHANGED, tmp, "H_demo.py") is True)

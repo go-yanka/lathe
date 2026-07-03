@@ -303,9 +303,12 @@ engine **refuses to build while any blocking-materiality assumption is unresolve
 <plan> --resolve` walks each blocker and makes *you* decide it: **accept** it as the real intent, **pick** an
 alternative the auditor offered (`[options: …]`), or **type what you actually want**. Each becomes a stated
 decision recorded in a **committed** `<plan>.decisions.md` (the audit trail) — so a resolved assumption is a
-*decision*, not a guess. **There is no blanket accept.** For scripted/CI use, `--answers <file>` supplies one
-decision per blocker (still per-item). Skipping a blocker leaves it blocking (fail-safe). Resolutions are
-keyed to a spec digest, so any spec change re-opens the audit. Parsing is the pinned `tools/assumption_logic.py`.
+*decision*, not a guess. **Per-item is the default; nothing is auto-accepted.** If you *want* to accept
+everything at once, `--accept-all` is an **explicit opt-in** — your choice, recorded honestly in the trail as
+"accepted in bulk (not individually reviewed)"; it is never the default. For scripted/CI use, `--answers
+<file>` supplies one decision per blocker (still per-item). Skipping a blocker leaves it blocking (fail-safe).
+Resolutions are keyed to a spec digest, so any spec change re-opens the audit. Parsing is the pinned
+`tools/assumption_logic.py`.
 
 **Scrutiny is user-governed** (a default you can dial). Set it per-run with `--scrutiny <level>`, or globally
 via `LATHE_ASSUMPTION_POLICY` / config `assumptions.scrutiny` (env > config > default). Levels:
