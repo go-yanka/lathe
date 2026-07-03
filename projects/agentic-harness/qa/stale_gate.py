@@ -1,6 +1,6 @@
 """STALE / RETIREMENT GATE — keep the agentic-harness tree pristine.
 
-Ported from the canonical a product harness (qa/stale_gate.py, owner-requested 2026-06-25) to the agentic-harness
+Ported from the canonical Helix harness (qa/stale_gate.py, owner-requested 2026-06-25) to the agentic-harness
 project on 2026-06-29 so the SAME cleanup discipline is ENFORCED here, not just available in the engine.
 
 The recurring bug it prevents: backup/duplicate/superseded files linger in the source dirs, so the WRONG
@@ -17,7 +17,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # projects/a
 MAIN_DIRS = ["tools", "plans"]                                      # the agentic-harness source surfaces
 SKIP = ("_archive", "_legacy", "_retired", "_fn_fails", "__pycache__", ".git")
 # names that must NOT live in the main tree — backups / dups / superseded versions
-RETIRE_PAT = re.compile(r"(_backup|\.bak|_bak\b|_old\b|_v1\b|_v2_old|_copy\b|copy\d|\.orig$|~$|\.tmp$)", re.I)
+# PR#1 v2.8.1 #8-F8: broadened — was too narrow (only _v1/_v2_old; missed _v3+, _final/_new/_prev/_deprecated,
+# "(copy)"). NOTE: bare trailing-digit names (utils2.py) are deliberately NOT matched here — too many valid
+# files end in a digit; that staleness is better caught by the capability registry (which name is 'live') than
+# by a filename regex.
+RETIRE_PAT = re.compile(
+    r"(_backup|\.bak|_bak\b|_old\b|_v\d+_old|_v\d+\b|_copy\b|_copy\d+|copy\d|\(copy\)|_final\b|_new\b|_prev\b|"
+    r"_deprecated\b|\.orig$|~$|\.tmp$)", re.I)
 
 def candidates():
     out = []

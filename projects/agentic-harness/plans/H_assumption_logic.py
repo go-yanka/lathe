@@ -22,7 +22,9 @@ FUNCTIONS = [
                 "'assumption' token. Of what remains: the 1st piece (if any) is the raw materiality, the 2nd (if "
                 "any) is the category. "
                 "(4) Normalize materiality (lowercase): if it starts with 'h' or 'crit' -> 'high'; if it starts "
-                "with 'l' -> 'low'; otherwise -> 'med' (this is also the default when materiality is absent). "
+                "with 'l' -> 'low'; if it starts with 'm' -> 'med'; OTHERWISE (empty, absent, or unrecognized) "
+                "-> 'high'. This is FAIL-CLOSED: an assumption the auditor left unranked or garbled must SURFACE "
+                "(block under default 'high' scrutiny), never hide as 'med'. "
                 "(5) category = the 2nd piece lowercased if present and non-empty, else 'general'. "
                 "(6) text = everything AFTER the closing ']', stripped. If that text is empty, skip the line. "
                 "(7) Preserve order. Never raise; on error return []." + "\n" + _ONLY),
@@ -32,7 +34,9 @@ FUNCTIONS = [
         "assert parse_assumptions('[assumption|HIGH|Data] Encoding is UTF-8.')[0]['materiality'] == 'high' and parse_assumptions('[assumption|HIGH|Data] Encoding is UTF-8.')[0]['category'] == 'data'",
         "assert parse_assumptions('[ASSUMPTION | critical | security] Auth is not required.')[0]['materiality'] == 'high'",
         "assert parse_assumptions('[ASSUMPTION | high] No category here.') == [{'materiality': 'high', 'category': 'general', 'text': 'No category here.'}]",
-        "assert parse_assumptions('[ASSUMPTION] bare tag defaults to med.') == [{'materiality': 'med', 'category': 'general', 'text': 'bare tag defaults to med.'}]",
+        "assert parse_assumptions('[ASSUMPTION | med | x] explicit med stays med.')[0]['materiality'] == 'med'",
+        "assert parse_assumptions('[ASSUMPTION] bare tag defaults to high (fail-closed).')[0]['materiality'] == 'high'",
+        "assert parse_assumptions('[ASSUMPTION | ??? | x] garbled materiality fails closed.')[0]['materiality'] == 'high'",
         "assert parse_assumptions(None) == [] and parse_assumptions('') == [] and parse_assumptions('no tags at all here') == []",
         "assert parse_assumptions('[ASSUMPTION | high | data]   ') == []",
      ]},
@@ -46,8 +50,10 @@ FUNCTIONS = [
                 "elif it contains 'all' or 'low' -> threshold is every level (high, med, low); "
                 "elif it contains 'med' (e.g. 'high+med' or 'med') -> threshold is high and med; "
                 "else (default, including 'high' or None or unrecognized) -> threshold is high only. "
-                "Items that are not dicts, or lack a recognized materiality ('high'/'med'/'low'), are skipped. "
-                "assumptions not a list -> []. Never raise." + "\n" + _ONLY),
+                "Items that are not dicts are skipped. For a dict, resolve its materiality: 'high'/'med'/'low' "
+                "as-is; ANY other value (missing, empty, 'medium', 'critical', garbage) is treated as 'high' "
+                "(FAIL-CLOSED — labeling drift must never silently disarm the gate). Then include the item iff "
+                "its (resolved) materiality meets the threshold. assumptions not a list -> []. Never raise." + "\n" + _ONLY),
      "tests": [
         "A = [{'materiality': 'high', 'text': 'a'}, {'materiality': 'med', 'text': 'b'}, {'materiality': 'low', 'text': 'c'}]",
         "assert [x['text'] for x in blocking_assumptions(A, 'high')] == ['a']",
@@ -56,7 +62,9 @@ FUNCTIONS = [
         "assert [x['text'] for x in blocking_assumptions(A, 'all')] == ['a', 'b', 'c']",
         "assert blocking_assumptions(A, 'off') == [] and blocking_assumptions(A, 'advisory') == []",
         "assert blocking_assumptions('nope', 'high') == [] and blocking_assumptions([], 'high') == []",
-        "assert blocking_assumptions([{'text': 'no materiality'}, {'materiality': 'high', 'text': 'a'}], 'high') == [{'materiality': 'high', 'text': 'a'}]",
+        "assert [x['text'] for x in blocking_assumptions([{'text': 'no materiality'}, {'materiality': 'high', 'text': 'a'}], 'high')] == ['no materiality', 'a']",
+        "assert [x['text'] for x in blocking_assumptions([{'materiality': 'medium', 'text': 'x'}], 'high')] == ['x']",
+        "assert [x['text'] for x in blocking_assumptions([{'materiality': 'critical', 'text': 'y'}], 'high')] == ['y']",
         "assert [x['text'] for x in blocking_assumptions(A, 'med')] == ['a', 'b']",
      ]},
     {"name": "unconfirmed_blockers",
@@ -65,7 +73,9 @@ FUNCTIONS = [
                 "gate must refuse to build past: the blocking-materiality assumptions (per the user-governed "
                 "scrutiny `policy`, SAME resolution as blocking_assumptions: 'off'/'none'/'advisory'/'0'/'false' "
                 "-> nothing blocks; 'all'/'low' in policy -> all levels; 'med' in policy -> high+med; else -> "
-                "high only) whose text has NOT been confirmed by the user. `confirmed` is a list/set of confirmed "
+                "high only; AND materiality resolution is FAIL-CLOSED — any non-canonical materiality "
+                "(missing/'medium'/'critical'/garbage) counts as 'high') whose text has NOT been confirmed by "
+                "the user. `confirmed` is a list/set of confirmed "
                 "assumption texts. Match by NORMALIZED text: lowercase + strip + collapse internal whitespace "
                 "runs to one space (use the re module). Return the still-unconfirmed blockers in order. If a "
                 "blocker's normalized text is in the normalized confirmed set, exclude it. assumptions not a list "
@@ -79,6 +89,8 @@ FUNCTIONS = [
         "assert [b['text'] for b in unconfirmed_blockers(A, [], 'all')] == ['Encoding is UTF-8', 'First row is a header', 'x']",
         "assert unconfirmed_blockers('nope', [], 'high') == []",
         "assert [b['text'] for b in unconfirmed_blockers([{'materiality':'med','text':'m'}], [], 'high+med')] == ['m']",
+        "assert [b['text'] for b in unconfirmed_blockers([{'materiality':'medium','text':'d'}], [], 'high')] == ['d']",
+        "assert [b['text'] for b in unconfirmed_blockers([{'text':'no-mat'}], [], 'high')] == ['no-mat']",
      ]},
     {"name": "spec_digest",
      "kinds": ["edge"],

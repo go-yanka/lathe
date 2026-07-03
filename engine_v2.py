@@ -957,8 +957,12 @@ if module_ok:
             os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "glue_gate.py"))
         _ggm = importlib.util.module_from_spec(_gg); _gg.loader.exec_module(_ggm)
         _gl = _ggm.count_glue_lines(getattr(plan, "GLUE", ""))
+        # PR#1 v2.8.1 #4-F2: a non-empty INTEGRATION isn't enough — a placeholder ('pass', a lone comment)
+        # would "exercise" 50 lines of glue. Require the block to actually ASSERT something.
+        _intg_str = getattr(plan, "INTEGRATION", "") or ""
+        _real_integration = bool(_intg_str.strip()) and ("assert" in _intg_str)
         _gblocked, _gwhy = _ggm.glue_gap(os.environ.get("LATHE_GATE_GLUE"), _gl,
-                                         bool(getattr(plan, "INTEGRATION", "").strip()),
+                                         _real_integration,
                                          int(os.environ.get("LATHE_GLUE_MAX", "2")))
         if _gblocked:
             print("  GLUE GATE — %s" % _gwhy)

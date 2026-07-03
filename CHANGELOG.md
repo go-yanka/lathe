@@ -2,6 +2,28 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.9.0 — 2026-07-03
+
+**PR #7 gate stress-test — 4 fail-open gate bypasses closed** (independent reviewer, executed against the real
+pinned functions; issues #4/#5/#6/#8). Each let a build that should refuse slip through:
+- **#6 assumption gate (headline guarantee)** — an assumption the auditor left unranked/garbled normalized to
+  `med` and, under the shipped default `high` scrutiny, silently did NOT block. Now **fail-closed**: unknown/
+  empty/garbled materiality → `high`, and `blocking_assumptions`/`unconfirmed_blockers` treat any non-canonical
+  label (`'medium'`, `'critical'`, missing) as `high`. Labeling drift can no longer disarm the gate. (harness)
+- **#4 gate-the-glue** — F1: `count_glue_lines` counted physical newlines, so `;`-packed statements slipped
+  under `LATHE_GLUE_MAX` — now counts **AST statements** (`a=1; import os; os.system(...)` → 3, not 1). F2:
+  any non-empty `INTEGRATION` (even `pass`) counted as "exercised" — the engine now requires the block to
+  contain an **`assert`**. (harness + engine)
+- **#5 test-kind** — the substring classifier let a **comment** satisfy a required kind (`# never raises` →
+  `error`, fail-open) and missed real tests. Now **strips comments before matching** and recognizes
+  `sorted`/`reversed` as `property`. (harness)
+- **#8 standing gates** — F7: docs-drift used `name not in doc_text`, so `do` read as documented inside
+  `done`/`window` — now **whole-word** match (regex lookarounds, hyphen-safe). F8: the stale-file retire
+  pattern was too narrow (missed `_v3+`, `_final`, `_new`, `_prev`, `_deprecated`, `(copy)`) — broadened, with
+  no false positives on the current tree. (harness + core-infra)
+- Issues #2 (mutation-equiv) and #3 (REST API) from the same batch were already fixed in **v2.8.1**.
+  Acceptance tests extended; all gate acceptance suites + standing gates green.
+
 ## v2.8.1 — 2026-07-03
 
 **PR #1 capstone-review — 4 code-side findings fixed** (independent reviewer, cross-adjudicated; none refuted):

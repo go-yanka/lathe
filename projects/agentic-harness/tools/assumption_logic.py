@@ -2,14 +2,15 @@
 
 
 def parse_assumptions(text):
-    import re
     try:
+        import re
         if not isinstance(text, str):
             return []
         results = []
+        pattern = re.compile(r'^\[([^\]]*)\]\s*(.*)$')
         for line in text.splitlines():
             line = line.strip()
-            m = re.match(r'\[([^\]]*)\]', line)
+            m = pattern.match(line)
             if not m:
                 continue
             pieces = [p.strip() for p in m.group(1).split('|')]
@@ -23,10 +24,12 @@ def parse_assumptions(text):
                 materiality = 'high'
             elif mat_l.startswith('l'):
                 materiality = 'low'
-            else:
+            elif mat_l.startswith('m'):
                 materiality = 'med'
+            else:
+                materiality = 'high'
             category = raw_cat.lower() if raw_cat else 'general'
-            body = line[m.end():].strip()
+            body = m.group(2).strip()
             if not body:
                 continue
             results.append({'materiality': materiality, 'category': category, 'text': body})
@@ -38,58 +41,56 @@ def blocking_assumptions(assumptions, policy):
     try:
         if not isinstance(assumptions, list):
             return []
-        try:
-            p = policy.strip().lower() if isinstance(policy, str) else ""
-        except Exception:
-            p = ""
+        p = policy.strip().lower() if isinstance(policy, str) else ""
         if p in ('off', 'none', 'advisory', '0', 'false'):
             return []
-        elif 'all' in p or 'low' in p:
+        if 'all' in p or 'low' in p:
             allowed = {'high', 'med', 'low'}
         elif 'med' in p:
             allowed = {'high', 'med'}
         else:
             allowed = {'high'}
-        result = []
-        for a in assumptions:
-            try:
-                if isinstance(a, dict):
-                    m = a.get('materiality')
-                    if isinstance(m, str) and m.strip().lower() in ('high', 'med', 'low') and m.strip().lower() in allowed:
-                        result.append(a)
-            except Exception:
+        out = []
+        for item in assumptions:
+            if not isinstance(item, dict):
                 continue
-        return result
+            m = item.get('materiality')
+            if m not in ('high', 'med', 'low'):
+                m = 'high'
+            if m in allowed:
+                out.append(item)
+        return out
     except Exception:
         return []
 
 def unconfirmed_blockers(assumptions, confirmed, policy):
     import re
+
+    def norm(s):
+        try:
+            return re.sub(r"\s+", " ", str(s).lower().strip())
+        except Exception:
+            return ""
+
     try:
         if not isinstance(assumptions, list):
             return []
 
-        def norm(t):
-            try:
-                return re.sub(r"\s+", " ", str(t)).strip().lower()
-            except Exception:
-                return ""
-
-        p = str(policy).strip().lower() if policy is not None else ""
+        p = str(policy).lower().strip() if policy is not None else ""
         if p in ("off", "none", "advisory", "0", "false"):
             return []
         if "all" in p or "low" in p:
-            levels = ("high", "med", "low")
+            levels = {"high", "med", "low"}
         elif "med" in p:
-            levels = ("high", "med")
+            levels = {"high", "med"}
         else:
-            levels = ("high",)
+            levels = {"high"}
 
-        confirmed_set = set()
+        confirmed_norm = set()
         if confirmed:
             try:
                 for c in confirmed:
-                    confirmed_set.add(norm(c))
+                    confirmed_norm.add(norm(c))
             except Exception:
                 pass
 
@@ -97,13 +98,17 @@ def unconfirmed_blockers(assumptions, confirmed, policy):
         for a in assumptions:
             try:
                 if isinstance(a, dict):
-                    mat = str(a.get("materiality", "")).strip().lower()
                     text = a.get("text", "")
+                    mat = a.get("materiality")
                 else:
+                    text = a
+                    mat = None
+                m = str(mat).lower().strip() if mat is not None else ""
+                if m not in ("high", "med", "low"):
+                    m = "high"
+                if m not in levels:
                     continue
-                if mat not in levels:
-                    continue
-                if norm(text) in confirmed_set:
+                if norm(text) in confirmed_norm:
                     continue
                 out.append(a)
             except Exception:

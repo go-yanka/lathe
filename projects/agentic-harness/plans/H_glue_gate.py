@@ -10,9 +10,13 @@ GLUE = ""
 _ONLY = "Output ONLY the Python function code — no prose, no markdown, no tests. Import inside the function."
 FUNCTIONS = [
     {"name": "count_glue_lines",
-     "prompt": ("Write count_glue_lines(glue) -> int. Count the SUBSTANTIVE lines in the string `glue`: split on "
-                "newlines; for each line strip whitespace; count it only if the stripped line is non-empty AND does "
-                "not start with '#' (a pure comment). glue None or not a str -> 0. Never raise." + "\n" + _ONLY),
+     "prompt": ("Write count_glue_lines(glue) -> int counting the SUBSTANTIVE STATEMENTS in the string `glue` "
+                "(NOT physical newlines — so statements packed onto one line with ';' cannot slip under the "
+                "threshold). Import ast inside. glue None or not a str -> 0. Try ast.parse(glue): on success, "
+                "walk the tree and return the count of every node that is an instance of ast.stmt (counts "
+                "top-level AND nested statements; comments/blank lines aren't nodes, so they're excluded). If "
+                "ast.parse raises SyntaxError, FALL BACK to the physical count: split on newlines, strip each, "
+                "count lines that are non-empty and don't start with '#'. Never raise; on any other error -> 0." + "\n" + _ONLY),
      "tests": [
         "assert count_glue_lines('a = 1\\n\\n# comment\\nb = 2') == 2",
         "assert count_glue_lines('   \\n# only comment') == 0",
@@ -21,6 +25,9 @@ FUNCTIONS = [
         "assert count_glue_lines(None) == 0",
         "assert count_glue_lines(42) == 0",
         "assert count_glue_lines('def main():\\n    run()\\n    return 0') == 3",
+        "assert count_glue_lines('a=1; b=2; c=3; d=4; e=5') == 5",
+        "assert count_glue_lines('a=1; import os; os.system(\\'id\\')') == 3",
+        "assert count_glue_lines('a = = =') == 1",
      ]},
     {"name": "glue_gap",
      "prompt": ("Write glue_gap(env_value, glue_lines, has_integration, threshold) -> list [blocked(bool), "
@@ -44,4 +51,11 @@ FUNCTIONS = [
         "assert glue_gap('1', True, False, 2) == [False, 'glue is trivial - not gated']",
         "assert glue_gap('yes', 3, False, 2)[0] is True",
      ]},
+]
+
+CRITERIA = [
+    {"id": "G1", "text": "Count substantive glue by STATEMENTS (AST), so ';'-packing can't evade the threshold",
+     "tests": ["count_glue_lines"]},
+    {"id": "G2", "text": "Refuse substantive glue that has no integration test (opt-in gate)",
+     "tests": ["glue_gap"]},
 ]

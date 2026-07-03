@@ -2,15 +2,21 @@
 
 
 def count_glue_lines(glue) -> int:
-    if not isinstance(glue, str):
+    import ast
+    if glue is None or not isinstance(glue, str):
         return 0
     try:
-        count = 0
-        for line in glue.split("\n"):
-            stripped = line.strip()
-            if stripped and not stripped.startswith("#"):
-                count += 1
-        return count
+        tree = ast.parse(glue)
+        return sum(isinstance(node, ast.stmt) for node in ast.walk(tree))
+    except SyntaxError:
+        try:
+            return sum(
+                1
+                for line in glue.split("\n")
+                if line.strip() and not line.strip().startswith("#")
+            )
+        except Exception:
+            return 0
     except Exception:
         return 0
 
