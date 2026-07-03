@@ -1,6 +1,6 @@
 # Lathe — Capability Map (bucketed + prioritized)
 
-An exhaustive inventory of Lathe's capabilities (**refreshed to v2.2.0**), grouped into buckets and
+An exhaustive inventory of Lathe's capabilities (**refreshed to v2.5.1**), grouped into buckets and
 prioritized within each.
 **Provenance (two separate channels):** the capability *list* was drawn from the code plus
 `LATHE_CAPABILITIES.md` / `LATHE_COMMANDS.md`; every *status label* below was **verified against the
@@ -8,12 +8,13 @@ executable source** (`engine_v2.py`, `run_gates.py`, `lathe.py`, `lathe_mcp.py`,
 oracle, not the sibling docs. Status legend: **✅ wired** (on the autonomous path) · **🔌 available**
 (built/tested, not autonomous) · **🧠 analyst** (premium/human front-end) · **⚙️ opt-in gate** (built +
 reproduced, off by default / STRICT-forced — no autonomous-path change unless enabled).
-**v2.2.0 refresh note:** the five methodology-enforcement mechanisms shipped over v2.1.4→v2.2.0 —
-requirement→test traceability, regression-proof, mutation-*score*, STRICT umbrella, and SDLC/RTM authoring —
-were added below (Buckets C & D) and each was **independently reproduced** by the review (see
-`METHODOLOGY_ENFORCEMENT_VALIDATION.md`, scorecard 3/6 done + #4-partial). They are **opt-in / STRICT-forced**
-(default off), so they carry a ⚙️ marker: *gated capability, off by default, no autonomous-path behavior
-change unless enabled*.
+**v2.5.1 refresh note:** the methodology-enforcement stack is now **6/6 done**, composed by STRICT into
+**seven gates** — regression-proof (#1), traceability (#2), mutation-score (#3), test-ack (#4-partial),
+required test-kind (#5), gate-the-glue (#6), and the **assumption gate** — and there are now two "no silent
+guessing" **front-ends** (`lathe clarify` + the adversarial `assumption-auditor`). Every one was
+**independently reproduced** by the review (see `METHODOLOGY_ENFORCEMENT_VALIDATION.md`). The gates are
+**opt-in / STRICT-forced** (default off), so they carry a ⚙️ marker: *gated capability, off by default, no
+autonomous-path behavior change unless enabled*. (Prior refresh reached only v2.2.0 / 3-of-6; superseded.)
 Priority: **P0** = flagship differentiator · **P1** = important/core · **P2** = supporting. **The priority axis
 (P0/P1/P2) is independent of the status axis (✅/🔌/🧠)** — a P0 flagship can still be 🔌 (built but not yet on
 the autonomous path); the two must be read together, not conflated.
@@ -54,9 +55,21 @@ the autonomous path); the two must be read together, not conflated.
   before a token is spent (no reproducing test = no build). ⚙️ (reproduced 8/8 + 6/6 pure logic)
 - **P0** **Test-ack gate** (methodology #4-partial, v2.1.4) — `LATHE_TEST_ACK=1` / `lathe ack`: refuses to
   build until a human has acknowledged this exact test set; any rewrite (incl. repair loop) re-forces it. ⚙️
-- **P0** **STRICT / SDLC umbrella** (v2.1.7, +#3 in v2.2.0) — `LATHE_STRICT=1` composes traceability +
-  test-ack + regression-proof + lint-block + mutation-score, forcing all development (new + enhancement)
-  through every proof; explicit env vars still win. ⚙️ (reproduced 7/7 + 8/8 pure logic)
+- **P0** **Required test-KIND per contract** (methodology #5, v2.2.4) — `LATHE_TEST_KIND=1`: a unit whose
+  tests lack its declared `kinds` (property / edge / roundtrip / error) is REFUSED before generation;
+  detected structurally, no model call. Property tests are a requirable kind. ⚙️ (reproduced ALL PASS)
+- **P0** **Gate-the-glue** (methodology #6, v2.2.3) — `LATHE_GATE_GLUE=1`: substantive hand-written `GLUE`
+  must be exercised by an `INTEGRATION` test or the build is refused. Closes "function, not anything": under
+  STRICT, no *code* ships untested. ⚙️ (reproduced ALL PASS)
+- **P0** **Assumption gate** (v2.5.0) — `LATHE_ASSUMPTION_GATE=1` / `lathe assume`: an adversarial
+  `assumption-auditor` re-reads the spec against the goal and emits a materiality-ranked ledger of the
+  decisions the goal never specified; the engine REFUSES to build while any HIGH assumption is unconfirmed
+  (`--confirm`; spec change re-opens via digest). Scrutiny user-governed (`all›high+med›high›off`). ⚙️
+  (reproduced ALL PASS incl. spec-change re-open)
+- **P0** **STRICT / SDLC umbrella** (v2.1.7 → **seven gates** by v2.5.0) — `LATHE_STRICT=1` composes
+  traceability + test-ack + regression-proof + mutation-score + test-kind + gate-glue + assumption-gate
+  (+ the lint stub-block), forcing all development through every proof; explicit env vars still win. ⚙️
+  (reproduced 7/7 + 8/8 pure logic)
 - **P1** Six standing gates: stale · resource-dups · registry · pristine · real-bug-lint · docs-drift. ✅
 - **P1** Functional/behavioral gate — live headless browser (Playwright) checks the real DOM. 🔌
 - **P1** Structural gate — asserts against generated artifact `content`. 🔌
@@ -66,9 +79,17 @@ the autonomous path); the two must be read together, not conflated.
 - **P2** road_ready DoD — fresh-subprocess import → boot → HTTP health → live smoke. 🔌
 
 ## Bucket D — The thinking layer & feedback loops (the "agentic loop")
+- **P0** **Step 0 — requirements liaison** (`lathe clarify`, v2.3.0; selectable options v2.4.0) — interrogates
+  a vague goal for ambiguity *before* the harness thinks: fewest sharp questions (inputs/outputs/success/edge/
+  non-goals) with pick-from options, writes `CLARIFIED_GOAL.md` with **testable acceptance criteria**. A goal
+  already stating inputs+outputs passes through. Step 0 of `sdlc`. ✅ (reproduced ALL PASS + 8/8 logic)
+- **P0** **Assumption auditor front-end** (`lathe assume`, v2.5.0) — the adversarial spec-audit twin of
+  clarify: surfaces the *silent* decisions a spec made that the goal never specified, materiality-ranked;
+  advisory at `clarify`, enforced pre-build (see the assumption gate in Bucket C). ✅ (reproduced ALL PASS)
 - **P0** Repair loop — on gate failure the **analyst rewrites the SPEC** from the banked failing test, then
   retries (implementation harness → thinking harness feedback). ✅
-- **P0** No-escalation doctrine — a failure sharpens the spec; it never summons a bigger model to build. ✅
+- **P0** No-escalation doctrine — a failure sharpens the spec; it never summons a bigger model to build;
+  Rule-of-Three escalates to a human after 3 tries. ✅
 - **P1** Analyst plan authoring — premium model (or human) writes spec+tests; pluggable. 🧠
 - **P1** CE review personas — multi-lens (correctness/adversarial/security/data/reliability/perf/api/
   maintainability/testing/ui), vendored, injected as real reviewer lenses. 🧠
@@ -130,7 +151,8 @@ the autonomous path); the two must be read together, not conflated.
 
 ## Bucket J — Workflows (the harness runs in modes, not just "build")
 - **P1** Named contract-driven workflows with fail-loud PASS/BLOCKED verdicts: `code-review`, `bug-fix`,
-  `enhancement`, `doc-review`, `new-project`. ✅
+  `enhancement`, `doc-review`, `new-project`, **`sdlc`** (clarify → assume → ack → STRICT build → trace →
+  review). bug-fix/enhancement/sdlc now carry an explicit **assumption-audit step**. ✅
 
 ## Bucket K — Observability & honesty
 - **P1** Structured run logs — `runs/<id>.jsonl`, secrets redacted; a bug report is self-diagnosing. ✅
@@ -151,11 +173,14 @@ shipped-autonomous surface.
 7. **Runs anywhere: standalone ✅ / inside your agent via MCP 🔌 / any model ✅** (I) — adoption path.
    (MCP is built + tested but not on the autonomous path yet — don't promise "run it in Claude Code today"
    as shipped-autonomous.)
-8. **Methodology enforcement stack** (C) — traceability #2 · regression-proof #1 · mutation-*score* #3,
-   composed by STRICT (v2.1.4→v2.2.0). ⚙️ The positioning centerpiece: *the SDLC process is enforced by the
-   build, not left to discipline.* Scope guard: opt-in/STRICT-forced, and comprehensiveness is measured
-   **per gated function, not whole-program** (#5 kind-of-test, #6 glue still open). See
-   `METHODOLOGY_ENFORCEMENT_VALIDATION.md`.
+8. **Methodology enforcement stack — now 6/6, seven gates** (C) — regression-proof #1 · traceability #2 ·
+   mutation-score #3 · test-ack #4 · test-kind #5 · gate-glue #6 · assumption gate, composed by STRICT
+   (v2.1.4→v2.5.0). ⚙️ The positioning centerpiece: *the SDLC process is enforced by the build, not left to
+   discipline.* Scope guard: opt-in/STRICT-forced; comprehensiveness measured **per gated function, not
+   whole-program**; each gate is a tripwire, not a proof. See `METHODOLOGY_ENFORCEMENT_VALIDATION.md`.
+9. **No silent guessing — the two front-ends** (D) — `lathe clarify` (interrogate the goal) + the adversarial
+   `assumption-auditor` (audit the spec). ⚙️ The sharpest answer to "the AI just confidently does the wrong
+   thing." Honest scope: surfaces/structures ambiguity, doesn't guarantee the human's answers are right.
 
 ## Infographic set — grounded in the prioritized buckets
 A constructive, trustworthy, intuitive set. Each maps to buckets/flagships above; each states status honestly

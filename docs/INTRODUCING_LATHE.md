@@ -102,15 +102,19 @@ When `to_cents` passed, Lathe recorded a pin keyed by a hash of the spec, the te
 something that feels reckless:
 
 ```
-$ rm money_impl.py          # delete the generated code
+$ rm money_impl.py          # the generated code lands in <name>_impl.py; delete it
 $ lathe build money.py
   to_cents        REUSED     0 tokens
 ```
 
 The function came back **byte-for-byte identical, with zero model calls.** Not "regenerated and probably the
-same" — replayed from the pin, deterministic, free. Clone the repo on a fresh machine and you get the same
-bytes. The generated code was never the source of truth. **The spec was.** The code is a build artifact, the
-way a compiled binary is a build artifact — reproducible from its inputs, not something you edit by hand.
+same" — replayed from the pin, deterministic, free. Clone the repo on a fresh machine, with the pins
+committed and untouched, and you get the same bytes. (One caveat worth stating plainly: the pin is keyed on
+a hash of the exact spec text, so *any* edit to the spec — even a reflow or a fixed typo — misses the pin and
+forces a regeneration, which is the nondeterministic path. Byte-identity is a property of an unchanged,
+committed pin, not of the spec's meaning.) The generated code was never the source of truth. **The spec
+was.** The code is a build artifact, the way a compiled binary is a build artifact — reproducible from its
+inputs, not something you edit by hand.
 
 And that's the rule that trips people up at first and then becomes the thing they like most: **you never
 hand-edit the output.** Wrong behaviour? You don't patch the code — you sharpen the spec and rebuild. If
@@ -132,8 +136,10 @@ claimed: regenerate from scratch and you may get different bytes — that still 
 
 Real work isn't one-shot. So watch a failure.
 
-You add a currency you forgot — `to_cents` should reject `'€5'` because you only handle dollars — and you
-write the test for it. The local model's next attempt handles it wrong. The gate refuses. Here's the part
+You find a bug: `to_cents('€5')` was supposed to *reject* non-dollar input, but the old code silently
+stripped the symbol and returned `500` — a wrong number, not an error. You write the test that pins the
+right behaviour (`'€5'` must raise), and because it *fails on the old code*, it clears the regression-proof
+gate as a real bug fix. The local model's next attempt handles it wrong. The gate refuses. Here's the part
 that's different from an agent that just retries harder: Lathe doesn't summon a bigger model to brute-force
 it. It **banks the exact failing test as evidence**, and the analyst uses that evidence to make the *spec*
 clearer. Then the same cheap model tries again against the sharper contract.
@@ -165,7 +171,9 @@ move the discipline from advice to enforcement:
   not assembled after the fact.
 - **Regression-proof.** For a bug fix, Lathe runs your new test against the *old* code first and refuses the
   change if the test passes on the old code — because then it doesn't actually reproduce the bug. A fix must
-  come with a test that fails without it. This one refuses *before spending a single token*.
+  come with a test that fails without it. (It's scoped to bug fixes against an existing pin — a brand-new
+  function or a genuinely new acceptance criterion the old code already satisfies isn't a regression, and
+  isn't held to this gate.) This one refuses *before spending a single token*.
 - **Mutation-score.** Before code is pinned, Lathe mutates it (flip a `+` to a `-`, a `<` to a `<=`) and
   checks that your tests *notice*. A suite that can't tell the real code from a broken copy doesn't pin.
 
@@ -256,10 +264,10 @@ agent. (MCP is built and available; it's not yet the autonomous default — the 
 Here's the smallest honest test of everything above, and it takes five minutes:
 
 ```
-git clone … && cd lathe
+git clone <repo-url> && cd lathe
 lathe verify examples/hello.py     # watch the pins replay: byte-identical, 0 model calls
 # open a spec, break one of its asserts, and rebuild:
-lathe build examples/hello.py      # watch the gate refuse, and the spec — not the code — get fixed
+lathe build examples/hello.py      # watch the gate refuse to pin the red build
 ```
 
 If the pins replay and the gate refuses your broken spec, you've seen the whole thesis with your own eyes:

@@ -74,6 +74,14 @@ reference implementation. Methods spread further than tools, and methods are mon
 
 ## 4. Enhancements to the development model itself (Fable's list)
 
+> **Status (as of v2.5.1):** this started as a wishlist; most of it has since shipped and is verified in
+> `METHODOLOGY_ENFORCEMENT_VALIDATION.md`. Shipped: #1 (test-ack + mutation-score gates), #3 (provenance
+> coverage, now in the whitepaper), #6 (property/edge/error enforced by the `LATHE_TEST_KIND` gate, v2.2.4),
+> #7 (`lathe trace` traceability matrix). Partially: #2 (assumption gate audits silent intent-drift against
+> the spec, v2.5.0 — the immutable-anchor rule itself is not yet a hard gate). Still open: #4 (stage gates as
+> a portable method spec), #5 (environment-closure fingerprint in pins). Left in place as the original
+> reasoning; read the status line, not the tense.
+
 Beyond the §15 defects and V3/V4 findings, methodology-level upgrades:
 
 1. **Gate the tests.** The system's one ungated artifact is the one that defines truth (V4 finding). Add a

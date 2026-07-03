@@ -5,8 +5,9 @@
 *A draft rewrite of the Lathe whitepaper, authored by the round-7/8 reviewer (Fable) per the maintainer's
 request. This is the manifesto — method-level, evergreen. The versioned technical paper (architecture,
 threat model, pin-format spec, raw benchmark data) should live separately; see the outline at the end.
-Facts below that carry audit weight are cross-referenced to the review documents in this repo; everything
-else is argument, and is written to be argued with.*
+Facts about Lathe that carry audit weight are cross-referenced to the review documents in this repo;
+external industry figures are flagged as directional (they live outside this repo and are not part of its
+audit trail); everything else is argument, and is written to be argued with.*
 
 ---
 
@@ -18,10 +19,14 @@ you something works when it doesn't. You hand-fix one file and now nothing can b
 you have a pile of code that happens to work right now — and no way to rebuild it, reason about it, or
 trust it tomorrow.
 
-The numbers agree with your scars. Roughly half of surveyed developers say they actively distrust AI
-output; the top complaint is code that's *almost* right. A 2025 study ran 300 AI-generated projects in
-clean environments: only 68% even executed. Maintainers of major open-source projects are shutting down
-bug-bounty programs under a flood of plausible, wrong, machine-written patches.
+The industry reporting agrees with your scars — directionally; treat the figures below as anecdote, not
+audit-grade evidence (they aren't cross-referenced to this repo, and you should check them against their
+sources before quoting them). Developer-survey write-ups keep landing on the same complaint: a large share
+of engineers distrust AI output, and the sharpest pain is code that's *almost* right. Reproducibility
+studies of AI-generated projects report that a meaningful fraction don't even execute in a clean
+environment. And maintainers of major open-source projects have publicly throttled or paused bug-bounty
+intake under a flood of plausible, wrong, machine-written patches. Whatever the exact numbers, the shape is
+the one you already feel.
 
 The industry's answer has been bigger models and better vibes. Ours is different.
 
@@ -121,9 +126,12 @@ handed even a reasonable spec keeps deciding things the goal never settled — e
 what happens on empty — and (the documented failure) when told to ask if unsure, it rates its own guesses
 "common enough" and proceeds. So an **adversarial `assumption-auditor`** re-reads the spec *against the goal*
 and emits a materiality-ranked ledger of those silent decisions (`lathe assume`); the build **refuses while
-any high-materiality assumption is unconfirmed**. Scrutiny is user-governed (`off` → `all`), and it's the
-seventh gate composed by STRICT. Honest scope: a tripwire against *silent* intent-drift, not proof of full
-intent capture.
+any high-materiality assumption is unconfirmed**. Scrutiny is user-governed (`off` → `all`), and
+confirmation is the *human's* to give, keyed to the spec's digest — change the spec and the audit re-opens,
+so the generating model can't rubber-stamp its own guesses. It's the seventh of the gates STRICT composes
+(the full roster: traceability, regression-proof, mutation-score, test-kind, gate-the-glue, test-ack, and
+this assumption gate — each detailed in §7). Honest scope: a tripwire against *silent* intent-drift, not
+proof of full intent capture.
 
 The loop, in one breath: *clarify the goal → analyst writes spec+tests → local model implements → gate accepts or refuses →
 accepted code is pinned → failures flow back as sharper specs.* Big model for judgment, small model for
@@ -147,7 +155,7 @@ A real plan entry — this shipped:
             "Use a regex word boundary.",
   "tests": [
     "assert _is_standalone_word('director','associate director') == True",
-    "assert _is_standalone_word('analyst','data analytics') == False",
+    "assert _is_standalone_word('cat','category') == False",   # substring-true, word-false — kills a no-boundary stub
   ],
 }
 ```
@@ -168,8 +176,12 @@ Test coverage told the 2000s how much of the code was exercised. The AI era need
 model that wrote them, the hash that pins them. Call it provenance coverage.
 
 Copilot-style tools score 0% by construction: there is no artifact linking a generated line to an
-acceptance criterion. Lathe-built modules score 100% by construction. Most real repos will sit in between
-— and the number is honest about the boundary: hand-written glue is hand-written, and says so.
+acceptance criterion. The number has two parts, and we keep them separate so "100%" never quietly absorbs
+a conditional link. The **core** — spec, accepting tests, model, pinning hash — is carried by every
+Lathe-gated function, always: 100% by construction. The **requirement link** (criterion → spec) is a
+distinct dimension, present only when acceptance criteria were declared up front, and reported alongside the
+core rather than folded into it. Most real repos will sit in between — and the number is honest about the
+boundary: hand-written glue is hand-written, and says so.
 
 ![Provenance, by construction](infographics/14_provenance_chain.png)
 *The chain each function carries — requirement → spec → tests → gate → model → hash — machine-generated at
@@ -183,7 +195,7 @@ embarrassing number and make it climb than pretend. Track ours in the repo.
 ## 7. Evidence — and the limits, stated against interest
 
 ![The methodology, enforced by the build](infographics/13_methodology_enforced.png)
-*The three enforcement gates — traceability, regression-proof, mutation-score — composed by `LATHE_STRICT=1`.
+*Three of the seven enforcement gates — traceability, regression-proof, mutation-score (also: test-kind, gate-the-glue, test-ack, assumption gate) — composed by `LATHE_STRICT=1`.
 The bottom band states the scope against interest: a bounded tripwire, per function, not whole-system.*
 
 What's demonstrated, reproducibly, in this repo:
@@ -228,7 +240,7 @@ building the disciplined way.
 ```
 pipx install lathe-harness          # or clone the repo
 lathe build examples/hello.py       # pinned demo: rebuilds offline, zero model calls
-lathe verify examples/hello.py     # prove the byte-identical claim to yourself
+lathe verify examples/hello.py      # prove the byte-identical claim to yourself
 lathe do "a function that parses '2h30m' into seconds"   # the full loop, with your endpoints
 ```
 
