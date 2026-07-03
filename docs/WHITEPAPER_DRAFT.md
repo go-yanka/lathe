@@ -126,9 +126,13 @@ handed even a reasonable spec keeps deciding things the goal never settled — e
 what happens on empty — and (the documented failure) when told to ask if unsure, it rates its own guesses
 "common enough" and proceeds. So an **adversarial `assumption-auditor`** re-reads the spec *against the goal*
 and emits a materiality-ranked ledger of those silent decisions (`lathe assume`); the build **refuses while
-any high-materiality assumption is unconfirmed**. Scrutiny is user-governed (`off` → `all`), and
-confirmation is the *human's* to give, keyed to the spec's digest — change the spec and the audit re-opens,
-so the generating model can't rubber-stamp its own guesses. It's the seventh of the gates STRICT composes
+any high-materiality assumption is unresolved**. And it *resolves* rather than rubber-stamps: `--resolve`
+throws each blocker back to the human for an explicit per-item decision — accept it as the real intent, pick
+an alternative the auditor offered, or type what you actually want — and records each as a stated decision,
+with its method, in a committed `<plan>.decisions.md` audit trail. Skipping a blocker leaves it blocking; a
+blanket "accept everything" is a deliberate, separately-logged opt-in, never the default. Scrutiny is
+user-governed (`off` → `all`), and because decisions are keyed to the spec's digest, changing the spec
+re-opens the audit — so the generating model can't quietly wave its own guesses through. It's the seventh of the gates STRICT composes
 (the full roster: traceability, regression-proof, mutation-score, test-kind, gate-the-glue, test-ack, and
 this assumption gate — each detailed in §7). Honest scope: a tripwire against *silent* intent-drift, not
 proof of full intent capture.

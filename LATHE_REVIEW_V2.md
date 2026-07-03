@@ -795,10 +795,17 @@ the commit history alongside this file.
 
 ## 16. v2.2.0 edge-case findings — the mutation-score gate (adversarial pass)
 
+> **UPDATE — v2.6.1: the assumption gate now resolves, it doesn't rubber-stamp. Reproduced.**
+> `--yes` blanket-accept removed; `lathe assume --resolve` throws each blocker back for an explicit per-item
+> decision (accept / pick an offered option / state the real intent), skipping stays blocking, and every
+> decision is recorded in a **committed `<plan>.decisions.md`** trail (`--accept-all` is a separate logged
+> opt-in). `test_assumption_gate.py` ALL PASS + fail-safe verified in source. This closes the adversarial
+> finding this review raised against the v2.5 gate (unconstrained confirmation authority).
+>
 > **UPDATE — v2.5.1: seven composed STRICT gates + a second "no silent guessing" front-end. Reproduced.**
 > The **assumption gate** (v2.5.0, `test_assumption_gate.py` ALL PASS) adds an adversarial `assumption-auditor`
 > that surfaces the decisions a spec made but the goal never specified, ranked by materiality, and **refuses
-> to build while any HIGH assumption is unconfirmed** (`lathe assume` / `--confirm`; a spec change re-opens the
+> to build while any HIGH assumption is unresolved** (`lathe assume`; a spec change re-opens the
 > audit via digest mismatch). Scrutiny is user-governed (all › high+med › high › off). Added to STRICT →
 > **7 gates**. Attacks silent intent-drift; honest scope: a tripwire, not full intent capture. Pairs with
 > `clarify` (goal up front) as a two-stage front-end. Details in `docs/METHODOLOGY_ENFORCEMENT_VALIDATION.md`.

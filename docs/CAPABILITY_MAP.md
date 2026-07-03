@@ -61,11 +61,16 @@ the autonomous path); the two must be read together, not conflated.
 - **P0** **Gate-the-glue** (methodology #6, v2.2.3) — `LATHE_GATE_GLUE=1`: substantive hand-written `GLUE`
   must be exercised by an `INTEGRATION` test or the build is refused. Closes "function, not anything": under
   STRICT, no *code* ships untested. ⚙️ (reproduced ALL PASS)
-- **P0** **Assumption gate** (v2.5.0) — `LATHE_ASSUMPTION_GATE=1` / `lathe assume`: an adversarial
-  `assumption-auditor` re-reads the spec against the goal and emits a materiality-ranked ledger of the
-  decisions the goal never specified; the engine REFUSES to build while any HIGH assumption is unconfirmed
-  (`--confirm`; spec change re-opens via digest). Scrutiny user-governed (`all›high+med›high›off`). ⚙️
-  (reproduced ALL PASS incl. spec-change re-open)
+- **P0** **Assumption gate** (v2.5.0; **resolve-not-rubber-stamp v2.6.0/v2.6.1**) — `LATHE_ASSUMPTION_GATE=1`
+  / `lathe assume`: an adversarial `assumption-auditor` re-reads the spec against the goal and emits a
+  materiality-ranked ledger of the decisions the goal never specified; the engine REFUSES to build while any
+  HIGH assumption is unresolved. `--resolve` throws each blocker back for an **explicit per-item decision** —
+  accept as the real intent, pick an offered `[options: …]`, or type what you actually want; **skipping stays
+  blocking** (fail-safe). Every decision is recorded (with its method) in a **committed `<plan>.decisions.md`
+  audit trail** — a resolved assumption becomes a *stated decision*, not a silent guess. `--yes` blanket-accept
+  was removed; `--accept-all` is an explicit opt-in, logged as "accepted in bulk." Spec change re-opens via
+  digest. Scrutiny user-governed (`all›high+med›high›off`). ⚙️ (reproduced ALL PASS incl. per-item resolve,
+  skip-stays-blocking, bulk-recorded-honestly, spec-change re-open)
 - **P0** **STRICT / SDLC umbrella** (v2.1.7 → **seven gates** by v2.5.0) — `LATHE_STRICT=1` composes
   traceability + test-ack + regression-proof + mutation-score + test-kind + gate-glue + assumption-gate
   (+ the lint stub-block), forcing all development through every proof; explicit env vars still win. ⚙️

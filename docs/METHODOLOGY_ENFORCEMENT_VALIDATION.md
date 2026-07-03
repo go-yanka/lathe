@@ -1,5 +1,20 @@
 # Methodology-enforcement: what's real, what to build before we claim it
 
+> ## ✅ UPDATE — v2.6.0 / v2.6.1: the assumption gate **resolves, it doesn't rubber-stamp**.
+> Reproduced on the rebased branch (2026-07-03): `test_assumption_gate.py` **ALL PASS** against the rewritten
+> flow, and the fail-safe verified directly in source (`lathe.py:1236-1275`).
+> - The old confirm step was a weak ack with a `--yes` blanket-accept. **`--yes` is removed.** `lathe assume
+>   <plan> --resolve` now throws **each** blocking assumption back for an explicit per-item decision: accept it
+>   as the real intent, pick an alternative the auditor offers (`[options: …]`), or **type what you actually
+>   want**. Skipping a blocker leaves it blocking (fail-safe; the command returns non-zero).
+> - **Every resolution is a recorded decision** — with its method (accepted-as-is / chose-alternative /
+>   stated-intent) — written to a **committed `<plan>.decisions.md`** audit trail. A resolved assumption is now
+>   a *stated decision on the record*, not a silent guess. `--accept-all` is an explicit opt-in, logged
+>   honestly as "accepted in bulk (not individually reviewed)."
+> - This directly closes the adversarial finding this review's own harness pass raised against the v2.5 gate
+>   ("who confirms? — an unconstrained rubber-stamp, possibly the generating model itself"): confirmation is
+>   now the human's explicit per-item call, on a committed trail, keyed to the spec digest.
+>
 > ## ✅ UPDATE — v2.5.1: **seven composed gates** + two "no silent guessing" front-ends.
 > Reproduced on the rebased branch (2026-07-02):
 > - **Assumption gate (v2.5.0)** — `LATHE_ASSUMPTION_GATE=1`, **added to STRICT (now 7 composed gates)** —

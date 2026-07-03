@@ -281,21 +281,25 @@ Small honest caption under the footer, muted: "it surfaces ambiguity; it can't g
 
 ### 18 — "It won't guess silently" (the assumption gate; 16:9) — PROMPT READY (v2.5.0)
 *The assumption gate — an adversarial auditor surfaces the LLM's silent guesses and blocks on the material
-ones. The trust headline. Verified: `test_assumption_gate.py` ALL PASS. All ● (shipped, STRICT-composed).*
+ones, and (v2.6) makes you RESOLVE each rather than rubber-stamp it. The trust headline. Verified:
+`test_assumption_gate.py` ALL PASS + fail-safe checked in source. All ● (shipped, STRICT-composed).*
 ```
 [style guide]. Title: "It won't guess silently". Subtitle: "the decisions your goal never made — surfaced,
-ranked, and confirmed before it builds". Center: a flow. LEFT, a goal document icon labeled "YOUR GOAL"
-with one line "parse a money string". An arrow into a magnifying-glass-over-clipboard icon labeled
-"ASSUMPTION AUDITOR — reads the spec against the goal". From it, a ledger card titled "ASSUMPTIONS" with
-three rows, each a small severity chip + text: a red "HIGH" chip "input is UTF-8 — you never said";
+ranked, and resolved on the record before it builds". Center: a flow. LEFT, a goal document icon labeled
+"YOUR GOAL" with one line "parse a money string". An arrow into a magnifying-glass-over-clipboard icon
+labeled "ASSUMPTION AUDITOR — reads the spec against the goal". From it, a ledger card titled "ASSUMPTIONS"
+with three rows, each a small severity chip + text: a red "HIGH" chip "input is UTF-8 — you never said";
 a red "HIGH" chip "first row is a header"; an amber "MED" chip "sort ascending". To the right, a gate/shield
-icon labeled "BUILD" with a red "✗ BLOCKED until you confirm the HIGH ones" tag; a small green side-path
-"confirm → unblocks". Bottom strip: a small dial labeled "SCRUTINY" showing four notches "off · high · high+med
-· all" with the needle on "high (default)". Footer ribbon: "the model fills gaps with 'reasonable defaults'
-and never tells you — this makes it tell you". Small muted honest caption: "a tripwire against silent drift,
-not proof of full intent capture — only material guesses block".
+icon labeled "BUILD" with a red "✗ BLOCKED until each HIGH is resolved" tag. Below the gate, a small
+"RESOLVE EACH" card with three tiny pill options "accept · pick an option · type what you meant" and a green
+arrow to a document icon labeled "decisions.md — committed audit trail"; a muted note "skip → stays blocked".
+Bottom strip: a small dial labeled "SCRUTINY" showing four notches "off · high · high+med · all" with the
+needle on "high (default)". Footer ribbon: "the model fills gaps with 'reasonable defaults' and never tells
+you — this makes it tell you, and puts your call on the record". Small muted honest caption: "a tripwire
+against silent drift, not proof of full intent capture — only material guesses block".
 ```
-*Status: all ● shipped. Keep the honest caption + the user-governed scrutiny dial (that's the owner refinement).*
+*Status: all ● shipped. Keep the honest caption + the scrutiny dial + the "resolve → decisions.md" beat
+(that's the v2.6 owner refinement — a resolved assumption is a recorded decision, not a rubber-stamp).*
 
 ### Infographic status ledger (v2.5.1) — what to generate / regenerate
 *The enforcement stack is **seven gates** (regression-proof · traceability · mutation-score · test-ack ·

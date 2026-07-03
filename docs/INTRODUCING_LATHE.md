@@ -187,8 +187,11 @@ Those three were the start. Since then the stack has grown, and `LATHE_STRICT=1`
   ships untested, not just the generated leaves.
 - **Assumption gate.** Before it builds, an adversarial auditor re-reads the spec against your goal and lists
   the decisions the goal never made — encoding, rounding, ordering, empty-input — and the build refuses while
-  any *material* one is unconfirmed. You confirm them; changing the spec re-opens the audit. It's the answer
-  to the model's worst habit: filling a gap with a "reasonable default" and never telling you.
+  any *material* one is unresolved. And it makes you *resolve* each one, not just wave it through: accept it as
+  what you actually meant, pick an alternative it offers, or type the real intent — and every decision is
+  written to a committed `decisions.md` trail, so a resolved assumption is a decision on the record, not a
+  silent guess. Skip one and it stays blocking; changing the spec re-opens the audit. It's the answer to the
+  model's worst habit: filling a gap with a "reasonable default" and never telling you.
 
 Flip them all on at once with `LATHE_STRICT=1` — now **seven gates** — and every change runs the full
 gauntlet. The thing you get is not "the AI is trustworthy." It's better and smaller: **the process is
