@@ -124,7 +124,15 @@ LATHE_STRICT=1 lathe build plans/H_money.py
 ```
 
 `LATHE_STRICT=1` composes the seven gates (traceability, regression-proof, mutation-score, test-ack,
-test-kind, gate-the-glue, assumption gate). See `CLI_REFERENCE.md §3a` to arm them individually.
+test-kind, gate-the-glue, assumption gate). Each is also switchable on its own, and each has tuning knobs —
+e.g. `LATHE_MUTATION_SCORE=0.8` for a higher bar, `LATHE_GLUE_MAX=5` for the glue threshold,
+`LATHE_ASSUMPTION_POLICY=all` for maximum scrutiny. Explicit vars win over STRICT, so you can run
+STRICT-but-stricter or STRICT-minus-one.
+
+> **Every gate, in full:** `GATES_REFERENCE.md` documents all sixteen gates (the seven build-time rigor
+> gates + the seven standing tree gates + the acceptance floor) — what each enforces, its exact passing
+> criteria, when it fails, and every config knob. Start there when tuning. `CLI_REFERENCE.md §3a` is the
+> flag-by-flag index.
 
 ---
 

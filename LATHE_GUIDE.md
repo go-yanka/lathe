@@ -324,6 +324,25 @@ push token in the file — use an env var or the git credential helper. (Parsing
 | `LATHE_AUTO_COMMIT` | opt-in: let autonomy (`auto`/`do`/`run`) commit green builds to git | unset (**off** — no commits) |
 | `LATHE_REVIEW_USE_CLI` | use the `claude` CLI for `review` when present; `0` forces the `HARNESS_CLAUDE_URL` endpoint | `1` |
 
+**Gate toggles (the rigor knobs).** The gates that decide whether generated code is accepted are all
+configurable. `LATHE_STRICT=1` turns the whole rigor suite on at once; each gate is also switchable and
+tunable on its own, and an explicit var always wins over STRICT (so you can go stricter, or drop one gate):
+
+| Var | Gate | Values | STRICT default |
+|---|---|---|---|
+| `LATHE_STRICT` | composes all seven below (+ requires plan `CRITERIA`) | `1` | — |
+| `LATHE_REGRESSION_PROOF` | a bug fix must ship a failing-on-old-code test | `1`/`true`/… | `1` |
+| `LATHE_LINT_SPEC` | reject tests a trivial stub can satisfy | `warn` / `block` | `block` |
+| `LATHE_MUTATION_SCORE` | min fraction of mutants the tests must kill | float `0.0`–`1.0` | `0.5` |
+| `LATHE_TEST_ACK` | a human must ack the AI-written tests (`lathe ack`) | `1`/`true`/… | `1` |
+| `LATHE_TEST_KIND` | require declared test *kinds* (property/edge/error) | `1`/`true`/… | `1` |
+| `LATHE_GATE_GLUE` / `LATHE_GLUE_MAX` | substantive glue needs an INTEGRATION test / line threshold | `1`; int (dflt `2`) | `1` |
+| `LATHE_ASSUMPTION_GATE` / `LATHE_ASSUMPTION_POLICY` | refuse while a material assumption is unconfirmed / scrutiny | `1`; `off`/`high`/`med`/`all` | `1`, `high` |
+
+> **Every gate in full — `docs/GATES_REFERENCE.md`.** All sixteen gates (seven build-time rigor gates, seven
+> standing tree gates, the acceptance floor), each with its exact passing criteria, failure message, config
+> knobs, and implementation. This table is the summary; that doc is the reference.
+
 ---
 
 ## 11. Troubleshooting
