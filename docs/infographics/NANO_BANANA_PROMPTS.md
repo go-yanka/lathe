@@ -135,26 +135,35 @@ the gate in the middle".
 ```
 *Status: standalone ● , MCP ○ , embedded ● . Hermes = illustrative open model, not a special connector.*
 
-### 13 — "The methodology, enforced by the build" (the enforcement stack; 16:9) — GENERATED & FINAL
-*File: `13_methodology_enforced.png`. The payoff to #11's hook. The most-defensible graphic in the set —
-**every gate is a claim the review reproduced green** (traceability 12/12, regression-proof 8/8,
-mutation-score 9/9 + the v2.2.1 E1–E4 fixes). Only ships honestly WITH the bottom band: opt-in / bounded
-tripwire (not exhaustive) / per-function (not whole-system). All three clauses verified present on the
-render. Do NOT drop the band or the word "declared" in gate 1.*
+### 13 — "The methodology, enforced by the build" (the enforcement stack; 16:9) — ⚠️ REGENERATE (v2.5.1: 3 → 7 gates)
+*File: `13_methodology_enforced.png` (current render shows only THREE gates — STALE). The payoff to #11's
+hook and the most-defensible graphic in the set — **every gate is a claim the review reproduced green**.
+The stack is now **seven gates** composed by `LATHE_STRICT=1`; the three-gate render must be regenerated
+from the prompt below. Only ships honestly WITH the bottom band: opt-in / bounded tripwire (not exhaustive)
+/ per-function (not whole-system). Do NOT drop the band or the word "declared" in the traceability gate.*
+
+**CURRENT PROMPT (v2.5.1 — seven gates). Use Nano Banana Pro/2 (7 gate labels + band ≈ 20 elements):**
 ```
-[style guide]. Title: "The methodology, enforced by the build". Subtitle: "three gates a change must pass
+[style guide]. Title: "The methodology, enforced by the build". Subtitle: "seven gates a change must pass
 before it can ship — the model can't skip them". Center: a left-to-right flow. Far left a document icon
-"spec + tests + code" → through THREE tall gate cards (each icon + bold name + one line + a small red "✗
-refused" tag): Gate 1 "TRACEABILITY" (link) "every declared requirement maps to a named test"; Gate 2
-"REGRESSION-PROOF" (bug/shield) "a fix must ship a test that fails on the old code"; Gate 3 "MUTATION-SCORE"
-(target) "the suite must kill the code's mutants" → a green padlock-hash "PINNED — accepted". Above the
-gates a sage-green banner brace "LATHE_STRICT = 1 · forces all three, for every change". Bottom muted band:
-"⚙️ opt-in, off by default · mutation-score is a bounded tripwire for vacuous tests, not exhaustive
-coverage · gates each function, not your whole system". Footer ribbon: "the kind and thoroughness of
-testing come from the process — not the model's discretion".
+"spec + tests + code" → into a GATE RACK of SEVEN compact stacked gate bars (two columns, each bar = small
+icon + bold name + one short line + a tiny red "✗ refused" tag), none merged or duplicated:
+  Gate 1 "TRACEABILITY" (link) "every declared requirement maps to a named test";
+  Gate 2 "REGRESSION-PROOF" (shield/bug) "a fix must ship a test that fails on the old code";
+  Gate 3 "MUTATION-SCORE" (target) "the suite must kill the code's mutants";
+  Gate 4 "TEST-ACK" (hand-check) "a human signs off on the exact test set";
+  Gate 5 "TEST-KIND" (tags) "the required kinds — property · edge · error — must be present";
+  Gate 6 "GATE-THE-GLUE" (pipe/connector) "hand-written glue needs an integration test, or no build";
+  Gate 7 "ASSUMPTION GATE" (magnifier) "no build while a material silent assumption is unconfirmed"
+→ a green padlock-hash "PINNED — accepted". Above the rack a sage-green banner brace "LATHE_STRICT = 1 ·
+composes all seven, for every change". Bottom muted band: "⚙️ opt-in, off by default · mutation-score is a
+bounded tripwire for vacuous tests, not exhaustive coverage · gates each function, not your whole system".
+Footer ribbon: "the kind and thoroughness of testing come from the process — not the model's discretion".
 ```
-*Status: all ✅ verified (#1/#2/#3 reproduced). #5 kind-of-test and #6 glue still open → the "each function,
-not your whole system" clause is mandatory, not optional.*
+*Status: all seven ✅ reproduced (traceability, regression-proof, mutation-score, test-ack, test-kind #5,
+gate-glue #6, assumption gate — see `METHODOLOGY_ENFORCEMENT_VALIDATION.md`). The "each function, not your
+whole system" clause stays mandatory even now that glue is gated — glue coverage is an integration check,
+not per-function comprehensiveness.*
 
 ### 14 — "Provenance, by construction" (the compliance / audit chain; 16:9) — GENERATED & FINAL
 *File: `14_provenance_chain.png`. The paying-niche / audit story (PRODUCT_STRATEGY §6). Mostly verified: the
@@ -233,7 +242,7 @@ panel, none merged or duplicated (3 columns × 4 rows; 12th cell empty):
  Card 1 BUILD ENGINE: ● plan-driven build, ● per-function specs, ● best-of-N, ● module assembly
  Card 2 REPRODUCIBLE: ● content-hash pins, ● zero-call rebuilds, ● failure banking
  Card 3 VERIFY & GATE: ● hard test gate, ● nonce sandbox, ● six standing gates, ● mutation probe
- Card 4 THINK & LEARN: ● analyst writes specs, ● repair loop no-escalation, ● 143 personas
+ Card 4 THINK & LEARN: ● step 0 · clarify (interview the goal), ● step 0 · assume (audit the spec), ● analyst writes specs, ● repair loop no-escalation, ● 143 personas
  Card 5 AUTONOMY: ● goal loop, ● kanban board, ● rule-of-three, ○ DAG dispatch
  Card 6 CLEAN TREE: ● one canonical per capability, ● pristine gates, ○ gated check-in
  Card 7 FEWER TOKENS: ○ repo-map, ○ skeleton-fill, ○ 0-token complete
@@ -241,11 +250,11 @@ panel, none merged or duplicated (3 columns × 4 rows; 12th cell empty):
  Card 9 RUN ANYWHERE: ● standalone CLI, ○ MCP, ● embedded, ● any model
  Card 10 WORKFLOWS: ● code-review · bug-fix · enhancement · doc-review · new-project · sdlc
  Card 11 OBSERVABILITY: ● run logs, ● metrics, ● honest benchmark
-Below the grid, a wide full-width sage-green band, bold "ENFORCE THE METHOD — LATHE_STRICT ⚙️", four inline
+Below the grid, a wide full-width sage-green band, bold "ENFORCE THE METHOD — LATHE_STRICT ⚙️", seven inline
 ⚙️ items: "traceability", "regression-proof (a fix must fail on old code)", "mutation-score (kill the
-mutants)", "test-ack". Small italic sub-line: "opt-in; composes the gates so testing thoroughness isn't left
-to discretion". Footer ribbon, full width, centered: "spec + tests are the source of truth — code is a build
-output".
+mutants)", "test-ack", "test-kind (property · edge · error)", "gate-the-glue", "assumption gate". Small
+italic sub-line: "opt-in; composes seven gates so testing thoroughness isn't left to discretion". Footer
+ribbon, full width, centered: "spec + tests are the source of truth — code is a build output".
 ```
 *What cracked the density (from asking Nano Banana how to prompt itself): (a) list labels CARD-BY-CARD, not
 as a prose blob; (b) the guard "render exactly as written, no substitutions" — this is what stops it
@@ -288,13 +297,26 @@ not proof of full intent capture — only material guesses block".
 ```
 *Status: all ● shipped. Keep the honest caption + the user-governed scrutiny dial (that's the owner refinement).*
 
-### 13-update / 00-update — reflect the 7-gate stack (v2.5.0) — NOTE
-*#13 currently shows THREE gates — the stack is now SEVEN; (traceability · regression-proof · mutation-score). The stack is now **six**:
-add **TEST-KIND** (property/edge/error required per contract) and **GATE-THE-GLUE** (glue needs an integration
-test) to the `LATHE_STRICT` band — either as two more gate cards or a "+2 more under STRICT" tag. #00's ENFORCE
-band lists four ⚙️ items (traceability · regression-proof · mutation-score · test-ack); add **test-kind**, **gate-glue**, and **assumption-gate** to make it **seven**, and add `clarify` + the
-assumption auditor as "step 0" chips to THINK & LEARN. Regenerate both when
-convenient; not urgent — the copy already carries the 6/6 claim.*
+### Infographic status ledger (v2.5.1) — what to generate / regenerate
+*The enforcement stack is **seven gates** (regression-proof · traceability · mutation-score · test-ack ·
+test-kind · gate-the-glue · assumption gate) composed by `LATHE_STRICT=1`, plus **two front-ends** (clarify ·
+assumption-auditor). Against that ground truth:*
+
+- **NEW — generate (never rendered yet):**
+  - **#17 "Before it builds, it interviews you"** — the `clarify` front-end. Prompt ready above. All ● shipped.
+  - **#18 "It won't guess silently"** — the assumption gate. Prompt ready above. All ● shipped.
+- **REGENERATE — the render is stale vs the seven-gate stack:**
+  - **#13 "The methodology, enforced by the build"** — current render shows **three** gates; regenerate from
+    the updated seven-gate prompt above (use Nano Banana Pro/2 for the density).
+  - **#00 "The Lathe capability map"** — ENFORCE band updated four → **seven** ⚙️ items and Card 4 now carries
+    the two step-0 front-ends; regenerate from the updated card list + band above.
+- **NO CHANGE — still accurate:** #01–#12, #14, #15, #16. (None of these assert a gate count; they describe
+  the loop, division of labour, determinism, provenance chain, safety spine, interop, persona library —
+  all unchanged by v2.2.3 → v2.5.1.)
+
+*Priority order to hand to Nano Banana: #18 (the trust headline — assumption gate is the newest, strongest
+beat) → #17 (its front-end twin) → #13 (regenerate to seven gates) → #00 (regenerate the map). #17/#18
+complete the "no silent guessing" pair; #13/#00 remove the last stale "three gates" surface in the set.*
 
 ## Recommended order to generate
 11 (the hook — leads any launch) → 6 (the loop — most-requested strength) → 7 (clean tree) → 10 (safety) →
