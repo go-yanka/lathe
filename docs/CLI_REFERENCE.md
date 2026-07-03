@@ -110,6 +110,7 @@ are listed per command; the flat flag reference is §4.
 | `lathe clean [--dry]` | Quarantine stale/dup files (`--dry` previews, changes nothing). | `lathe clean --dry` |
 | `lathe checkin [-m "msg"] [--push]` | Commit gated work (secret-scan first); `--push` also pushes upstream. | `lathe checkin -m "ship widget" --push` |
 | `lathe report "<title>"` / `lathe issues` | File a self-diagnosing issue / list the issue queue. | `lathe report "gate flakes on empty plan"` |
+| `lathe serve [--bind <addr>]` | Start the opt-in local HTTP/REST API (v2.8.0) for non-agent consumers (dashboards, CI-over-HTTP). Requires `LATHE_API_TOKEN`; binds `127.0.0.1:8799` by default. See `API.md` / `docs/API_PROPOSAL_REST.md`. | `LATHE_API_TOKEN=… lathe serve` |
 | `lathe flow [<name>] [--run <targets>]` | Named contract-driven workflows (`code-review`, `bug-fix`, `enhancement`, `doc-review`, `new-project`, `sdlc`); dry-preview by default, `--run` executes. | `lathe flow doc-review --run README.md` |
 
 ---
@@ -226,6 +227,8 @@ LATHE_RUN_TIMEOUT=1800 lathe auto "objective"
 | `LATHE_LOG_KEEP` | How many run logs to retain. | `100` |
 | `LATHE_ISSUES_DIR` | Issue-queue directory. | `~/.lathe/issues` |
 | `LATHE_REMOTE` | Git remote for `checkin` (overrides config `checkin.remote`). | — |
+| `LATHE_API_TOKEN` | Bearer token for the `lathe serve` HTTP API. **Required** — the server refuses to start without it. | — (no anonymous access) |
+| `LATHE_API_PORT` | Port for the `lathe serve` HTTP API. | `8799` |
 
 ```bash
 LATHE_CONFIG=./my.config.json lathe build plans/H_widget.py

@@ -1,8 +1,12 @@
 # Proposal — an HTTP/REST API for Lathe
 
-*Status: **proposal**, not built. Author: the PR-#1 reviewer (Fable). This is a design for the maintainer to
-evaluate/implement — it touches engine code, which is out of the reviewer's scope. It's written to be argued
-with.*
+*Status: **IMPLEMENTED in v2.8.0** (`main` @ `25b1759`) — the maintainer built the full v0 from this design.
+The shipped surface is documented in **`API.md`**; start it with `lathe serve` (or
+`LATHE_API_TOKEN=… python lathe_api.py`). This document remains the **design of record** and the rationale.
+An adversarial security review of the implementation was run against v2.8.0 (auth, path-escape,
+env-override leakage) and its findings are on PR #1 — the auth/traversal/env-isolation core held; two items
+(the API token in child-process env, and gate-refused builds reporting `status:"failed"`) were flagged for
+hardening.*
 
 Related: `GUIDE_MCP.md` (the programmatic surface that exists today) · `CLI_REFERENCE.md` (the commands an API
 would wrap) · `SECURITY.md`.

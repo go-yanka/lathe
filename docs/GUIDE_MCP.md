@@ -81,7 +81,8 @@ analyst endpoint set even though the same config "works" from your shell.
 
 ## Honest status
 
-MCP is **built and tested**, and it's the real programmatic interface — but note it's the *tool* surface, not
-a REST/HTTP API. If you need to drive Lathe from something that isn't an MCP client (a web dashboard, a
-language-agnostic service, CI over HTTP), that's the open item tracked in `API_PROPOSAL_REST.md`. For any
-agent that speaks MCP, this is the shipped path.
+MCP is **built and tested**, and it's the real programmatic interface for **agents**. If you need to drive
+Lathe from something that isn't an MCP client (a web dashboard, a language-agnostic service, CI over HTTP),
+there's now an opt-in **HTTP/REST API** too (`lathe serve`, v2.8.0 — see `API.md` / `docs/API_PROPOSAL_REST.md`).
+For any agent that speaks MCP, this MCP surface is the shipped path; for non-agent HTTP consumers, use the
+REST API.
