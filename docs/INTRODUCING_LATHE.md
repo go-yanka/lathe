@@ -5,6 +5,10 @@ either shown with a runnable example or labelled honestly as untested; the numbe
 marked as invitations, not results. That is the whole point of the tool, so it is the whole point of this
 article too.*
 
+![Lathe: spec in, verified code out — the whole method in one picture](infographics/19_method_overview.png)
+*The whole idea at a glance: goal → analyst writes spec+tests → a cheap local model writes the code → the
+gate accepts or refuses → passing code is pinned; a failure sharpens the spec, never hand-patches the code.*
+
 ---
 
 ## The two rooms

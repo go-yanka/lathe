@@ -11,6 +11,11 @@ audit trail); everything else is argument, and is written to be argued with.*
 
 ---
 
+![Lathe: spec in, verified code out — the whole method in one picture](infographics/19_method_overview.png)
+*The method at a glance: goal → analyst writes spec+tests → a cheap local model writes the code → the gate
+runs the tests → passing code is pinned; a failure sharpens the spec, never hand-patches the code. Under
+`LATHE_STRICT=1`, seven gates enforce it.*
+
 ## 1. You already know the problem
 
 You've watched an AI coding session rot. Brilliant for ten minutes, then the drift: ask twice, get two

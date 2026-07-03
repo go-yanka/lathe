@@ -8,15 +8,25 @@ through the harness itself** (`lathe review` with a vision-capable analyst).
 |---|---|---|
 | `01_build_loop.png` | **How Lathe works** — the pipeline: GOAL → ANALYST (spec+tests) → IMPLEMENTER (code) → GATE (sandbox tests) → PIN; FAIL loops back to "sharpen the spec — never escalate". | ✅ Final (title fixed) |
 | `02_division_of_labor.png` | **Big brain thinks, small brain builds** — analyst (frontier) vs implementer (local by default); model-agnostic ribbon. | ✅ Final (model-agnostic) |
-| `03_strengths.png` | **Why Lathe is trustworthy** — TEST-GATED · PINNED · NO HAND-EDITS · LOCAL OR ANY MODEL · PROVENANCE. | ✅ Final (NO HAND-EDITS wording corrected) |
+| `03_strengths.png` | **Why Lathe is trustworthy** — TEST-GATED · PINNED · NO HAND-EDITS · LOCAL OR ANY MODEL · PROVENANCE · **NO SILENT GUESSING**. | ✅ Final (6 tiles; added no-silent-guessing v2.6) |
 | `04_determinism.png` | **Same spec, same code — every time. Here's how.** First-build lane (requirements → higher model writes spec → local model generates code → gate → pin) vs rebuild lane (same spec → hash matches → reuse pin, no model call → same code). Callout: "the model is random; the PIN makes it deterministic — reuse, don't re-roll." | ✅ Final |
-| `00_capability_map.svg` (+ `.png` render) | Full capability map: 11 buckets (A–K), ~60 capabilities, exact text, status dots (green=live, amber=available, purple=analyst), bold=flagship. Hand-rendered SVG, not model-generated. | ✅ Final |
-| `05_capability_map_poster.png` | Poster version of the map: 9 buckets, punchier, Nano Banana. Fewer items, no analyst-status color. | ✅ Final |
+| `00_capability_map.png` (+ `.svg` reference) | Full capability map: 11 cards, status dots (● live / ○ available / ⚙️ opt-in gate), step-0 front-ends in THINK & LEARN, and the seven-gate `LATHE_STRICT` ENFORCE band (`test-kind (property · edge · error)` merged). Nano Banana render; the `.svg` is the machine-exact reference. | ✅ Final (v2.6.2) |
 | `06_loop_that_learns.png` | The two-harness feedback loop: analyst writes spec+tests → local model builds → gate → PASS pins/ships, FAIL banks the test and the analyst sharpens the spec. "No escalation." | ✅ Final |
 | `07_clean_tree.png` | Without vs with Lathe: a mess of `util_v2/util_final/util_OLD` the model guesses between, vs one canonical file enforced by the gate (+ `whatis`). "The gate keeps the tree honest." | ✅ Final |
 | `08_fewer_tokens.png` | Dump-the-files (~40k tokens) vs send-the-structure (ctags repo-map, ~2k) + skeleton-fill/complete. "Structure is ~20x cheaper than source." | ✅ Final (code-map text cleaned) |
 | `09_run_anywhere.png` | Three ways to run it: standalone CLI ● · inside your agent via MCP ○ · embedded ●; pluggable analyst + implementer. "Pluggable at both ends." | ✅ Final |
 | `10_safety_spine.png` | Three defense layers — plan validator (data-only) → sandbox (nonce-framed verdict) → isolation tiers (subprocess/docker/docker-ssh) + SSRF/provenance/MCP guards. Keeps SECURITY.md's honest floor. | ✅ Final (eyeball "allowlisted" spelling) |
+| `11_discipline_enforced.png` | **The discipline you already believe in — enforced.** TDD · never merge red · locked builds · don't hand-patch the compiler, each as "you already do this / Lathe enforces it". | ✅ Final |
+| `12_works_with_your_stack.png` | **Works with the stack you already have** — pluggable analyst + implementer, runs standalone ● / MCP ○ / embedded ●. | ✅ Final |
+| `13_methodology_enforced.png` | **The methodology, enforced by the build** — the **seven** STRICT gates (traceability · regression-proof · mutation-score · test-ack · test-kind · gate-the-glue · assumption gate), with the honest per-function band. | ✅ Final (v2.6: 7 gates) |
+| `14_provenance_chain.png` | **Provenance, by construction** — requirement → spec → tests → gate → model → hash, machine-generated at build time. | ✅ Final |
+| `15_determinism_two_claims.png` | **Determinism you can prove** — guaranteed (pinned rebuild, byte-identical, 0 tokens) vs not-claimed (regeneration may differ, still passes the gate). | ✅ Final |
+| `16_expert_library.png` | **A library of experts, on tap** — 143 review personas: auto-selected ● / auto-fetched ○ / license-gated ● / empirically rated ○. | ✅ Final |
+| `17_clarify_interview.png` | **Before it builds, it interviews you** — the `clarify` front-end turns a vague goal into testable acceptance criteria with pick-from options. | ✅ Final (v2.6) |
+| `18_assumption_gate.png` | **It won't guess silently** — the assumption auditor surfaces the goal's unstated decisions, ranked; resolve each (accept · pick · state intent) on a committed `decisions.md`. | ✅ Final (v2.6 resolve flow) |
+| `19_method_overview.png` | **Lathe: spec in, verified code out** — the one-picture hero: the five-stage pipeline + fail→spec loop + the seven-gate ENFORCE band. Used as the lead image (launch page, whitepaper, essay). | ✅ Final (v2.6) |
+
+*Retired: `05_capability_map_poster.png` — the older 9-bucket poster, superseded by `00_capability_map.png` (no front-ends / no enforce band); removed in the v2.6.2 sweep.*
 
 ## How determinism actually works (the point `04_determinism.png` makes explicit)
 "Same spec = same code, every time" is an outcome of **pinning**, not of deterministic generation. The
