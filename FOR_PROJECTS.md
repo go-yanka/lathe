@@ -116,7 +116,7 @@ HIGH-materiality assumptions must be confirmed (`lathe assume`). Each is also sw
 ```
 LATHE_STRICT=1 python lathe.py build <plan>     # all seven gates on
 python lathe.py trace <plan>                      # criterion → test → pin → model matrix
-python lathe.py assume <plan>                      # surface + confirm the goal's silent assumptions
+python lathe.py assume <plan> --resolve            # decide each of the goal's silent assumptions (per-item)
 ```
 
 ## 12. Sharpen the requirement before any code  ⭐ (new)

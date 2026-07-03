@@ -81,9 +81,13 @@ in `tools/`) with its own acceptance test in `review_tests/`, and `LATHE_STRICT=
    fill gaps with silent guesses ("intent drift"), and when told to ask it rates its own guesses as "common
    enough" and proceeds. So an *adversarial* `assumption-auditor` persona re-reads the spec against the goal,
    emits a materiality-ranked ledger of the choices the goal never specified, and the build **refuses to
-   proceed while any HIGH-materiality assumption is unconfirmed** (`lathe assume <plan> --confirm`).
-   Confirmations are keyed to a spec digest, so any spec change re-opens the audit; it runs both at `clarify`
-   (advisory) and pre-build (enforced). A tripwire against silent intent-drift, not a proof of full intent capture.
+   proceed while any blocking-materiality assumption is unresolved**. `lathe assume <plan> --resolve` throws
+   each one back for an explicit, per-item decision (accept as-is / pick an offered alternative / state your
+   own intent) — recorded in a committed `<plan>.decisions.md`, so a resolved assumption becomes a stated
+   decision, not a silent guess. Nothing is auto-accepted (bulk accept is an explicit `--accept-all` opt-in,
+   logged as such). Scrutiny is user-governed (`all|high+med|high|off`); resolutions are keyed to a spec
+   digest, so any spec change re-opens the audit. Runs advisory at `clarify`, enforced pre-build. A tripwire
+   against silent intent-drift, not a proof of full intent capture.
 
 ## Thinking first: clarify → decide → build
 

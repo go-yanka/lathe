@@ -24,7 +24,7 @@ run at fixed points, not by match score:
 | Persona | Runs at | Job |
 |---|---|---|
 | **`requirements-liaison`** (`ce_personas/requirements-liaison.md`) | `lathe clarify` / step 0 of `sdlc` | *Interrogates the user* for clarity before any design — inputs/outputs/success/constraints/edge/non-goals — offering selectable options with a default. Writes `CLARIFIED_GOAL.md`. Does not design or implement. |
-| **`assumption-auditor`** (`ce_personas/assumption-auditor.md`) | `lathe assume` (pre-build gate) + advisory at `clarify` | *Adversarially* re-reads the spec against the goal and emits a materiality-ranked ledger of the choices the goal never specified; the gate blocks the build until the HIGH-materiality ones are confirmed (scrutiny is user-governed). Does not design or implement. |
+| **`assumption-auditor`** (`ce_personas/assumption-auditor.md`) | `lathe assume` (pre-build gate) + advisory at `clarify` | *Adversarially* re-reads the spec against the goal and emits a materiality-ranked ledger of the choices the goal never specified (optionally offering alternatives to pick from); the gate blocks the build until each blocking one is **resolved** by an explicit per-item decision (recorded in `<plan>.decisions.md`). Scrutiny is user-governed. Does not design or implement. |
 
 ## Buckets — when to invoke which (organized library)
 

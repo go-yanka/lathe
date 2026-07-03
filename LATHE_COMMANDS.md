@@ -345,13 +345,11 @@ one that wants maximum rigor raises it to `all`.
 // lathe.config.json
 { "assumptions": { "scrutiny": "high" } }
 ```
+Bulk accept is available but never the default — it's an explicit choice, logged honestly:
 ```
-$ python lathe.py assume projects/agentic-harness/plans/H_importer.py
-=== ASSUMPTION AUDIT — 3 assumption(s), 2 blocking (policy=high) ===
-  [high | data] Input CSV is UTF-8; other encodings raise.  BLOCKS
-  [high | behavior] The first row is treated as a header.   BLOCKS
-  [low | behavior] Output preserves input row order.
-confirm the blocking ones before build:  lathe assume H_importer.py --confirm
+$ python lathe.py assume projects/agentic-harness/plans/H_importer.py --resolve --accept-all
+=== ACCEPT-ALL: 2 blocking assumption(s) accepted as-stated WITHOUT individual review (your explicit choice) ===
+# each is recorded in H_importer.decisions.md as "accepted in bulk (not individually reviewed)"
 ```
 
 ### `lathe sdlc "<goal>" [--out <dir>]`

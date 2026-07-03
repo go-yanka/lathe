@@ -144,7 +144,7 @@ field reference: `LATHE_CAPABILITIES.md` §2.
 | `lathe metrics [N]` · `lathe plans` · `lathe selftest` | run history · list plans · confirm every capability |
 | `lathe clarify "<goal>"` · `lathe sdlc "<goal>"` | liaison interrogates for a clear brief · author RTM-gated requirements |
 | `lathe ack <plan>` · `lathe trace <plan>` | ack the test set · emit the criterion→test→pin→model matrix |
-| `lathe assume <plan>` | surface + confirm the goal's unstated assumptions (user-governed scrutiny) |
+| `lathe assume <plan> [--resolve]` | surface + decide the goal's unstated assumptions, per-item (user-governed scrutiny) |
 | `lathe agent <find\|rate\|bucket> …` | the persona market (match / rate / bucket experts) |
 
 Strict methodology in one switch: `LATHE_STRICT=1 lathe build <plan>` forces all seven enforcement gates
