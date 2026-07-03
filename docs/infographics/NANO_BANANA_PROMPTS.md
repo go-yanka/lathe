@@ -310,9 +310,9 @@ assumption-auditor). All v2.5/v2.6 infographic work is complete:*
   - **#17 `17_clarify_interview.png`** — the `clarify` front-end. Text/badges verified.
   - **#18 `18_assumption_gate.png`** — the assumption gate (v2.6 resolve → decisions.md flow). Verified.
   - **#13 `13_methodology_enforced.png`** — regenerated 3 → 7 gates. Verified.
-  - **#00 `00_capability_map.png`** — regenerated: 11 cards, step-0 front-ends in THINK & LEARN, seven-gate
-    ENFORCE band, ⚙️ legend. Verified. *(Cosmetic nit left: the test-kind "(property · edge · error)"
-    qualifier renders as its own chip; optional merge-edit noted in chat.)*
+  - **#00 `00_capability_map.png`** — regenerated clean: 11 unique cards (empty cell bottom-right), both
+    step-0 front-ends in THINK & LEARN, MCP badged ○, full ⚙️ legend, seven-gate ENFORCE band with a merged
+    `test-kind (property · edge · error)` chip. Fully verified — no open nits.
 - **🗑️ RETIRED:** **#05 `05_capability_map_poster.png`** — the older 9-bucket poster (no front-ends, no
   enforce band); superseded by #00, referenced in no live doc. Deleted.
 - **NO CHANGE — still accurate:** #01–#04, #06–#12, #14, #15, #16. (None assert a gate count; they describe
