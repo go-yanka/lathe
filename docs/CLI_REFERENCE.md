@@ -1,9 +1,10 @@
 # Lathe — CLI & Configuration Reference
 
 *The complete, flat reference: every command, every user-facing flag, and every environment variable —
-each with what it does, its default, and a runnable example. Source-grounded (extracted from `lathe.py`,
-`engine_v2.py`, and `projects/agentic-harness/tools/`, verified against v2.6.2), so nothing here is
-aspirational.*
+each with what it does, its default, and a runnable example. Extracted from `lathe.py`, `engine_v2.py`, and
+`projects/agentic-harness/tools/`, then **behaviorally tested** at v2.6.2 (STRICT composition, all scrutiny
+levels, config→env mapping + precedence, the flag aliases, and every model-independent command exercised —
+see the verification note at the end). Nothing here is aspirational.*
 
 - **New to Lathe?** Start with **`LATHE_GUIDE.md`** (install, prerequisites, your first build) — this file is
   the exhaustive option reference, not the tutorial.
@@ -87,7 +88,7 @@ are listed per command; the flat flag reference is §4.
 | Command | What it does | Example |
 |---|---|---|
 | `lathe whatis <capability>` | Which file is the canonical implementation of a capability. | `lathe whatis sandbox` |
-| `lathe map <path…>` | Repo-map: symbol/signature outline (cheap context). | `lathe map projects/agentic-harness/tools` |
+| `lathe map <path…>` | Repo-map: symbol/signature outline (cheap context). **Requires `universal-ctags`** on PATH — without it the command errors with an install hint. | `lathe map projects/agentic-harness/tools` |
 | `lathe dups` | Report duplicate basenames the pristine gate would flag. | `lathe dups` |
 | `lathe plans` / `lathe metrics [summary]` | List plan files / show the metrics ledger. | `lathe metrics summary` |
 | `lathe logs [<run_id>] [--tail] [--grep <s>]` | Structured run logs: list, tail the latest, or search. | `lathe logs --grep REFUSED` |
@@ -158,6 +159,12 @@ LATHE_STRICT=1 LATHE_ASSUMPTION_POLICY=high+med lathe build plans/H_widget.py
 | `HARNESS_MODEL` | Engine-level implementer fallback when no model arg is given. | `gemma4:12b` (engine default) |
 | `HARNESS_ANALYST_MODEL` | Model requested from the analyst (Claude) endpoint for spec generation. | `sonnet` |
 | `HARNESS_CLAUDE_URL` | Analyst endpoint (OpenAI-compatible chat/completions). | `http://127.0.0.1:8787/v1/chat/completions` |
+| `LOCAL_OPENAI_URL` | **Implementer** endpoint when the model is `openai:local` (llama.cpp / vLLM / LM Studio). Maps from config `implementer.url`. | `http://127.0.0.1:8089/v1/chat/completions` |
+| `OLLAMA_URL` | Ollama endpoint when the implementer is a bare Ollama model name. | `http://localhost:11434` |
+| `LOCAL_OPENAI_MAXTOK` | Max tokens requested from the local implementer. | `16384` |
+| `LOCAL_GEN_TIMEOUT` | Timeout (s) for one local-implementer generation. | `900` |
+| `CLAUDE_TIMEOUT` | Timeout (s) for an analyst-endpoint request. | `600` |
+| `CLAUDE_RETRIES` | Retry attempts on an analyst-endpoint failure. | `2` |
 | `LATHE_TRIES` | Repair-loop attempt budget per plan. | `3` |
 | `LATHE_MAX_RESP` | Cap on model response bytes (OOM guard). | `16777216` (16 MiB) |
 | `LATHE_RATE_PACE` | Seconds between spawned agents (endpoint burst guard). | `2` |
@@ -169,8 +176,12 @@ LATHE_STRICT=1 LATHE_ASSUMPTION_POLICY=high+med lathe build plans/H_widget.py
 HARNESS_CLAUDE_URL=https://api.internal/v1/chat/completions HARNESS_ANALYST_MODEL=opus \
   lathe do "add a CSV parser"
 
-# Local implementer, more repair tries:
-LATHE_MODEL=openai:local LATHE_TRIES=5 lathe build plans/H_widget.py
+# Local implementer on your own OpenAI-compatible server, more repair tries:
+LATHE_MODEL=openai:local LOCAL_OPENAI_URL=http://127.0.0.1:8080/v1/chat/completions LATHE_TRIES=5 \
+  lathe build plans/H_widget.py
+
+# Ollama implementer on a non-default host:
+LATHE_MODEL=llama3.1 OLLAMA_URL=http://gpu-box:11434 lathe do "add a slugify helper"
 ```
 
 ### 3c. Execution & sandbox
@@ -183,6 +194,11 @@ LATHE_MODEL=openai:local LATHE_TRIES=5 lathe build plans/H_widget.py
 | `LATHE_DOCKER_IMAGE` | Image for the docker / docker-ssh sandbox (whitelist-validated). | `[A-Za-z0-9._/:-]+` | `python:3.12-slim` |
 | `LATHE_DOCKER_SSH` | Remote SSH host for docker-ssh (also auto-selects docker-ssh with `LATHE_SANDBOX=docker`). | `[A-Za-z0-9._@-]+` | `rig` |
 | `LATHE_AUTO_COMMIT` | Autonomy-loop git auto-commit opt-in. | `1/true/yes/on` = enable; other non-empty = disabled + warning | **off** (no commit) |
+| `FUNC_GATE_TIMEOUT` | Timeout (s) for the functional (Playwright) gate. | int | (per gate) |
+| `ITEST_TIMEOUT` | Timeout (s) for an integration test run. | int | `360` |
+| `REGRESSION_TIMEOUT` | Timeout (s) for the standing regression gate after a build. | int | `300` |
+| `SKIP_REGRESSION` | Skip the standing regression gate that runs after a successful build. | `1` = skip | run it |
+| `RUN_GATES_PATH` | Path to the consuming project's `run_gates.py` (else `<proj>/qa/run_gates.py`). | path | derived |
 
 ```bash
 # Run untrusted plan code in a throwaway container:
@@ -290,14 +306,18 @@ A single optional JSON file (found via `LATHE_CONFIG`, else `./lathe.config.json
 }
 ```
 
-| Config key | Maps to | 
+| Config key | Maps to env |
 |---|---|
 | `analyst.url` | `HARNESS_CLAUDE_URL` |
 | `analyst.model` | `HARNESS_ANALYST_MODEL` |
+| `implementer.url` | `LOCAL_OPENAI_URL` |
 | `implementer.model` | `HARNESS_MODEL` |
 | `tries` | `LATHE_TRIES` |
 | `assumptions.scrutiny` | `LATHE_ASSUMPTION_POLICY` |
-| `checkin.remote` | `LATHE_REMOTE` |
+
+*(Verified against `_apply_config_env`, `lathe.py`. `checkin.remote` is **not** in this env-mapper — it's
+read directly by `lathe checkin`, and the `LATHE_REMOTE` env var overrides it. Secrets/tokens are never read
+from the config file.)*
 
 ---
 
@@ -323,5 +343,25 @@ LATHE_STRICT=1 lathe assume plans/H_money.py --resolve --answers ci_answers.txt
 
 ---
 
-*Grounded in source at v2.6.2. If a flag or variable here ever drifts from behavior, the code is the oracle —
-file a `lathe report` and it'll be corrected.*
+---
+
+## 7. Verification note (how this was checked)
+
+This reference was **tested, not just read off the source** (v2.6.2):
+
+- **Verified live (model-independent):** `LATHE_STRICT` arms exactly the seven gates and an explicit env var
+  overrides it; all scrutiny levels (`off/none/advisory` → 0 · `high` → high only · `med` → high+med ·
+  `all/low` → all); the config→env mapping and env-wins-over-config precedence; the `--confirm`/`--resolve`
+  and `--policy`/`--scrutiny` aliases; and every model-independent command run directly (`gate`, `verify`,
+  `board`, `status`, `plans`, `dups`, `metrics [summary]`, `logs --tail/--grep`, `whatis`, `flow` list/dry,
+  `clean --dry`, `checkpoint list`, `issues`, `chat` REPL via piped input). The harness's own acceptance
+  suite is green on the gate env-vars (`test_strict_mode`, `test_assumption_gate`, `test_test_kind`,
+  `test_glue_gate`, `test_mutation_*`, `test_traceability`, `test_clarify`, `test_sdlc`).
+- **Not runnable in a model-less environment (behavior verified via the harness's stubs, not end-to-end):**
+  anything needing a live implementer or analyst endpoint — cold `build`/`do`, `auto`, real `sdlc`,
+  live `clarify`/`assume` audits, and the `regression-proof`/`reproducibility` acceptance tests (they SKIP
+  without an implementer). `selftest` correctly reports these two endpoints as unreachable and exits non-zero.
+- **Dependency notes surfaced by testing:** `lathe map` needs `universal-ctags` on PATH.
+
+If a flag or variable here ever drifts from behavior, the code is the oracle — file a `lathe report` and it'll
+be corrected.
