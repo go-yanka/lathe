@@ -193,6 +193,10 @@ Those three were the start. Since then the stack has grown, and `LATHE_STRICT=1`
   silent guess. Skip one and it stays blocking; changing the spec re-opens the audit. It's the answer to the
   model's worst habit: filling a gap with a "reasonable default" and never telling you.
 
+![It won't guess silently: the assumption auditor surfaces the decisions your goal never made, ranked, and you resolve each on the record before it builds](infographics/18_assumption_gate.png)
+*The unstated decisions, surfaced and ranked; the build refuses until you resolve each blocker (accept · pick
+an option · state intent), recorded in a committed `decisions.md`. Only material guesses block.*
+
 Flip them all on at once with `LATHE_STRICT=1` — now **seven gates** — and every change runs the full
 gauntlet. The thing you get is not "the AI is trustworthy." It's better and smaller: **the process is
 enforced by the build, so the kind and thoroughness of testing don't depend on anyone's discretion at

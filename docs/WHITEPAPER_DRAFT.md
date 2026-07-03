@@ -122,6 +122,10 @@ writes a brief of **testable acceptance criteria**. A goal that already states i
 through untouched. This is the front-end defense against the oldest failure mode in the book: a confidently-
 built answer to a misunderstood question.
 
+![Before it builds, it interviews you: `lathe clarify` turns a vague goal into testable acceptance criteria](infographics/17_clarify_interview.png)
+*`lathe clarify` interrogates a vague goal — fewest, sharpest questions, pick-from options — and writes
+`CLARIFIED_GOAL.md`. It surfaces ambiguity; it can't guarantee your answers are right.*
+
 **And a second front-end — audit the silent guesses.** Clarifying the goal isn't enough, because a model
 handed even a reasonable spec keeps deciding things the goal never settled — encoding, rounding, ordering,
 what happens on empty — and (the documented failure) when told to ask if unsure, it rates its own guesses
@@ -137,6 +141,11 @@ re-opens the audit — so the generating model can't quietly wave its own guesse
 (the full roster: traceability, regression-proof, mutation-score, test-kind, gate-the-glue, test-ack, and
 this assumption gate — each detailed in §7). Honest scope: a tripwire against *silent* intent-drift, not
 proof of full intent capture.
+
+![It won't guess silently: the assumption auditor surfaces the decisions your goal never made, and you resolve each on the record](infographics/18_assumption_gate.png)
+*The auditor ranks the unstated decisions by materiality; the build refuses until you resolve each blocker —
+accept, pick an option, or state intent — recorded in a committed `decisions.md`. A tripwire against silent
+drift, not proof of full intent capture.*
 
 The loop, in one breath: *clarify the goal → analyst writes spec+tests → local model implements → gate accepts or refuses →
 accepted code is pinned → failures flow back as sharper specs.* Big model for judgment, small model for

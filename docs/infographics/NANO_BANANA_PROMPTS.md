@@ -301,22 +301,25 @@ against silent drift, not proof of full intent capture — only material guesses
 *Status: all ● shipped. Keep the honest caption + the scrutiny dial + the "resolve → decisions.md" beat
 (that's the v2.6 owner refinement — a resolved assumption is a recorded decision, not a rubber-stamp).*
 
-### Infographic status ledger (v2.5.1) — what to generate / regenerate
+### Infographic status ledger (v2.6.2) — DONE
 *The enforcement stack is **seven gates** (regression-proof · traceability · mutation-score · test-ack ·
 test-kind · gate-the-glue · assumption gate) composed by `LATHE_STRICT=1`, plus **two front-ends** (clarify ·
-assumption-auditor). Against that ground truth:*
+assumption-auditor). All v2.5/v2.6 infographic work is complete:*
 
-- **NEW — generate (never rendered yet):**
-  - **#17 "Before it builds, it interviews you"** — the `clarify` front-end. Prompt ready above. All ● shipped.
-  - **#18 "It won't guess silently"** — the assumption gate. Prompt ready above. All ● shipped.
-- **REGENERATE — the render is stale vs the seven-gate stack:**
-  - **#13 "The methodology, enforced by the build"** — current render shows **three** gates; regenerate from
-    the updated seven-gate prompt above (use Nano Banana Pro/2 for the density).
-  - **#00 "The Lathe capability map"** — ENFORCE band updated four → **seven** ⚙️ items and Card 4 now carries
-    the two step-0 front-ends; regenerate from the updated card list + band above.
-- **NO CHANGE — still accurate:** #01–#12, #14, #15, #16. (None of these assert a gate count; they describe
-  the loop, division of labour, determinism, provenance chain, safety spine, interop, persona library —
-  all unchanged by v2.2.3 → v2.5.1.)
+- **✅ GENERATED & FINAL (this round):**
+  - **#17 `17_clarify_interview.png`** — the `clarify` front-end. Text/badges verified.
+  - **#18 `18_assumption_gate.png`** — the assumption gate (v2.6 resolve → decisions.md flow). Verified.
+  - **#13 `13_methodology_enforced.png`** — regenerated 3 → 7 gates. Verified.
+  - **#00 `00_capability_map.png`** — regenerated: 11 cards, step-0 front-ends in THINK & LEARN, seven-gate
+    ENFORCE band, ⚙️ legend. Verified. *(Cosmetic nit left: the test-kind "(property · edge · error)"
+    qualifier renders as its own chip; optional merge-edit noted in chat.)*
+- **🗑️ RETIRED:** **#05 `05_capability_map_poster.png`** — the older 9-bucket poster (no front-ends, no
+  enforce band); superseded by #00, referenced in no live doc. Deleted.
+- **NO CHANGE — still accurate:** #01–#04, #06–#12, #14, #15, #16. (None assert a gate count; they describe
+  the loop, division of labour, strengths, determinism, provenance chain, safety spine, interop, persona
+  library — all unchanged by v2.2.3 → v2.6.2.)
+- **Optional enhancement (needs a fresh render):** **#03 "strengths"** could gain a 6th tile "no silent
+  guessing" (clarify + assumption gate) — not stale, just upside. Prompt available on request.
 
 *Priority order to hand to Nano Banana: #18 (the trust headline — assumption gate is the newest, strongest
 beat) → #17 (its front-end twin) → #13 (regenerate to seven gates) → #00 (regenerate the map). #17/#18
