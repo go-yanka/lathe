@@ -62,6 +62,9 @@ the autonomous path); the two must be read together, not conflated.
 - **P0** **Required test-KIND per contract** (methodology #5, v2.2.4) — `LATHE_TEST_KIND=1`: a unit whose
   tests lack its declared `kinds` (property / edge / roundtrip / error) is REFUSED before generation;
   detected structurally, no model call. Property tests are a requirable kind. ⚙️ (reproduced ALL PASS)
+  *Honest limit: kind-detection is a **presence heuristic** (substring match over the test text), so a
+  comment mentioning "invalid"/"[]"/"none" can satisfy it — the mutation-score gate is the real rigor;
+  test-kind is a "did you even write an edge test" tripwire, not a guarantee the edge test is meaningful.*
 - **P0** **Gate-the-glue** (methodology #6, v2.2.3) — `LATHE_GATE_GLUE=1`: substantive hand-written `GLUE`
   must be exercised by an `INTEGRATION` test or the build is refused. Closes "function, not anything": under
   STRICT, no *code* ships untested. ⚙️ (reproduced ALL PASS)
