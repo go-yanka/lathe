@@ -3,8 +3,8 @@
 *Independent adversarial stress-test of the seven build-time gates that decide what ships (plus STRICT
 composition and the acceptance floor's helpers). Every result below was produced by **executing probes
 against the real pinned gate functions** — not by reading the code. Probe scripts:
-`scratchpad/gate_stress*.py`. Scope this round: the build-time rigor gates (per the maintainer's
-"rigor gates first"); the seven standing tree gates are a planned second round.*
+`scratchpad/gate_stress*.py`. **Round 1** (below): the seven build-time rigor gates. **Round 2** (further
+down): the seven standing tree gates.*
 
 ## Method
 
@@ -132,7 +132,69 @@ The engine's call site passes a real `bool(...)`, so it's not live today. **Fix:
   fail-closed hardening). Mutation is already **issue #2**.
 - F6 noted as a low-priority hardening (not live).
 - `GATES_REFERENCE.md` corrected for the empty-string claim.
-- **Next round:** the seven standing tree gates (`stale`, `resource-dups`, `registry`, `pristine`, `lint`,
-  `docs-drift`, `env-drift`) with crafted dirty-tree fixtures — pending your go-ahead.
+- Round 2 (standing tree gates) is below.
 
-*Reproduce: `python3 scratchpad/gate_stress.py` and `gate_stress2.py` from the repo root.*
+---
+
+# Round 2 — standing tree gates
+
+Same method, applied to the seven post-build cleanliness gates (`qa/run_gates.py`). These are **housekeeping
+heuristics**, not security gates — most of their limits are by-design scoping, and that's fine. Two are
+actionable: one real fail-open, one notably narrow pattern.
+
+## Scoreboard (round 2)
+
+| Gate | Grade | Note |
+|---|---|---|
+| Docs-drift (`undocumented_commands`) | **FAIL-OPEN** | substring membership: a short command name is "documented" if it appears inside any word |
+| Stale (`stale_gate` `RETIRE_PAT`) | COVERAGE GAP | catches a narrow naming set; misses `_final`/`_v3`/`_prev`/`_new`/`2`/`(copy)` |
+| Resource-dups (`duplicate_basenames`) | HOLDS \* | same-basename/different-dir only (by design); different-basename dups not caught |
+| Pristine (`pristine_gate`) | HOLDS \* | syntactic parse only; a valid-syntax-but-wrong file passes; `test_*.py` skipped |
+| Registry (`registry.audit`) | HOLDS | opt-in — absent registry passes (documented) |
+| Real-bug lint (`lint_gate`) | HOLDS \* | **SKIPS silently when `ruff` isn't installed** — no lint runs at all |
+| Env-drift (`env_drift_gate`) | HOLDS \* | static scan — a dynamically-built env-var name won't be seen |
+
+## Findings (round 2)
+
+### F7 — Docs-drift: substring membership false-negative  · FAIL-OPEN
+`undocumented_commands` decides a command is documented with `name not in doc_text` — raw substring:
+```
+undocumented_commands(["do"],  "See the window. We are done.")   -> []   # 'do' is inside 'done'/'window' -> "documented"
+undocumented_commands(["ack"], "You must acknowledge tests.")    -> []   # 'ack' is inside 'acknowledge'
+undocumented_commands(["selftest"], "nothing here")              -> ['selftest']   # only long, unique names are caught
+```
+Impact: a new **short** command name that happens to be a substring of any word in `LATHE_COMMANDS.md` passes
+the gate with no real entry — the exact "added a command, forgot to document it" case the gate exists to
+catch. **Fix:** match a whole-word / command-heading pattern (e.g. `` `do` `` in a table row or a
+`### do` heading), not a raw substring.
+
+### F8 — Stale gate: retire-pattern is narrow  · COVERAGE GAP
+`RETIRE_PAT` catches `_old`/`.bak`/`_v1`/`_v2_old`/`_copy`/`copyN`/`.orig`/`~`/`.tmp` but **misses** common
+stale conventions — executed:
+```
+util_old.py CAUGHT ·  util_v1.py CAUGHT
+util_final.py MISSED · util_v3.py MISSED · utils2.py MISSED · module_new.py MISSED
+util_prev.py MISSED · util_deprecated.py MISSED · "util (copy).py" MISSED
+```
+Notably `_v1` and `_v2_old` match but `_v3`/`_v4` don't. Impact: stale files under a non-matching name
+accumulate — the failure mode the gate exists to prevent. **Fix:** broaden the pattern (`_v\d+`, `_final`,
+`_new`, `_prev`, `_deprecated`, `\d+\.py`, `(copy)`), or — more robust — flag staleness via the capability
+registry / content, not the filename.
+
+## By-design limits worth stating (not defects)
+- **Resource-dups** only catches identical basenames in different dirs; `harness.db` vs `harness_prod.db`
+  are not flagged. Scoped to `.db/.sqlite` on purpose (high-signal, never false-fails).
+- **Pristine** is a *parse* check — a file with valid syntax but half-written logic passes; `test_*.py` is
+  skipped. It catches corruption, not incorrectness.
+- **Lint** SKIPS (exit 0) with no `ruff` installed, so on a bare machine **no real-bug lint runs** — an
+  intentional "never fail for a missing optional dep," but worth knowing: CI should pin `ruff` if it relies
+  on this gate.
+- **Env-drift** is static; an env var read via a computed name (`os.environ[f"LATHE_{x}"]`) won't be
+  detected.
+
+## Disposition (round 2)
+- F7 (docs-drift) + F8 (stale pattern) filed for the maintainer.
+- The four by-design limits are documented here and folded into `GATES_REFERENCE.md`'s known-limit notes so
+  they're not mistaken for guarantees.
+
+*Reproduce: `python3 scratchpad/gate_stress.py`, `gate_stress2.py`, `gate_stress3.py` from the repo root.*
