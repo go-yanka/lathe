@@ -1094,17 +1094,62 @@ def cmd_ack(args):
     return 0
 
 
+def _assume_decisions_md(plan_path):
+    """Committed audit artifact path: <plandir>/<planstem>.decisions.md (one per plan, tracked in git)."""
+    stem = os.path.splitext(os.path.basename(plan_path))[0]
+    return os.path.join(os.path.dirname(plan_path), "%s.decisions.md" % stem)
+
+
+def _assume_write_decisions(plan_path, key, ledger, decisions, blockers):
+    """Render the committed decisions ledger: every surfaced assumption + how it was RESOLVED (or that it's
+    still open). This is the audit trail — an assumption, once resolved, is a stated decision, not a guess."""
+    by_text = {d.get("assumption_text"): d for d in (decisions or [])}
+    open_texts = {b.get("text") for b in (blockers or [])}
+    md = ["# Assumption decisions — %s\n\n" % key,
+          "The adversarial auditor surfaced the choices the goal never stated. Speculation is noise; each is "
+          "resolved by an explicit human decision (accepted as-is, an alternative chosen, or intent stated) "
+          "before the build proceeds. Nothing here is silently accepted.\n\n"]
+    if not ledger:
+        md.append("_No consequential unstated assumptions found._\n")
+    for b in (ledger or []):
+        t = b.get("text")
+        d = by_text.get(t)
+        head = "- **[%s | %s]** %s\n" % (b.get("materiality"), b.get("category"),
+                                         _assume_clean(t))
+        md.append(head)
+        if d:
+            md.append("  - **decision** (%s): %s\n" % (d.get("via", "resolved"), d.get("decision")))
+        elif t in open_texts:
+            md.append("  - _UNRESOLVED — blocks the build until decided._\n")
+        else:
+            md.append("  - _(not a blocker at the current scrutiny level)_\n")
+    open(_assume_decisions_md(plan_path), "w", encoding="utf-8").write("".join(md))
+
+
+def _assume_clean(text):
+    """Strip an inline [options: ...] marker for display (the auditor may offer alternatives)."""
+    try:
+        if TOOLS not in sys.path:
+            sys.path.insert(0, TOOLS)
+        from clarify_logic import parse_options
+        return parse_options(text)[0] or text
+    except Exception:
+        return text
+
+
 def cmd_assume(args):
-    """ASSUMPTION GATE: surface the unstated choices before the build makes them silently.
-    `lathe assume <plan>` runs an ADVERSARIAL auditor persona over the plan's spec, emits a materiality-ranked
-    assumption ledger (`ASSUMPTIONS.md` + `.assumptions.json`), and — with LATHE_ASSUMPTION_GATE=1 (forced by
-    STRICT) — the engine refuses to build while any HIGH-materiality assumption is unconfirmed.
-    `lathe assume <plan> --confirm` walks the blockers so you confirm (or flag for correction) each one.
-    `--policy high|high+med` sets what blocks (default: high). Auditor output is parsed by the pinned
-    tools/assumption_logic.py; confirmations are keyed to a spec digest, so any spec change re-opens the audit."""
+    """ASSUMPTION GATE: no assumption is silently accepted — each is thrown back for an explicit decision.
+    `lathe assume <plan>` runs an ADVERSARIAL auditor over the plan's spec and emits a materiality-ranked
+    ledger; with LATHE_ASSUMPTION_GATE=1 (forced by STRICT) the engine refuses to build while any
+    blocking-materiality assumption is UNRESOLVED. `lathe assume <plan> --resolve` (alias `--confirm`) walks
+    each blocker and makes YOU decide it: [a]ccept it as the real intent, pick an alternative the auditor
+    offered, or type what you actually want — recorded as a stated decision in a committed `<plan>.decisions.md`.
+    There is NO blanket accept. `--answers <file>` gives one decision per blocker (for scripted/CI use, still
+    per-item). `--scrutiny all|high+med|high|off` (or config `assumptions.scrutiny`) sets what blocks.
+    Resolutions are keyed to a spec digest, so any spec change re-opens the audit."""
     import importlib.util, json
-    confirm = "--confirm" in args
-    yes = "--yes" in args
+    resolve = ("--resolve" in args) or ("--confirm" in args)
+    ans_file = args[args.index("--answers") + 1] if "--answers" in args else None
     # scrutiny: --scrutiny/--policy flag > config/env (LATHE_ASSUMPTION_POLICY) > default 'high'
     if "--scrutiny" in args:
         policy = args[args.index("--scrutiny") + 1]
@@ -1112,7 +1157,7 @@ def cmd_assume(args):
         policy = args[args.index("--policy") + 1]
     else:
         policy = os.environ.get("LATHE_ASSUMPTION_POLICY", "high")
-    _VALUE_FLAGS = {"--policy", "--scrutiny"}
+    _VALUE_FLAGS = {"--policy", "--scrutiny", "--answers"}
     pos, _i = [], 0
     while _i < len(args):
         _a = args[_i]
@@ -1122,7 +1167,7 @@ def cmd_assume(args):
             _i += 1; continue
         pos.append(_a); _i += 1
     if not pos:
-        print('usage: lathe assume <plan.py> [--confirm] [--policy high|high+med] [--yes]'); return 2
+        print('usage: lathe assume <plan.py> [--resolve] [--answers <file>] [--scrutiny all|high+med|high|off]'); return 2
     plan_path = os.path.abspath(pos[0])
     if not os.path.exists(plan_path):
         print("assume: no such plan: %s" % plan_path); return 2
@@ -1138,6 +1183,7 @@ def cmd_assume(args):
     if TOOLS not in sys.path:
         sys.path.insert(0, TOOLS)
     from assumption_logic import spec_digest, parse_assumptions, unconfirmed_blockers
+    from clarify_logic import parse_options
     asm_file = os.path.join(os.path.dirname(plan_path), ".assumptions.json")
     try:
         data = json.loads(open(asm_file, encoding="utf-8").read())
@@ -1149,37 +1195,61 @@ def cmd_assume(args):
     entry = data.get(key) if isinstance(data.get(key), dict) else None
     digest = spec_digest(fns)
 
-    # ---- CONFIRM MODE: walk the still-unconfirmed blockers of the CURRENT ledger ----
-    if confirm:
+    # ---- RESOLVE MODE: throw each blocker back; require an explicit per-item DECISION (no blanket accept) ----
+    if resolve:
         if not entry or entry.get("digest") != digest:
             print("assume: no current audit for this spec — run `lathe assume %s` first." % key); return 2
         pol = entry.get("policy", "high")
-        blockers = unconfirmed_blockers(entry.get("ledger"), entry.get("confirmed"), pol)
-        if not blockers:
-            print("assume: all blocking assumptions are already confirmed. (build may proceed)"); return 0
         confirmed = list(entry.get("confirmed") or [])
-        print("=== CONFIRM %d blocking assumption(s) — say whether each is the REAL intent ===" % len(blockers))
-        for b in blockers:
-            print("\n  [%s | %s] %s" % (b.get("materiality"), b.get("category"), b.get("text")))
-            if yes:
-                resp = "y"; print("     > y (--yes)")
+        decisions = list(entry.get("decisions") or [])
+        blockers = unconfirmed_blockers(entry.get("ledger"), confirmed, pol)
+        if not blockers:
+            print("assume: every blocking assumption is already a stated decision. (build may proceed)"); return 0
+        scripted = None
+        if ans_file:
+            try:
+                scripted = [l.rstrip("\n") for l in open(ans_file, encoding="utf-8")]
+            except OSError as e:
+                print("assume: --answers file unreadable: %s" % e); return 2
+        print("=== RESOLVE %d blocking assumption(s) — decide each; nothing is auto-accepted ===" % len(blockers))
+        for i, b in enumerate(blockers):
+            clean, opts, default = parse_options(b.get("text", ""))
+            print("\n  [%s | %s] %s" % (b.get("materiality"), b.get("category"), clean))
+            for j, o in enumerate(opts, 1):
+                print("       %d) %s" % (j, o))
+            print("       decide: [a]ccept as the real intent%s, or type what you actually want, or [s]kip (stays blocking)"
+                  % (" / pick a number" if opts else ""))
+            if scripted is not None:
+                raw = (scripted[i] if i < len(scripted) else "").strip()
+                print("     > %s" % raw)
             else:
                 try:
-                    resp = input("     correct? [y]es / [n]o, needs change / [s]kip > ").strip().lower()
+                    raw = input("     > ").strip()
                 except (EOFError, KeyboardInterrupt):
-                    resp = "s"
-            if resp in ("y", "yes"):
-                confirmed.append(b.get("text"))
-            elif resp in ("n", "no"):
-                print("     -> make it explicit: edit the plan spec so this choice is stated, then re-run "
-                      "`lathe assume %s` (the audit will re-open on the changed spec)." % key)
-            # 's'/anything else: leave unconfirmed (still blocks)
+                    raw = ""
+            low = raw.lower()
+            if low in ("s", "skip", ""):
+                continue                                   # unresolved — still blocks (fail-safe default)
+            if low in ("a", "accept", "y", "yes"):
+                decision, via = clean, "accepted as-is"
+            elif opts and raw.isdigit() and 1 <= int(raw) <= len(opts):
+                decision, via = opts[int(raw) - 1], "chose alternative"
+            else:
+                decision, via = raw, "stated intent"
+            confirmed.append(b.get("text"))               # matches the ledger text -> unblocks this one
+            decisions.append({"assumption_text": b.get("text"), "assumption": clean,
+                              "materiality": b.get("materiality"), "category": b.get("category"),
+                              "decision": decision, "via": via})
+            print("       => DECISION (%s): %s" % (via, decision))
         entry["confirmed"] = confirmed
+        entry["decisions"] = decisions
         data[key] = entry
         open(asm_file, "w", encoding="utf-8").write(json.dumps(data, indent=1))
         remaining = unconfirmed_blockers(entry.get("ledger"), confirmed, pol)
-        print("\nconfirmed %d; %d blocking assumption(s) still open%s"
-              % (len(confirmed), len(remaining), " — build is UNBLOCKED" if not remaining else ""))
+        _assume_write_decisions(plan_path, key, entry.get("ledger"), decisions, remaining)
+        print("\nrecorded %d decision(s); %d assumption(s) still UNRESOLVED%s"
+              % (len(decisions), len(remaining), " — build is UNBLOCKED" if not remaining else " (build stays blocked)"))
+        print("audit trail -> %s" % _assume_decisions_md(plan_path))
         return 0 if not remaining else 1
 
     # ---- AUDIT MODE: run the adversarial auditor, (re)generate the ledger ----
@@ -1195,26 +1265,21 @@ def cmd_assume(args):
     raw = request_spec("%s\n\n--- ARTIFACT TO AUDIT ---\n%s\n\nList the unstated assumptions now, one per line "
                        "in your exact format. If there are genuinely none, output: NO ASSUMPTIONS." % (_persona, _spec_txt)) or ""
     ledger = [] if "no assumptions" in raw.lower()[:40] else parse_assumptions(raw)
-    prior = entry.get("confirmed") if (entry and entry.get("digest") == digest) else []   # keep confirmations if spec unchanged
-    data[key] = {"digest": digest, "policy": policy, "ledger": ledger, "confirmed": list(prior or [])}
+    keep = (entry and entry.get("digest") == digest)         # spec unchanged -> keep prior decisions
+    prior = list(entry.get("confirmed") or []) if keep else []
+    prior_dec = list(entry.get("decisions") or []) if keep else []
+    data[key] = {"digest": digest, "policy": policy, "ledger": ledger, "confirmed": prior, "decisions": prior_dec}
     open(asm_file, "w", encoding="utf-8").write(json.dumps(data, indent=1))
-    # human-readable artifact
-    md = ["# Unstated assumptions (adversarial auditor)\n", "> plan: %s\n" % key]
-    if not ledger:
-        md.append("\n_No consequential unstated assumptions found._\n")
-    else:
-        for b in ledger:
-            md.append("- **[%s | %s]** %s\n" % (b.get("materiality"), b.get("category"), b.get("text")))
-    md_path = os.path.join(os.path.dirname(plan_path), "ASSUMPTIONS.md")
-    open(md_path, "w", encoding="utf-8").write("".join(md))
     blockers = unconfirmed_blockers(ledger, prior, policy)
-    print("=== ASSUMPTION AUDIT — %d assumption(s), %d blocking (policy=%s) ===" % (len(ledger), len(blockers), policy))
+    _assume_write_decisions(plan_path, key, ledger, prior_dec, blockers)
+    print("=== ASSUMPTION AUDIT — %d assumption(s), %d blocking (scrutiny=%s) ===" % (len(ledger), len(blockers), policy))
     for b in ledger:
+        clean = parse_options(b.get("text", ""))[0]
         mark = "  BLOCKS" if b in blockers else ""
-        print("  [%s | %s] %s%s" % (b.get("materiality"), b.get("category"), b.get("text"), mark))
-    print("\nledger -> %s   (%s)" % (md_path, asm_file))
+        print("  [%s | %s] %s%s" % (b.get("materiality"), b.get("category"), clean, mark))
+    print("\naudit trail -> %s   (state: %s)" % (_assume_decisions_md(plan_path), asm_file))
     if blockers:
-        print("confirm the blocking ones before build:  lathe assume %s --confirm" % key)
+        print("decide each blocker before build:  lathe assume %s --resolve" % key)
     return 0
 
 

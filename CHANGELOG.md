@@ -2,6 +2,23 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.6.0 — 2026-07-02
+
+**Assumption gate: resolve, don't rubber-stamp** (owner directive — "speculation brings noise; never let
+assumptions be silently validated; throw each back to the user to confirm, choose, or state their intent").
+The confirm flow was a weak ack (and a `--yes` blanket-accept); it's now a real per-item resolution:
+- **`--yes` blanket-accept removed.** `lathe assume <plan> --resolve` (alias `--confirm`) throws each blocking
+  assumption back and requires an explicit decision: **accept** as the real intent, **pick** an alternative
+  the auditor offered (`[options: …]`), or **type what you actually want**. Skipping leaves it blocking
+  (fail-safe). `--answers <file>` gives one decision per blocker for CI — still per-item, never a blanket.
+- **Every resolution is a recorded decision** (with its method: accepted / chose / stated) written to a
+  **committed** `<plan>.decisions.md` audit trail — a resolved assumption is now a *stated decision*, not a
+  silent guess. (`.assumptions.json` remains the per-environment machine cache; `ASSUMPTIONS.md` retired.)
+- The `assumption-auditor` persona may now offer alternative resolutions inline (`[options: …]`), reusing the
+  liaison's option format, so the user can pick instead of typing.
+- Verified end-to-end with the real auditor: audit → per-item resolve (no blanket) → committed decisions.md →
+  STRICT build with `LATHE_ASSUMPTION_GATE` active passed. Acceptance test rewritten accordingly.
+
 ## v2.5.1 — 2026-07-02
 
 **Docs completeness for the assumption gate + dogfood proof.** Swept *every* narrative doc so the assumption

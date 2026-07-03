@@ -24,3 +24,10 @@ lathe.config.json
 **/agents/_fetched/
 **/agents/licenses/
 **/agents/ratings.json
+
+# per-environment test-ack approval state (keyed to test digest; human-in-loop, not shipped)
+**/.test_ack.json
+
+# per-environment assumption-gate machine state (spec digest + resolutions cache; the committed audit
+# trail is <plan>.decisions.md, which IS versioned)
+**/.assumptions.json

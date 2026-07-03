@@ -67,7 +67,7 @@ rc = lathe.cmd_assume([plan_path])
 check("assume audit exits 0", rc == 0, "rc=%r" % rc)
 asm_file = os.path.join(tmp, ".assumptions.json")
 check(".assumptions.json written", os.path.exists(asm_file))
-check("ASSUMPTIONS.md written", os.path.exists(os.path.join(tmp, "ASSUMPTIONS.md")))
+check("committed decisions artifact written (audit mode)", os.path.exists(os.path.join(tmp, "H_demo.decisions.md")))
 data = json.loads(open(asm_file, encoding="utf-8").read())
 entry = data.get("H_demo.py", {})
 check("ledger has 3 assumptions", len(entry.get("ledger", [])) == 3)
@@ -82,14 +82,25 @@ def gate_blocks(plan_fns, plan_dir, key):
     return bool(unconfirmed_blockers(e.get("ledger"), e.get("confirmed"), e.get("policy", "high")))
 
 FNS = [{"name": "parse", "prompt": "parse a csv", "tests": ["assert parse"]}]
-check("gate BLOCKS with unconfirmed HIGH", gate_blocks(FNS, tmp, "H_demo.py") is True)
+check("gate BLOCKS with unresolved HIGH", gate_blocks(FNS, tmp, "H_demo.py") is True)
 
-# 3) CONFIRM mode (--yes auto-confirms the blockers)
-rc = lathe.cmd_assume([plan_path, "--confirm", "--yes"])
-check("assume --confirm --yes exits 0", rc == 0, "rc=%r" % rc)
-check("gate now UNBLOCKED after confirm", gate_blocks(FNS, tmp, "H_demo.py") is False)
+# 3) RESOLVE mode — NO blanket accept; each blocker decided per-item via --answers (one decision per line)
+#    line 1 = accept-as-stated; line 2 = type the real intent
+ans = os.path.join(tmp, "decisions.txt")
+open(ans, "w", encoding="utf-8").write("accept\nfirst row is DATA, never a header\n")
+rc = lathe.cmd_assume([plan_path, "--resolve", "--answers", ans])
+check("assume --resolve exits 0 (all blockers decided)", rc == 0, "rc=%r" % rc)
+check("gate now UNBLOCKED after resolution", gate_blocks(FNS, tmp, "H_demo.py") is False)
+# the decisions were RECORDED (not a bare ack) and committed to <stem>.decisions.md
+dpath = os.path.join(tmp, "H_demo.decisions.md")
+check("committed decisions artifact written", os.path.exists(dpath))
+dtxt = open(dpath, encoding="utf-8").read() if os.path.exists(dpath) else ""
+check("artifact records the STATED-intent decision", "first row is DATA, never a header" in dtxt)
+check("artifact records the accepted decision", "accepted as-is" in dtxt)
+data2 = json.loads(open(os.path.join(tmp, ".assumptions.json"), encoding="utf-8").read())
+check("each decision stored with its resolution", len(data2["H_demo.py"].get("decisions", [])) == 2)
 
-# a spec change must RE-OPEN the audit (stale confirmations don't carry)
+# a spec change must RE-OPEN the audit (stale decisions don't carry)
 CHANGED = [{"name": "parse", "prompt": "parse a JSON file instead", "tests": ["assert parse"]}]
 check("gate re-BLOCKS after spec change (digest mismatch)", gate_blocks(CHANGED, tmp, "H_demo.py") is True)
 

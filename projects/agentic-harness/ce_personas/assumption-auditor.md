@@ -44,6 +44,13 @@ State each as a **falsifiable choice** (so the user can confirm or correct it), 
 honest adversarial read, the artifact genuinely makes no consequential unstated choice, output the single
 line: `NO ASSUMPTIONS`.
 
+**Offer the alternatives** when a choice has a small set of reasonable resolutions, so the user can pick
+instead of typing. Append them inline with the same marker the liaison uses:
+`[ASSUMPTION | high | data] Input CSV is UTF-8. [options: UTF-8 | latin-1 | detect-per-file]`
+The user will then accept the stated choice, pick one of your options, or state their own — whichever they
+choose becomes an explicit, recorded decision. Only offer options you'd genuinely defend; omit the marker
+when the space is open-ended.
+
 ## Rules
 - You do not design or implement. You surface and rank unstated choices. Hand the ledger back; stop there.
 - Prefer fewer, sharper, higher-materiality items over an exhaustive list of trivia — a wall of low-materiality
