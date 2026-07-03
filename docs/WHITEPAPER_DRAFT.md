@@ -116,6 +116,15 @@ writes a brief of **testable acceptance criteria**. A goal that already states i
 through untouched. This is the front-end defense against the oldest failure mode in the book: a confidently-
 built answer to a misunderstood question.
 
+**And a second front-end — audit the silent guesses.** Clarifying the goal isn't enough, because a model
+handed even a reasonable spec keeps deciding things the goal never settled — encoding, rounding, ordering,
+what happens on empty — and (the documented failure) when told to ask if unsure, it rates its own guesses
+"common enough" and proceeds. So an **adversarial `assumption-auditor`** re-reads the spec *against the goal*
+and emits a materiality-ranked ledger of those silent decisions (`lathe assume`); the build **refuses while
+any high-materiality assumption is unconfirmed**. Scrutiny is user-governed (`off` → `all`), and it's the
+seventh gate composed by STRICT. Honest scope: a tripwire against *silent* intent-drift, not proof of full
+intent capture.
+
 The loop, in one breath: *clarify the goal → analyst writes spec+tests → local model implements → gate accepts or refuses →
 accepted code is pinned → failures flow back as sharper specs.* Big model for judgment, small model for
 volume, machine for discipline.
@@ -194,8 +203,9 @@ What's *not* yet demonstrated, so you don't have to discover it yourself:
 - The method's unit is the well-specified function. Stateful, I/O-heavy, framework-shaped code doesn't
   decompose that way yet; glue is hand-written — though under STRICT it must carry an integration test or the
   build refuses (v2.2.3, #6), so "no code ships untested" holds; that's test-*existence* for glue, not the
-  per-function mutation rigor. (Enforcement stack is now 6/6 — regression-proof, traceability, mutation-score,
-  test-kind, gate-the-glue, plus the test-ack oracle — all composed by STRICT.)
+  per-function mutation rigor. (STRICT now composes **seven gates** — regression-proof, traceability,
+  mutation-score, test-kind, gate-the-glue, the test-ack oracle, and the assumption gate — plus the two
+  front-ends, `clarify` and the assumption auditor.)
 - On trivial tasks, a frontier one-shot is faster. Our own benchmark says so (41s vs 5s). Lathe buys
   verification, reproducibility, and provenance — not speed of first draft.
 

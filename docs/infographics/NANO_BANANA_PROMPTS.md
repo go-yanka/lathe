@@ -270,12 +270,30 @@ Small honest caption under the footer, muted: "it surfaces ambiguity; it can't g
 ```
 *Status: all ● shipped. Keep the honest caption — clarify structures the goal, it doesn't make the human infallible.*
 
-### 13-update / 00-update — reflect the 6/6 stack (v2.4.0) — NOTE
-*#13 currently shows THREE gates (traceability · regression-proof · mutation-score). The stack is now **six**:
+### 18 — "It won't guess silently" (the assumption gate; 16:9) — PROMPT READY (v2.5.0)
+*The assumption gate — an adversarial auditor surfaces the LLM's silent guesses and blocks on the material
+ones. The trust headline. Verified: `test_assumption_gate.py` ALL PASS. All ● (shipped, STRICT-composed).*
+```
+[style guide]. Title: "It won't guess silently". Subtitle: "the decisions your goal never made — surfaced,
+ranked, and confirmed before it builds". Center: a flow. LEFT, a goal document icon labeled "YOUR GOAL"
+with one line "parse a money string". An arrow into a magnifying-glass-over-clipboard icon labeled
+"ASSUMPTION AUDITOR — reads the spec against the goal". From it, a ledger card titled "ASSUMPTIONS" with
+three rows, each a small severity chip + text: a red "HIGH" chip "input is UTF-8 — you never said";
+a red "HIGH" chip "first row is a header"; an amber "MED" chip "sort ascending". To the right, a gate/shield
+icon labeled "BUILD" with a red "✗ BLOCKED until you confirm the HIGH ones" tag; a small green side-path
+"confirm → unblocks". Bottom strip: a small dial labeled "SCRUTINY" showing four notches "off · high · high+med
+· all" with the needle on "high (default)". Footer ribbon: "the model fills gaps with 'reasonable defaults'
+and never tells you — this makes it tell you". Small muted honest caption: "a tripwire against silent drift,
+not proof of full intent capture — only material guesses block".
+```
+*Status: all ● shipped. Keep the honest caption + the user-governed scrutiny dial (that's the owner refinement).*
+
+### 13-update / 00-update — reflect the 7-gate stack (v2.5.0) — NOTE
+*#13 currently shows THREE gates — the stack is now SEVEN; (traceability · regression-proof · mutation-score). The stack is now **six**:
 add **TEST-KIND** (property/edge/error required per contract) and **GATE-THE-GLUE** (glue needs an integration
 test) to the `LATHE_STRICT` band — either as two more gate cards or a "+2 more under STRICT" tag. #00's ENFORCE
-band lists four ⚙️ items (traceability · regression-proof · mutation-score · test-ack); add **test-kind** and
-**gate-glue** to make it six, and add `clarify` as a "step 0" chip to THINK & LEARN. Regenerate both when
+band lists four ⚙️ items (traceability · regression-proof · mutation-score · test-ack); add **test-kind**, **gate-glue**, and **assumption-gate** to make it **seven**, and add `clarify` + the
+assumption auditor as "step 0" chips to THINK & LEARN. Regenerate both when
 convenient; not urgent — the copy already carries the 6/6 claim.*
 
 ## Recommended order to generate

@@ -99,10 +99,13 @@ the diff won't be empty and a skeptic will notice (details: `LATHE_REVIEW_V3_FAB
 ## 5. Objection handling
 
 - **"The gate is only as good as the tests — and the tests are AI-written too. Garbage in, garbage out."**
-  The sharpest objection, and we answer it at *both* ends. **Front end:** `lathe clarify` (the requirements
-  liaison, v2.3.0/2.4.0) interrogates the goal for ambiguity *before* the harness thinks — fewest, sharpest
-  questions with pick-from options — and writes testable acceptance criteria. Ambiguity is dragged out with
-  the user up front, not discovered in prod. **Back end:** the tests themselves are gated — mutation-score
+  The sharpest objection, and we answer it at *both* ends — with a two-stage front end. **Front end (goal):**
+  `lathe clarify` interrogates the goal for ambiguity *before* the harness thinks — fewest, sharpest questions
+  with pick-from options — and writes testable acceptance criteria. **Front end (spec):** an adversarial
+  `assumption-auditor` (v2.5.0) then re-reads the spec against the goal and surfaces every decision the goal
+  never made — encoding, rounding, ordering, empty-input behavior — refusing to build while any *material*
+  guess is unconfirmed (scrutiny dial-able `off`→`all`; the seventh STRICT gate). Ambiguity is dragged out
+  with the user up front, not discovered in prod. **Back end:** the tests themselves are gated — mutation-score
   rejects a stub-passable test, `#5` enforces the required *kind* of test per contract (property/edge/error),
   regression-proof needs a failing-on-old-code test, and test-ack forces a human read. *Honest limit:* it's
   a shift and a hardening, not elimination — `clarify` surfaces ambiguity, it can't guarantee the user's

@@ -1,6 +1,20 @@
 # Methodology-enforcement: what's real, what to build before we claim it
 
-> ## ✅ UPDATE — v2.4.0: the enforcement stack is now **6/6**, and a front-end (`lathe clarify`) landed.
+> ## ✅ UPDATE — v2.5.1: **seven composed gates** + two "no silent guessing" front-ends.
+> Reproduced on the rebased branch (2026-07-02):
+> - **Assumption gate (v2.5.0)** — `LATHE_ASSUMPTION_GATE=1`, **added to STRICT (now 7 composed gates)** —
+>   `test_assumption_gate.py` **ALL PASS** end-to-end: an adversarial `assumption-auditor` persona re-reads
+>   the spec against the goal, emits a materiality-ranked ledger of the decisions the goal never specified
+>   (`lathe assume`), and the engine **refuses to build while any HIGH-materiality assumption is
+>   unconfirmed**; `--confirm` unblocks; a spec change re-opens the audit (digest mismatch). **Scrutiny is
+>   user-governed** (`all › high+med › high(default) › off/advisory`). Attacks the documented *silent
+>   intent-drift* failure mode: a model fills gaps with "reasonable defaults" and, told to ask, rates its own
+>   guesses "common enough" and skips. Honest scope: a tripwire against *silent* drift, not proof of full
+>   intent capture — only HIGH blocks, materiality is a heuristic.
+> - **Together with `clarify`, this is a two-stage "no silent guessing" front-end:** clarify interrogates the
+>   *goal* up front; the assumption gate audits the *spec* for the guesses baked in while working.
+>
+> ## ✅ EARLIER — v2.4.0: the enforcement stack reached **6/6**, and a front-end (`lathe clarify`) landed.
 > Reproduced on the rebased branch (2026-07-02):
 > - **#5 required test-KIND per contract** (`LATHE_TEST_KIND=1`, STRICT-forced) — `test_test_kind.py` ALL
 >   PASS + kind-detection pure logic verified. A unit whose tests lack its declared kinds (property / edge /
