@@ -44,11 +44,14 @@ If a plan is already built and its pins are committed, you can rebuild it with *
 
 ```bash
 lathe verify examples/hello.py     # replays the pins: byte-identical output, 0 model calls
-lathe build  examples/hello.py     # same — reuses the pin, seconds, offline
+lathe build  examples/hello.py     # reuses the pin — offline ONLY when every function is already pinned
 ```
 
 This is the "the code was never the source, the spec was" demo. Nothing is generated; the pinned bytes are
-replayed. Great for CI and air-gapped rebuilds.
+replayed. Great for CI and air-gapped rebuilds. **Precondition:** `build` is offline *only when every
+function in the plan is already pinned*. Run it on a fresh/unpinned plan and it will try to **generate** — and
+error if no implementer is configured. Use `lathe verify` (or `build` on a committed, fully-pinned plan) for
+the guaranteed-offline path.
 
 ### b. Standalone + a local model (the everyday mode)
 
