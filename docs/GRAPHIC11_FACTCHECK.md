@@ -106,7 +106,7 @@ With #1–#3 in place, the comprehensiveness sentence becomes literally true and
 
 - **Testing is a precondition, not a habit.** The plan validator rejects any function without tests before implementation begins, and the gate refuses code whose tests don't pass in an isolated sandbox. There is no override path — the model cannot skip, defer, or negotiate.
 - **Green checkmarks can't be bought.** A mutation probe rejects any test a trivial stub could satisfy, so vacuous asserts don't pass the gate — the failure mode that quietly defeats every "my agent runs tests" setup.
-- **Discipline the model can't opt out of.** Work runs through named workflows with explicit contracts — entry conditions, deliverables, done criteria — and six standing gates enforce one canonical implementation per capability with no stale or duplicate files. The process is defined by the system, not improvised per-session by the model.
+- **Discipline the model can't opt out of.** Work runs through named workflows with explicit contracts — entry conditions, deliverables, done criteria — and seven standing gates enforce one canonical implementation per capability with no stale or duplicate files. The process is defined by the system, not improvised per-session by the model.
 
 Optional honest fourth line for roadmap decks, not the headline: *Next: rigor requirements inherited from the contract itself — requirement-to-test traceability, regression tests that must fail on pre-fix code, and mutation-score thresholds — so test comprehensiveness is also gate-enforced, not model-chosen.*
 

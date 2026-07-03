@@ -2,7 +2,7 @@
 
 *The complete, flat reference: every command, every user-facing flag, and every environment variable —
 each with what it does, its default, and a runnable example. Extracted from `lathe.py`, `engine_v2.py`, and
-`projects/agentic-harness/tools/`, then **behaviorally tested** at v2.6.2 (STRICT composition, all scrutiny
+`projects/agentic-harness/tools/`, then **behaviorally tested** at v2.7.0 (STRICT composition, all scrutiny
 levels, config→env mapping + precedence, the flag aliases, and every model-independent command exercised —
 see the verification note at the end). Nothing here is aspirational.*
 
@@ -49,7 +49,7 @@ are listed per command; the flat flag reference is §4.
 | Command | What it does | Example |
 |---|---|---|
 | `lathe "<goal>"` / `lathe do "<goal>"` | One-shot: the analyst drafts a spec + tests, the local model implements, the gate verifies, the result is pinned. | `lathe do "parse '2h30m' into seconds"` |
-| `lathe build <plan.py>` | Build an existing plan file (the reproducible unit of work). Rebuilds from pins are byte-identical, 0 model calls. | `lathe build plans/H_money.py` |
+| `lathe build <plan.py> [--json]` | Build an existing plan file (the reproducible unit of work). Rebuilds from pins are byte-identical, 0 model calls. `--json` emits one stable JSON line (`build_ok`, `functions_passed/total`, `per_function[{name,ok,tries,src}]`, tokens, timings; exit 0 iff `build_ok`) — CI-safe, no PASS/REUSED column drift. | `lathe build plans/H_money.py --json` |
 | `lathe chat` | Interactive REPL (see §1). | `lathe chat` |
 | `lathe verify <plan.py>` | Prove the byte-identical claim: rebuild from pins offline and diff. | `lathe verify examples/hello.py` |
 | `lathe sdlc "<goal>" [--out <dir>]` | The full pipeline in one command: clarify → assume → ack → STRICT build → trace → review. | `lathe sdlc "a rate limiter" --out ./out` |
@@ -65,7 +65,7 @@ are listed per command; the flat flag reference is §4.
 
 | Command | What it does | Example |
 |---|---|---|
-| `lathe gate` | Run the standing regression gates (stale/dup/registry/pristine/lint/docs-drift). | `lathe gate` |
+| `lathe gate` | Run the standing tree gates (stale · dup · registry · pristine · lint · docs-drift · **env-drift**) + regression. | `lathe gate` |
 | `lathe lint-spec <plan.py>` | Test-quality probe: rejects tests a stub could pass. | `lathe lint-spec plans/H_money.py` |
 | `lathe review [auto\|<lens…>\|all] <files…>` | Compound-Engineering persona review; `auto` lets the decider pick lenses (correctness/adversarial/security/…). | `lathe review auto engine_v2.py` |
 | `lathe ack <plan> [--yes]` | Record human acknowledgement of a plan's exact test set (required when `LATHE_TEST_ACK=1`). | `lathe ack plans/H_money.py` |
@@ -88,7 +88,8 @@ are listed per command; the flat flag reference is §4.
 | Command | What it does | Example |
 |---|---|---|
 | `lathe whatis <capability>` | Which file is the canonical implementation of a capability. | `lathe whatis sandbox` |
-| `lathe map <path…>` | Repo-map: symbol/signature outline (cheap context). **Requires `universal-ctags`** on PATH — without it the command errors with an install hint. | `lathe map projects/agentic-harness/tools` |
+| `lathe map <path…>` | Repo-map: symbol/signature outline (cheap context). Needs `universal-ctags` on PATH; **without it it warns and skips (exit 0)** — the map is an optional convenience, so a missing dep never breaks a caller. | `lathe map projects/agentic-harness/tools` |
+| `lathe env` | Print every recognized environment variable — grouped (endpoints/gates/tuning/sandbox/…), with role, default, and a `(set)` marker — from the single source of truth `env_catalog.py`. | `lathe env` |
 | `lathe dups` | Report duplicate basenames the pristine gate would flag. | `lathe dups` |
 | `lathe plans` / `lathe metrics [summary]` | List plan files / show the metrics ledger. | `lathe metrics summary` |
 | `lathe logs [<run_id>] [--tail] [--grep <s>]` | Structured run logs: list, tail the latest, or search. | `lathe logs --grep REFUSED` |
@@ -274,6 +275,7 @@ completeness; leave unset in normal use.
 | `--grep <s>` | `logs` | Substring-search across all run logs. | List/trace mode. |
 | `--all` | `agent rate` | Grade every agent (resumable; skips already-rated). | Rates a single target. |
 | `--yes` | `ack`, `checkpoint restore` | Skip the confirmation prompt / allow a destructive whole-tree restore. | `ack` prompts; `restore` refuses without it. |
+| `--json` | `build` | Emit one stable JSON status line (CI-safe) instead of the human table. Exit 0 iff `build_ok`. | Human PASS/REUSED/FAIL table. |
 
 ```bash
 lathe assume plans/H_widget.py --resolve --scrutiny high+med
@@ -361,7 +363,10 @@ This reference was **tested, not just read off the source** (v2.6.2):
   anything needing a live implementer or analyst endpoint — cold `build`/`do`, `auto`, real `sdlc`,
   live `clarify`/`assume` audits, and the `regression-proof`/`reproducibility` acceptance tests (they SKIP
   without an implementer). `selftest` correctly reports these two endpoints as unreachable and exits non-zero.
-- **Dependency notes surfaced by testing:** `lathe map` needs `universal-ctags` on PATH.
+- **v2.7.0 additions, verified live here:** `lathe env` (53 vars from `env_catalog.py`); the `env_not_drifted`
+  standing gate (green, "all 53 code-referenced env vars documented"); `lathe map` now warns-and-skips at
+  exit 0 without `universal-ctags` (was rc=1); `lathe build --json` emits one valid JSON line with `build_ok`
+  and stable keys (exit 0 iff `build_ok`). These landed from this review's own CLI-pass suggestions.
 
 If a flag or variable here ever drifts from behavior, the code is the oracle — file a `lathe report` and it'll
 be corrected.

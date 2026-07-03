@@ -83,7 +83,7 @@ the commit).
 | A unit must have ≥1 test | ✅ structural | validator rejects empty `tests`: "every FUNCTION needs a non-empty tests list" (verified directly) |
 | Code must pass its tests in isolation | ✅ structural, no override | sandbox nonce-verdict; battery 35/35; the gate is outside the model's action space |
 | Tests must be non-trivial | ✅ | mutation probe (`spec_lint`) rejects tests a stub can pass |
-| One canonical impl per capability; no stale/dupe files | ✅ | six standing gates fail the build |
+| One canonical impl per capability; no stale/dupe files | ✅ | seven standing gates fail the build |
 | No hand-editing generated code; pinned, reproducible | ✅ | provenance markers + content-hash pins |
 
 **This much is true and differentiated vs. "an agent that runs tests."** The line: an agent treats testing

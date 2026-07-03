@@ -88,7 +88,7 @@ the autonomous path); the two must be read together, not conflated.
   env toggles (`strict_mode.py`). Forces all development through every proof; explicit env vars still win. ⚙️
   (reproduced 7/7 + 8/8 pure logic). *Note: "seven gates by v2.5.0" counts the assumption gate as composed,
   but at v2.5.0 it was still a weak ack; per-item enforcement (`--resolve`, no blanket-accept) is v2.6.0/v2.6.1.*
-- **P1** Six standing gates: stale · resource-dups · registry · pristine · real-bug-lint · docs-drift. ✅
+- **P1** Seven standing gates: stale · resource-dups · registry · pristine · real-bug-lint · docs-drift · **env-drift** (v2.7.0). ✅
 - **P1** Functional/behavioral gate — live headless browser (Playwright) checks the real DOM. 🔌
 - **P1** Structural gate — asserts against generated artifact `content`. 🔌
 - **P2** H3–H6 product gates — visual-regression · performance · security(SAST+SSRF) · accessibility(axe). 🔌
