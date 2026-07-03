@@ -1,0 +1,207 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1349" viewBox="0 0 1280 1349" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<rect width="1280" height="1349" fill="#F4EEE1"/>
+<text x="40" y="66" font-size="42" font-weight="700" fill="#3D2B22">Everything Lathe does</text>
+<text x="40" y="98" font-size="19" fill="#6E5A4B">A test-driven build engine for LLMs — the complete capability map (v2.1.3)</text>
+<circle cx="47" cy="121" r="7" fill="#5FA463"/>
+<text x="62" y="126" font-size="15" fill="#6E5A4B">live (autonomous)</text>
+<circle cx="242.39999999999998" cy="121" r="7" fill="#E0A24A"/>
+<text x="257.4" y="126" font-size="15" fill="#6E5A4B">available (built/tested)</text>
+<circle cx="495.19999999999993" cy="121" r="7" fill="#8A7CB0"/>
+<text x="510.19999999999993" y="126" font-size="15" fill="#6E5A4B">analyst / human step</text>
+<text x="708.1999999999999" y="126" font-size="15" font-weight="700" fill="#3D2B22">B</text>
+<text x="724.1999999999999" y="126" font-size="15" fill="#6E5A4B">bold = flagship</text>
+<rect x="40" y="150" width="385" height="314" rx="16" fill="#FBF8F0" stroke="#E7DECB" stroke-width="1.5"/>
+<path d="M40,166 q0,-16 16,-16 h353 q16,0 16,16 v20 h-385 z" fill="#7EA8A1"/>
+<text x="56" y="177 " font-size="19" font-weight="700" fill="#ffffff">Build engine</text>
+<text x="405" y="177" font-size="17" font-weight="700" fill="#ffffff" text-anchor="end">⚙ A</text>
+<circle cx="58" cy="207" r="6" fill="#5FA463"/>
+<text x="74" y="212" font-size="15.5" font-weight="700" fill="#3D2B22">plan-driven build</text>
+<circle cx="58" cy="232" r="6" fill="#5FA463"/>
+<text x="74" y="237" font-size="15.5" font-weight="700" fill="#3D2B22">per-function specs</text>
+<circle cx="58" cy="257" r="6" fill="#5FA463"/>
+<text x="74" y="262" font-size="15.5" font-weight="400" fill="#3D2B22">best-of-N</text>
+<circle cx="58" cy="282" r="6" fill="#5FA463"/>
+<text x="74" y="287" font-size="15.5" font-weight="400" fill="#3D2B22">STRICT test-exec gate</text>
+<circle cx="58" cy="307" r="6" fill="#5FA463"/>
+<text x="74" y="312" font-size="15.5" font-weight="400" fill="#3D2B22">module assembly (GLUE)</text>
+<circle cx="58" cy="332" r="6" fill="#5FA463"/>
+<text x="74" y="337" font-size="15.5" font-weight="400" fill="#3D2B22">implementer routing</text>
+<circle cx="58" cy="357" r="6" fill="#E0A24A"/>
+<text x="74" y="362" font-size="15.5" font-weight="400" fill="#3D2B22">per-fn model / level</text>
+<circle cx="58" cy="382" r="6" fill="#E0A24A"/>
+<text x="74" y="387" font-size="15.5" font-weight="400" fill="#3D2B22">integration test</text>
+<circle cx="58" cy="407" r="6" fill="#E0A24A"/>
+<text x="74" y="412" font-size="15.5" font-weight="400" fill="#3D2B22">artifact / whole-file</text>
+<circle cx="58" cy="432" r="6" fill="#E0A24A"/>
+<text x="74" y="437" font-size="15.5" font-weight="400" fill="#3D2B22">retirement (RETIRE)</text>
+<rect x="447" y="150" width="385" height="164" rx="16" fill="#FBF8F0" stroke="#E7DECB" stroke-width="1.5"/>
+<path d="M447,166 q0,-16 16,-16 h353 q16,0 16,16 v20 h-385 z" fill="#E4986B"/>
+<text x="463" y="177 " font-size="19" font-weight="700" fill="#ffffff">Reproducible</text>
+<text x="812" y="177" font-size="17" font-weight="700" fill="#ffffff" text-anchor="end">🔒 B</text>
+<circle cx="465" cy="207" r="6" fill="#5FA463"/>
+<text x="481" y="212" font-size="15.5" font-weight="700" fill="#3D2B22">content-hash pins</text>
+<circle cx="465" cy="232" r="6" fill="#5FA463"/>
+<text x="481" y="237" font-size="15.5" font-weight="700" fill="#3D2B22">zero-call rebuilds</text>
+<circle cx="465" cy="257" r="6" fill="#5FA463"/>
+<text x="481" y="262" font-size="15.5" font-weight="400" fill="#3D2B22">failure-as-asset banking</text>
+<circle cx="465" cy="282" r="6" fill="#5FA463"/>
+<text x="481" y="287" font-size="15.5" font-weight="400" fill="#3D2B22">timeout ≠ fail</text>
+<rect x="854" y="150" width="385" height="314" rx="16" fill="#FBF8F0" stroke="#E7DECB" stroke-width="1.5"/>
+<path d="M854,166 q0,-16 16,-16 h353 q16,0 16,16 v20 h-385 z" fill="#8DB26A"/>
+<text x="870" y="177 " font-size="19" font-weight="700" fill="#ffffff">Verify &amp; gate</text>
+<text x="1219" y="177" font-size="17" font-weight="700" fill="#ffffff" text-anchor="end">🛡 C</text>
+<circle cx="872" cy="207" r="6" fill="#5FA463"/>
+<text x="888" y="212" font-size="15.5" font-weight="700" fill="#3D2B22">hard test gate</text>
+<circle cx="872" cy="232" r="6" fill="#5FA463"/>
+<text x="888" y="237" font-size="15.5" font-weight="700" fill="#3D2B22">nonce sandbox verdict</text>
+<circle cx="872" cy="257" r="6" fill="#E0A24A"/>
+<text x="888" y="262" font-size="15.5" font-weight="700" fill="#3D2B22">mutation probe</text>
+<circle cx="872" cy="282" r="6" fill="#5FA463"/>
+<text x="888" y="287" font-size="15.5" font-weight="400" fill="#3D2B22">six standing gates</text>
+<circle cx="872" cy="307" r="6" fill="#E0A24A"/>
+<text x="888" y="312" font-size="15.5" font-weight="400" fill="#3D2B22">browser / functional gate</text>
+<circle cx="872" cy="332" r="6" fill="#E0A24A"/>
+<text x="888" y="337" font-size="15.5" font-weight="400" fill="#3D2B22">structural gate</text>
+<circle cx="872" cy="357" r="6" fill="#E0A24A"/>
+<text x="888" y="362" font-size="15.5" font-weight="400" fill="#3D2B22">H3–H6 product gates</text>
+<circle cx="872" cy="382" r="6" fill="#E0A24A"/>
+<text x="888" y="387" font-size="15.5" font-weight="400" fill="#3D2B22">data-quality primitives</text>
+<circle cx="872" cy="407" r="6" fill="#E0A24A"/>
+<text x="888" y="412" font-size="15.5" font-weight="400" fill="#3D2B22">cassette record/replay</text>
+<circle cx="872" cy="432" r="6" fill="#E0A24A"/>
+<text x="888" y="437" font-size="15.5" font-weight="400" fill="#3D2B22">road_ready DoD</text>
+<rect x="40" y="486" width="385" height="264" rx="16" fill="#FBF8F0" stroke="#E7DECB" stroke-width="1.5"/>
+<path d="M40,502 q0,-16 16,-16 h353 q16,0 16,16 v20 h-385 z" fill="#8A7CB0"/>
+<text x="56" y="513 " font-size="19" font-weight="700" fill="#ffffff">Think &amp; learn</text>
+<text x="405" y="513" font-size="17" font-weight="700" fill="#ffffff" text-anchor="end">🧠 D</text>
+<circle cx="58" cy="543" r="6" fill="#8A7CB0"/>
+<text x="74" y="548" font-size="15.5" font-weight="700" fill="#3D2B22">analyst writes spec+tests</text>
+<circle cx="58" cy="568" r="6" fill="#5FA463"/>
+<text x="74" y="573" font-size="15.5" font-weight="700" fill="#3D2B22">repair loop — no escalation</text>
+<circle cx="58" cy="593" r="6" fill="#8A7CB0"/>
+<text x="74" y="598" font-size="15.5" font-weight="400" fill="#3D2B22">CE review personas (10 lenses)</text>
+<circle cx="58" cy="618" r="6" fill="#5FA463"/>
+<text x="74" y="623" font-size="15.5" font-weight="400" fill="#3D2B22">review decider (auto-lens)</text>
+<circle cx="58" cy="643" r="6" fill="#5FA463"/>
+<text x="74" y="648" font-size="15.5" font-weight="400" fill="#3D2B22">planner lens injection</text>
+<circle cx="58" cy="668" r="6" fill="#E0A24A"/>
+<text x="74" y="673" font-size="15.5" font-weight="400" fill="#3D2B22">on-demand persona catalog</text>
+<circle cx="58" cy="693" r="6" fill="#E0A24A"/>
+<text x="74" y="698" font-size="15.5" font-weight="400" fill="#3D2B22">select-K quality judge</text>
+<circle cx="58" cy="718" r="6" fill="#8A7CB0"/>
+<text x="74" y="723" font-size="15.5" font-weight="400" fill="#3D2B22">grounding pre-step</text>
+<rect x="447" y="486" width="385" height="264" rx="16" fill="#FBF8F0" stroke="#E7DECB" stroke-width="1.5"/>
+<path d="M447,502 q0,-16 16,-16 h353 q16,0 16,16 v20 h-385 z" fill="#E9B44C"/>
+<text x="463" y="513 " font-size="19" font-weight="700" fill="#ffffff">Autonomy</text>
+<text x="812" y="513" font-size="17" font-weight="700" fill="#ffffff" text-anchor="end">🤖 E</text>
+<circle cx="465" cy="543" r="6" fill="#5FA463"/>
+<text x="481" y="548" font-size="15.5" font-weight="700" fill="#3D2B22">objective / goal loop</text>
+<circle cx="465" cy="568" r="6" fill="#5FA463"/>
+<text x="481" y="573" font-size="15.5" font-weight="700" fill="#3D2B22">kanban board (sqlite)</text>
+<circle cx="465" cy="593" r="6" fill="#5FA463"/>
+<text x="481" y="598" font-size="15.5" font-weight="400" fill="#3D2B22">self-feed driver</text>
+<circle cx="465" cy="618" r="6" fill="#E0A24A"/>
+<text x="481" y="623" font-size="15.5" font-weight="400" fill="#3D2B22">DAG / dispatcher / driver</text>
+<circle cx="465" cy="643" r="6" fill="#E0A24A"/>
+<text x="481" y="648" font-size="15.5" font-weight="400" fill="#3D2B22">auto-decompose</text>
+<circle cx="465" cy="668" r="6" fill="#5FA463"/>
+<text x="481" y="673" font-size="15.5" font-weight="400" fill="#3D2B22">dormancy: wait/resume</text>
+<circle cx="465" cy="693" r="6" fill="#5FA463"/>
+<text x="481" y="698" font-size="15.5" font-weight="400" fill="#3D2B22">rule-of-three</text>
+<circle cx="465" cy="718" r="6" fill="#5FA463"/>
+<text x="481" y="723" font-size="15.5" font-weight="400" fill="#3D2B22">escalate-to-human</text>
+<rect x="854" y="486" width="385" height="189" rx="16" fill="#FBF8F0" stroke="#E7DECB" stroke-width="1.5"/>
+<path d="M854,502 q0,-16 16,-16 h353 q16,0 16,16 v20 h-385 z" fill="#7C93A6"/>
+<text x="870" y="513 " font-size="19" font-weight="700" fill="#ffffff">Clean tree</text>
+<text x="1219" y="513" font-size="17" font-weight="700" fill="#ffffff" text-anchor="end">🧹 F</text>
+<circle cx="872" cy="543" r="6" fill="#5FA463"/>
+<text x="888" y="548" font-size="15.5" font-weight="700" fill="#3D2B22">one canonical / capability</text>
+<circle cx="872" cy="568" r="6" fill="#5FA463"/>
+<text x="888" y="573" font-size="15.5" font-weight="400" fill="#3D2B22">stale + dup gate</text>
+<circle cx="872" cy="593" r="6" fill="#E0A24A"/>
+<text x="888" y="598" font-size="15.5" font-weight="400" fill="#3D2B22">gated check-in</text>
+<circle cx="872" cy="618" r="6" fill="#E0A24A"/>
+<text x="888" y="623" font-size="15.5" font-weight="400" fill="#3D2B22">clean (quarantine relics)</text>
+<circle cx="872" cy="643" r="6" fill="#E0A24A"/>
+<text x="888" y="648" font-size="15.5" font-weight="400" fill="#3D2B22">AST dup detector</text>
+<rect x="40" y="772" width="385" height="164" rx="16" fill="#FBF8F0" stroke="#E7DECB" stroke-width="1.5"/>
+<path d="M40,788 q0,-16 16,-16 h353 q16,0 16,16 v20 h-385 z" fill="#D98C7A"/>
+<text x="56" y="799 " font-size="19" font-weight="700" fill="#ffffff">Fewer tokens</text>
+<text x="405" y="799" font-size="17" font-weight="700" fill="#ffffff" text-anchor="end">🗜 G</text>
+<circle cx="58" cy="829" r="6" fill="#E0A24A"/>
+<text x="74" y="834" font-size="15.5" font-weight="700" fill="#3D2B22">repo-map (ctags structure)</text>
+<circle cx="58" cy="854" r="6" fill="#E0A24A"/>
+<text x="74" y="859" font-size="15.5" font-weight="700" fill="#3D2B22">skeleton-fill</text>
+<circle cx="58" cy="879" r="6" fill="#E0A24A"/>
+<text x="74" y="884" font-size="15.5" font-weight="700" fill="#3D2B22">skeleton-complete (0 tokens)</text>
+<circle cx="58" cy="904" r="6" fill="#5FA463"/>
+<text x="74" y="909" font-size="15.5" font-weight="400" fill="#3D2B22">doctrine preload</text>
+<rect x="447" y="772" width="385" height="239" rx="16" fill="#FBF8F0" stroke="#E7DECB" stroke-width="1.5"/>
+<path d="M447,788 q0,-16 16,-16 h353 q16,0 16,16 v20 h-385 z" fill="#6FA8A0"/>
+<text x="463" y="799 " font-size="19" font-weight="700" fill="#ffffff">Safety</text>
+<text x="812" y="799" font-size="17" font-weight="700" fill="#ffffff" text-anchor="end">🔐 H</text>
+<circle cx="465" cy="829" r="6" fill="#5FA463"/>
+<text x="481" y="834" font-size="15.5" font-weight="700" fill="#3D2B22">plan validator (data-only)</text>
+<circle cx="465" cy="854" r="6" fill="#5FA463"/>
+<text x="481" y="859" font-size="15.5" font-weight="700" fill="#3D2B22">sandbox isolation tiers</text>
+<circle cx="465" cy="879" r="6" fill="#5FA463"/>
+<text x="481" y="884" font-size="15.5" font-weight="400" fill="#3D2B22">SSRF / exfil guard</text>
+<circle cx="465" cy="904" r="6" fill="#5FA463"/>
+<text x="481" y="909" font-size="15.5" font-weight="400" fill="#3D2B22">provenance markers</text>
+<circle cx="465" cy="929" r="6" fill="#5FA463"/>
+<text x="481" y="934" font-size="15.5" font-weight="400" fill="#3D2B22">MCP input guards</text>
+<circle cx="465" cy="954" r="6" fill="#5FA463"/>
+<text x="481" y="959" font-size="15.5" font-weight="400" fill="#3D2B22">secret redaction</text>
+<circle cx="465" cy="979" r="6" fill="#E0A24A"/>
+<text x="481" y="984" font-size="15.5" font-weight="400" fill="#3D2B22">safe_write (built)</text>
+<rect x="854" y="772" width="385" height="239" rx="16" fill="#FBF8F0" stroke="#E7DECB" stroke-width="1.5"/>
+<path d="M854,788 q0,-16 16,-16 h353 q16,0 16,16 v20 h-385 z" fill="#C8A15A"/>
+<text x="870" y="799 " font-size="19" font-weight="700" fill="#ffffff">Run anywhere</text>
+<text x="1219" y="799" font-size="17" font-weight="700" fill="#ffffff" text-anchor="end">🔌 I</text>
+<circle cx="872" cy="829" r="6" fill="#5FA463"/>
+<text x="888" y="834" font-size="15.5" font-weight="700" fill="#3D2B22">standalone CLI + REPL</text>
+<circle cx="872" cy="854" r="6" fill="#E0A24A"/>
+<text x="888" y="859" font-size="15.5" font-weight="700" fill="#3D2B22">MCP inside your agent</text>
+<circle cx="872" cy="879" r="6" fill="#5FA463"/>
+<text x="888" y="884" font-size="15.5" font-weight="400" fill="#3D2B22">pluggable analyst</text>
+<circle cx="872" cy="904" r="6" fill="#5FA463"/>
+<text x="888" y="909" font-size="15.5" font-weight="400" fill="#3D2B22">pluggable implementer</text>
+<circle cx="872" cy="929" r="6" fill="#5FA463"/>
+<text x="888" y="934" font-size="15.5" font-weight="400" fill="#3D2B22">programmatic / embedded</text>
+<circle cx="872" cy="954" r="6" fill="#E0A24A"/>
+<text x="888" y="959" font-size="15.5" font-weight="400" fill="#3D2B22">skill · plugin · PyPI</text>
+<circle cx="872" cy="979" r="6" fill="#5FA463"/>
+<text x="888" y="984" font-size="15.5" font-weight="400" fill="#3D2B22">config file</text>
+<rect x="40" y="1033" width="385" height="189" rx="16" fill="#FBF8F0" stroke="#E7DECB" stroke-width="1.5"/>
+<path d="M40,1049 q0,-16 16,-16 h353 q16,0 16,16 v20 h-385 z" fill="#8DA9C4"/>
+<text x="56" y="1060 " font-size="19" font-weight="700" fill="#ffffff">Workflows</text>
+<text x="405" y="1060" font-size="17" font-weight="700" fill="#ffffff" text-anchor="end">🧭 J</text>
+<circle cx="58" cy="1090" r="6" fill="#5FA463"/>
+<text x="74" y="1095" font-size="15.5" font-weight="700" fill="#3D2B22">code-review</text>
+<circle cx="58" cy="1115" r="6" fill="#5FA463"/>
+<text x="74" y="1120" font-size="15.5" font-weight="400" fill="#3D2B22">bug-fix</text>
+<circle cx="58" cy="1140" r="6" fill="#5FA463"/>
+<text x="74" y="1145" font-size="15.5" font-weight="400" fill="#3D2B22">enhancement</text>
+<circle cx="58" cy="1165" r="6" fill="#5FA463"/>
+<text x="74" y="1170" font-size="15.5" font-weight="400" fill="#3D2B22">doc-review</text>
+<circle cx="58" cy="1190" r="6" fill="#5FA463"/>
+<text x="74" y="1195" font-size="15.5" font-weight="400" fill="#3D2B22">new-project</text>
+<rect x="447" y="1033" width="385" height="214" rx="16" fill="#FBF8F0" stroke="#E7DECB" stroke-width="1.5"/>
+<path d="M447,1049 q0,-16 16,-16 h353 q16,0 16,16 v20 h-385 z" fill="#9BB068"/>
+<text x="463" y="1060 " font-size="19" font-weight="700" fill="#ffffff">Observe &amp; be honest</text>
+<text x="812" y="1060" font-size="17" font-weight="700" fill="#ffffff" text-anchor="end">📊 K</text>
+<circle cx="465" cy="1090" r="6" fill="#5FA463"/>
+<text x="481" y="1095" font-size="15.5" font-weight="700" fill="#3D2B22">structured run logs</text>
+<circle cx="465" cy="1115" r="6" fill="#5FA463"/>
+<text x="481" y="1120" font-size="15.5" font-weight="400" fill="#3D2B22">metrics summary</text>
+<circle cx="465" cy="1140" r="6" fill="#5FA463"/>
+<text x="481" y="1145" font-size="15.5" font-weight="400" fill="#3D2B22">run reports</text>
+<circle cx="465" cy="1165" r="6" fill="#5FA463"/>
+<text x="481" y="1170" font-size="15.5" font-weight="400" fill="#3D2B22">honest benchmark</text>
+<circle cx="465" cy="1190" r="6" fill="#5FA463"/>
+<text x="481" y="1195" font-size="15.5" font-weight="400" fill="#3D2B22">issue queue</text>
+<circle cx="465" cy="1215" r="6" fill="#5FA463"/>
+<text x="481" y="1220" font-size="15.5" font-weight="400" fill="#3D2B22">selftest</text>
+<rect x="0" y="1285" width="1280" height="64" fill="#9BC0B9"/>
+<text x="640" y="1323" font-size="21" font-weight="700" fill="#274b45" text-anchor="middle">spec + tests are the source of truth — code is a build output</text>
+</svg>
