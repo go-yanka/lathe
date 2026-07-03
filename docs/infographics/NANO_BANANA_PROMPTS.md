@@ -142,7 +142,7 @@ The stack is now **seven gates** composed by `LATHE_STRICT=1`; the three-gate re
 from the prompt below. Only ships honestly WITH the bottom band: opt-in / bounded tripwire (not exhaustive)
 / per-function (not whole-system). Do NOT drop the band or the word "declared" in the traceability gate.*
 
-**CURRENT PROMPT (v2.5.1 — seven gates). Use Nano Banana Pro/2 (7 gate labels + band ≈ 20 elements):**
+**CURRENT PROMPT (v2.6.1 — seven gates). Use Nano Banana Pro/2 (7 gate labels + band ≈ 20 elements):**
 ```
 [style guide]. Title: "The methodology, enforced by the build". Subtitle: "seven gates a change must pass
 before it can ship — the model can't skip them". Center: a left-to-right flow. Far left a document icon
@@ -154,7 +154,7 @@ icon + bold name + one short line + a tiny red "✗ refused" tag), none merged o
   Gate 4 "TEST-ACK" (hand-check) "a human signs off on the exact test set";
   Gate 5 "TEST-KIND" (tags) "the required kinds — property · edge · error — must be present";
   Gate 6 "GATE-THE-GLUE" (pipe/connector) "hand-written glue needs an integration test, or no build";
-  Gate 7 "ASSUMPTION GATE" (magnifier) "no build while a material silent assumption is unconfirmed"
+  Gate 7 "ASSUMPTION GATE" (magnifier) "no build while a material silent assumption is unresolved"
 → a green padlock-hash "PINNED — accepted". Above the rack a sage-green banner brace "LATHE_STRICT = 1 ·
 composes all seven, for every change". Bottom muted band: "⚙️ opt-in, off by default · mutation-score is a
 bounded tripwire for vacuous tests, not exhaustive coverage · gates each function, not your whole system".
