@@ -325,8 +325,10 @@ the tree dirty cannot ship. Each is also runnable by hand (`python qa/<gate>.py`
   `CRITERIA`. This is the intended production posture.
 - **Explicit vars win.** If you set, say, `LATHE_MUTATION_SCORE=0.8` yourself, STRICT will *not* override it
   down to 0.5 — `strict_defaults` only fills toggles you left unset (`strict_mode.py:24`). Use this to run
-  STRICT-but-stricter, or STRICT-minus-one (e.g. `LATHE_STRICT=1 LATHE_TEST_ACK=` to opt a gate out — but
-  note an empty string counts as "set", so it stays off).
+  STRICT-but-stricter, or STRICT-minus-one. **Opt a gate out with a non-empty disabling value**, e.g.
+  `LATHE_STRICT=1 LATHE_TEST_ACK=0` — note that an **empty string is treated as *unset*** (`current != ''`),
+  so STRICT will fill it; only a non-empty value (`0`, a lower threshold, `off`, …) survives as an override.
+  (Verified by executed probe — see `GATES_STRESS_TEST.md`.)
 - **Config file mirror.** Several gates also read from `lathe.config.json` (e.g. `assumptions.scrutiny` →
   `LATHE_ASSUMPTION_POLICY`). Env always overrides config.
 - **Run a gate standalone.** `lathe lint-spec <plan>`, `lathe gate`, and each `python qa/<gate>.py [--list]`
