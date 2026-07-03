@@ -1,6 +1,6 @@
 # Lathe — Capability Map (bucketed + prioritized)
 
-An exhaustive inventory of Lathe's capabilities (**refreshed to v2.5.1**), grouped into buckets and
+An exhaustive inventory of Lathe's capabilities (**refreshed to v2.6.1**), grouped into buckets and
 prioritized within each.
 **Provenance (two separate channels):** the capability *list* was drawn from the code plus
 `LATHE_CAPABILITIES.md` / `LATHE_COMMANDS.md`; every *status label* below was **verified against the
@@ -8,15 +8,19 @@ executable source** (`engine_v2.py`, `run_gates.py`, `lathe.py`, `lathe_mcp.py`,
 oracle, not the sibling docs. Status legend: **✅ wired** (on the autonomous path) · **🔌 available**
 (built/tested, not autonomous) · **🧠 analyst** (premium/human front-end) · **⚙️ opt-in gate** (built +
 reproduced, off by default / STRICT-forced — no autonomous-path change unless enabled).
-**v2.5.1 refresh note:** the methodology-enforcement stack is now **6/6 done**, composed by STRICT into
-**seven gates** — regression-proof (#1), traceability (#2), mutation-score (#3), test-ack (#4-partial),
-required test-kind (#5), gate-the-glue (#6), and the **assumption gate** — and there are now two "no silent
-guessing" **front-ends** (`lathe clarify` + the adversarial `assumption-auditor`). Every one was
-**independently reproduced** by the review (see `METHODOLOGY_ENFORCEMENT_VALIDATION.md`). The gates are
-**opt-in / STRICT-forced** (default off), so they carry a ⚙️ marker: *gated capability, off by default, no
-autonomous-path behavior change unless enabled*. (Prior refresh reached only v2.2.0 / 3-of-6; superseded.)
+**v2.6.1 refresh note:** all **6 methodology mechanisms** ship — regression-proof (#1), traceability (#2),
+mutation-score (#3), test-ack (#4), required test-kind (#5), gate-the-glue (#6) — plus the **assumption
+gate**, which `LATHE_STRICT=1` composes as **seven gates** (＋ the lint stub-block it also flips; traceability
+is enforced as a plan-gap requirement rather than an env toggle — see Bucket C). **Honest count:** #4
+(test-ack) is a *partial oracle* — a human re-read of the test set, not a second independent author — so it's
+"6 shipped, #4 partial," never "6/6 done." There are now two "no silent guessing" **front-ends** (`lathe
+clarify` + the adversarial `assumption-auditor`). Every mechanism was **independently reproduced** by the
+review (see `METHODOLOGY_ENFORCEMENT_VALIDATION.md`; the reproduction harness is the review's own — the
+executable, not the label, is authoritative). The gates are **opt-in / STRICT-forced** (default off), so they
+carry a ⚙️ marker: *gated capability, off by default, no autonomous-path behavior change unless enabled*.
+(Prior refresh reached only v2.2.0 / 3-of-6; superseded.)
 Priority: **P0** = flagship differentiator · **P1** = important/core · **P2** = supporting. **The priority axis
-(P0/P1/P2) is independent of the status axis (✅/🔌/🧠)** — a P0 flagship can still be 🔌 (built but not yet on
+(P0/P1/P2) is independent of the status axis (✅/🔌/🧠/⚙️)** — a P0 flagship can still be 🔌 (built but not yet on
 the autonomous path); the two must be read together, not conflated.
 
 ---
@@ -71,10 +75,13 @@ the autonomous path); the two must be read together, not conflated.
   was removed; `--accept-all` is an explicit opt-in, logged as "accepted in bulk." Spec change re-opens via
   digest. Scrutiny user-governed (`all›high+med›high›off`). ⚙️ (reproduced ALL PASS incl. per-item resolve,
   skip-stays-blocking, bulk-recorded-honestly, spec-change re-open)
-- **P0** **STRICT / SDLC umbrella** (v2.1.7 → **seven gates** by v2.5.0) — `LATHE_STRICT=1` composes
-  traceability + test-ack + regression-proof + mutation-score + test-kind + gate-glue + assumption-gate
-  (+ the lint stub-block), forcing all development through every proof; explicit env vars still win. ⚙️
-  (reproduced 7/7 + 8/8 pure logic)
+- **P0** **STRICT / SDLC umbrella** (v2.1.7 → **seven gates** by v2.5.0, assumption gate *enforcing* as of
+  v2.6.1) — `LATHE_STRICT=1` composes traceability + test-ack + regression-proof + mutation-score + test-kind
+  + gate-glue + assumption-gate — the **seven gates** — **plus the lint stub-block** (`LATHE_LINT_SPEC=block`),
+  i.e. eight blocking checks in all; traceability is enforced as a required-`CRITERIA` plan-gap, the rest via
+  env toggles (`strict_mode.py`). Forces all development through every proof; explicit env vars still win. ⚙️
+  (reproduced 7/7 + 8/8 pure logic). *Note: "seven gates by v2.5.0" counts the assumption gate as composed,
+  but at v2.5.0 it was still a weak ack; per-item enforcement (`--resolve`, no blanket-accept) is v2.6.0/v2.6.1.*
 - **P1** Six standing gates: stale · resource-dups · registry · pristine · real-bug-lint · docs-drift. ✅
 - **P1** Functional/behavioral gate — live headless browser (Playwright) checks the real DOM. 🔌
 - **P1** Structural gate — asserts against generated artifact `content`. 🔌
@@ -178,11 +185,12 @@ shipped-autonomous surface.
 7. **Runs anywhere: standalone ✅ / inside your agent via MCP 🔌 / any model ✅** (I) — adoption path.
    (MCP is built + tested but not on the autonomous path yet — don't promise "run it in Claude Code today"
    as shipped-autonomous.)
-8. **Methodology enforcement stack — now 6/6, seven gates** (C) — regression-proof #1 · traceability #2 ·
-   mutation-score #3 · test-ack #4 · test-kind #5 · gate-glue #6 · assumption gate, composed by STRICT
-   (v2.1.4→v2.5.0). ⚙️ The positioning centerpiece: *the SDLC process is enforced by the build, not left to
-   discipline.* Scope guard: opt-in/STRICT-forced; comprehensiveness measured **per gated function, not
-   whole-program**; each gate is a tripwire, not a proof. See `METHODOLOGY_ENFORCEMENT_VALIDATION.md`.
+8. **Methodology enforcement stack — 6 mechanisms shipped, seven gates** (C) — regression-proof #1 ·
+   traceability #2 · mutation-score #3 · test-ack #4 (*partial oracle*) · test-kind #5 · gate-glue #6 ·
+   assumption gate, composed by STRICT (v2.1.4→v2.6.1). ⚙️ The positioning centerpiece: *the SDLC process is
+   enforced by the build, not left to discipline.* Scope guard: opt-in/STRICT-forced; comprehensiveness
+   measured **per gated function, not whole-program**; #4 is a human re-read, not a second independent author;
+   each gate is a tripwire, not a proof. See `METHODOLOGY_ENFORCEMENT_VALIDATION.md`.
 9. **No silent guessing — the two front-ends** (D) — `lathe clarify` (interrogate the goal) + the adversarial
    `assumption-auditor` (audit the spec). ✅ as advisory front-ends (Step 0 of `sdlc`); enforcement is the
    ⚙️ assumption gate that refuses the build on an unconfirmed material assumption. The sharpest answer to

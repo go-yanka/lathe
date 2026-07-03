@@ -47,7 +47,8 @@ Lathe is those habits, pointed at an LLM. Not a smarter model — a refusal to t
 
 None of the good practices are new, and you already trust them:
 
-- **Test-first (TDD).** Write the test, then the code that passes it. Kent Beck made it mainstream in 2003;
+- **Test-first (TDD).** Write the test, then the code that passes it. Kent Beck made it mainstream in 2002
+  (*Test-Driven Development: By Example*);
   every serious team says they do it.
 - **Never merge red.** Continuous integration with a required green build — no override, no "just this once."
 - **Independent review.** A second pair of eyes on every change, formalized as the pull request.
@@ -209,7 +210,8 @@ What's demonstrated, reproducibly, in this repo:
   fixed), 7 of 8 functions passed within five attempts, 6 of 8 first-try — and the one function the model
   couldn't implement was *refused five times* rather than shipped wrong. The refusal is the product.
 - **Security holds under audit:** the plan validator and the sandbox's unforgeable-verdict design survived
-  six adversarial review rounds, and the review artifacts — including every finding against us — are
+  every adversarial review round to date (this is review round 7/8; the security surface specifically was
+  stress-tested in six of them), and the review artifacts — including every finding against us — are
   committed in this repo.
 
 What's *not* yet demonstrated, so you don't have to discover it yourself:
@@ -220,8 +222,10 @@ What's *not* yet demonstrated, so you don't have to discover it yourself:
   decompose that way yet; glue is hand-written — though under STRICT it must carry an integration test or the
   build refuses (v2.2.3, #6), so "no code ships untested" holds; that's test-*existence* for glue, not the
   per-function mutation rigor. (STRICT now composes **seven gates** — regression-proof, traceability,
-  mutation-score, test-kind, gate-the-glue, the test-ack oracle, and the assumption gate — plus the two
-  front-ends, `clarify` and the assumption auditor.)
+  mutation-score, test-kind, gate-the-glue, the test-ack oracle, and the assumption gate — plus the lint
+  stub-block it also flips. Two of these are fed by *front-ends* you can also run on their own: `clarify`
+  interrogates the goal, and the assumption auditor produces the assumption gate — so the auditor is one
+  mechanism wearing two hats (the front-end and the seventh gate), not a separate eighth thing.)
 - On trivial tasks, a frontier one-shot is faster. Our own benchmark says so (41s vs 5s). Lathe buys
   verification, reproducibility, and provenance — not speed of first draft.
 

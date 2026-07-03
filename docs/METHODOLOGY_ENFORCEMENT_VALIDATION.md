@@ -20,16 +20,18 @@
 > - **Assumption gate (v2.5.0)** — `LATHE_ASSUMPTION_GATE=1`, **added to STRICT (now 7 composed gates)** —
 >   `test_assumption_gate.py` **ALL PASS** end-to-end: an adversarial `assumption-auditor` persona re-reads
 >   the spec against the goal, emits a materiality-ranked ledger of the decisions the goal never specified
->   (`lathe assume`), and the engine **refuses to build while any HIGH-materiality assumption is
->   unconfirmed**; `--confirm` unblocks; a spec change re-opens the audit (digest mismatch). **Scrutiny is
->   user-governed** (`all › high+med › high(default) › off/advisory`). Attacks the documented *silent
+>   (`lathe assume`), and the engine **refuses to build while any blocking-materiality assumption is
+>   unresolved**. *(v2.5.0 syntax: `--confirm` unblocked. Superseded in v2.6 — `--yes` blanket-accept removed,
+>   `--resolve` decides each blocker per-item; see the v2.6 banner at the top of this doc.)* A spec change
+>   re-opens the audit (digest mismatch). **Scrutiny is user-governed** (`all › high+med › high(default) ›
+>   off/advisory`). Attacks the documented *silent
 >   intent-drift* failure mode: a model fills gaps with "reasonable defaults" and, told to ask, rates its own
 >   guesses "common enough" and skips. Honest scope: a tripwire against *silent* drift, not proof of full
 >   intent capture — only HIGH blocks, materiality is a heuristic.
 > - **Together with `clarify`, this is a two-stage "no silent guessing" front-end:** clarify interrogates the
 >   *goal* up front; the assumption gate audits the *spec* for the guesses baked in while working.
 >
-> ## ✅ EARLIER — v2.4.0: the enforcement stack reached **6/6**, and a front-end (`lathe clarify`) landed.
+> ## ✅ EARLIER — v2.4.0: all **6 methodology mechanisms** now ship (#4 a partial oracle), and a front-end (`lathe clarify`) landed.
 > Reproduced on the rebased branch (2026-07-02):
 > - **#5 required test-KIND per contract** (`LATHE_TEST_KIND=1`, STRICT-forced) — `test_test_kind.py` ALL
 >   PASS + kind-detection pure logic verified. A unit whose tests lack its declared kinds (property / edge /
@@ -43,7 +45,7 @@
 >   harness thinks (step 0 of `sdlc`), writing `CLARIFIED_GOAL.md` with testable acceptance criteria. **This
 >   is the front-end answer to the "garbage-in at the spec level" objection two external reviewers raised.**
 >
-> **Scorecard: 6/6 done + STRICT umbrella + clarify front-end.** Honest scope now updated below: the
+> **Scorecard: 6 mechanisms shipped (#4 partial oracle) + STRICT umbrella + clarify front-end.** Honest scope now updated below: the
 > comprehensiveness claim is materially stronger, but keep the residual caveats (glue-gate is test-*existence*
 > for glue, not per-function mutation rigor; mutation is still a bounded tripwire; the liaison reduces spec
 > ambiguity, it doesn't guarantee the user's answers are right).
@@ -58,7 +60,9 @@ and a source grep across `engine_v2.py` + `tools/` + `qa/`. Verified 2026-07-02 
 status column re-verified against **v2.1.4** → **v2.2.0** the same day (test-ack; #2 traceability 12/12;
 #1 regression-proof 8/8 + 6/6; v2.1.7 strict/SDLC umbrella 7/7 + 8/8; **#3 mutation-score 9/9 + 17/17 pure
 logic incl. every fail-closed case**; SDLC RTM gate all-pass — all independently reproduced in fresh
-worktrees). Cross-checked by a Fable pressure-test (`GRAPHIC11_FACTCHECK.md` sibling analysis, recorded in
+worktrees, *except* the two `api.github.com`-dependent items noted below (live persona auto-fetch and the
+`ornith-9b` benchmark), which are maintainer-verified, not reviewer-run — the reviewer is sandbox-blocked on
+GitHub). Cross-checked by a Fable pressure-test (`GRAPHIC11_FACTCHECK.md` sibling analysis, recorded in
 the commit).
 
 ## What IS enforced today (the floor — verified, claimable now)
@@ -74,7 +78,12 @@ the commit).
 as *policy it can skip*; Lathe makes passing tests a *precondition on the artifact* the model can't override.
 That claim is honest today.
 
-## The comprehensiveness gap — mostly CLOSED as of v2.2.0 (was "do NOT claim yet" at v2.1.3)
+## The comprehensiveness gap — HISTORICAL (v2.1.3 → v2.2.0 narrative; superseded by the v2.6.1 state above)
+> **Read this section as history, not current status.** The version anchors below (v2.1.3, v2.2.0) and their
+> ❌/⚠️ marks describe how the gap *closed over time*; the ❌ rows for #5/#6 were true then and are **not**
+> now — both shipped (v2.2.4 / v2.2.3). For the current enforced set, see the v2.6.1 scorecard and the
+> "What STRICT composes now" enumeration above.
+
 When this doc was first written (v2.1.3), the harness enforced test *existence, passing, non-triviality* and
 **nothing** about kind or coverage — every row below was ❌ (grep → 0 source files). Over v2.1.4→v2.2.0 the
 maintainer built and I independently reproduced four of the six. Current state:
@@ -97,7 +106,7 @@ is exercised — everything else is now gated.
 that writes the code (mitigated, not eliminated, by test-ack #4-partial and by mutation-score forcing the
 suite to actually discriminate); and *glue* code past the leaf-function core is not coverage-gated (#6).
 
-## The claim, honestly scoped (UPDATED v2.4.0 — 6/6)
+## The claim, honestly scoped (UPDATED v2.6.1 — 6 mechanisms shipped, #4 partial oracle)
 CAN say (all verified): all the v2.2.0 claims below, **plus** — under STRICT — "**no code ships untested**,
 not just no function" (#6 gate-the-glue: substantive glue needs an integration test or the build refuses);
 "the **kind** of test is enforced per contract — a declared property/edge/error test that's missing is
@@ -110,7 +119,7 @@ per-function mutation-gated rigor — so "no code ships untested" is honest, but
 independent model author; and `clarify` reduces goal ambiguity — it does not guarantee the human's answers
 are correct (garbage-in is *surfaced and structured*, not eliminated).
 
-### The v2.2.0 baseline (historical — superseded by the 6/6 update above)
+### The v2.2.0 baseline (historical — superseded by the v2.6.1 scorecard above)
 CAN say (all verified): "Lathe won't ship a *function* that isn't proven by passing, non-trivial tests —
 enforced, no override"; "test **comprehensiveness is measured and gated** — a suite that can't kill the
 accepted code's mutants doesn't pin" (#3); "every **declared** acceptance criterion is covered by a named
@@ -186,17 +195,20 @@ and the ornith-9b benchmark, previously maintainer-reported, are now maintainer-
    test; until then, drop "anything" from all copy. Acceptance test: a module whose GLUE entry point has no
    integration test is flagged.
 
-**Scorecard (UPDATED v2.4.0): 6/6 DONE** — #1 regression-proof, #2 traceability, #3 mutation-score,
-**#5 required test-kind (v2.2.4)**, **#6 gate-the-glue (v2.2.3)**, plus #4 (oracle) still *partial* via
-test-ack, all composed by STRICT — and a new front-end, `lathe clarify` (requirements liaison). Superseding
-note — the historical scorecard below read *(as of v2.2.0):* **3/6 done** (#1, #2, #3),
-**1/6 partial** (#4), **2/6 open** (#5, #6). All three done mechanisms independently reproduced here (#3: 9/9 acceptance + 17/17 pure
-logic incl. every fail-closed case). **The "comprehensiveness" claim is now UNLOCKED — scoped.** Marketing
-may say *test comprehensiveness is measured and gated (mutation-score), every declared criterion is covered
-by a named test, and a change ships no fix without a reproducing test* — all verified. The remaining honest
-qualifier: comprehensiveness is measured **per gated function's test adequacy**, not whole-program — #5
-(required kind of test per contract) and #6 (glue/entry-point coverage) are still open, so keep saying
-*"the code Lathe gates is comprehensively tested"* not *"your whole system is."*
+**Scorecard (UPDATED v2.6.1): 6 mechanisms shipped, #4 a partial oracle** — #1 regression-proof (v2.1.6),
+#2 traceability (v2.1.5), #3 mutation-score (v2.2.0), #4 test-ack (v2.1.4, *partial oracle* — a human
+re-read, not a second independent author), #5 required test-kind (v2.2.4), #6 gate-the-glue (v2.2.3) —
+**plus** the assumption gate (v2.5.0; enforcing per-item as of v2.6.1), which `LATHE_STRICT=1` composes as
+the seven gates. So the honest figure is *"6 shipped, #4 partial,"* never *"6/6 done."* Superseding note —
+the historical scorecard below read *(as of v2.2.0):* **3 done** (#1, #2, #3), **#4 partial**, **#5/#6 not
+yet built**; #5 and #6 have since landed (v2.2.4 / v2.2.3) and are independently reproduced. **The
+"comprehensiveness" claim is UNLOCKED — scoped.** Marketing may say *test comprehensiveness is measured and
+gated (mutation-score), every declared criterion is covered by a named test, the required kinds of test are
+present, and a change ships no fix without a reproducing test* — all verified. The remaining honest
+qualifier: comprehensiveness is measured **per gated function's test adequacy**, not whole-program — under
+STRICT even hand-written glue must carry an integration test (#6), but that's *test-existence for glue*, not
+per-function mutation rigor, so keep saying *"the code Lathe gates is comprehensively tested, and no code
+ships wholly untested"* not *"your whole system is comprehensively tested."*
 
 ### Strict / SDLC mode — the composition layer (v2.1.7, independently reproduced)
 `LATHE_STRICT=1` composes the enforcement stack into a single SDLC umbrella rather than adding a new
@@ -211,11 +223,18 @@ implementer stub) plus **8/8** on the pure policy logic directly. The load-beari
 strict, a **no-proof *enhancement* is REFUSED** (regression-proof is no longer bug-fix-only), the three
 refusal paths (no-CRITERIA / un-acked / stub-satisfiable) are model-free, and flag-off is a no-op. This
 lets a team claim, honestly: *"following the SDLC process is enforced by the build, not left to
-discipline"* — for the mechanisms that are actually built. **As of v2.2.0 strict also composes #3** —
-`strict_defaults` now adds `LATHE_MUTATION_SCORE=0.5` alongside test-ack/regression-proof/lint-block
-(verified in `tools/strict_mode.py`). So STRICT now forces #1 + #2 + #3 + #4-partial together. It still
-does not reach *whole-program* comprehensiveness (#5 kind-of-test and #6 glue-coverage are outside the
-composition), so the SDLC claim covers the gated leaf-function core, not glue/entry-points.
+discipline"* — for the mechanisms that are actually built.
+
+**What STRICT composes now (v2.6.1, enumerated once — verified in `tools/strict_mode.py`).** `strict_defaults`
+flips seven env toggles — `LATHE_TEST_ACK` (#4), `LATHE_REGRESSION_PROOF` (#1), `LATHE_LINT_SPEC=block`
+(the mutation-probe stub-block), `LATHE_MUTATION_SCORE=0.5` (#3), `LATHE_GATE_GLUE` (#6), `LATHE_TEST_KIND`
+(#5), `LATHE_ASSUMPTION_GATE` — and separately requires declared `CRITERIA` (#2 traceability) via
+`strict_plan_gaps`. That's the **seven methodology gates (#1–#6 + assumption gate) plus the lint stub-block**:
+eight blocking checks, with traceability enforced as a plan-gap requirement rather than a toggle. It still
+does not reach *whole-program* comprehensiveness — glue is gated for *test-existence* (#6), not per-function
+mutation rigor — so the SDLC claim covers the gated leaf-function core plus glue coverage, not entry-point or
+whole-system correctness. (Historical note: the pre-v2.4 text here described STRICT as composing only
+#1+#2+#3+#4; #5, #6, and the assumption gate were added to the composition in v2.2.4, v2.2.3, and v2.5.0.)
 
 ## Go-forward gate (the reflexive rule)
 - The **floor** claim: verified since v2.1.3, ship freely.
