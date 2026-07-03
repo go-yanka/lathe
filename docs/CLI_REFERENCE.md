@@ -162,7 +162,7 @@ LATHE_STRICT=1 LATHE_ASSUMPTION_POLICY=high+med lathe build plans/H_widget.py
 | `LOCAL_OPENAI_URL` | **Implementer** endpoint when the model is `openai:local` (llama.cpp / vLLM / LM Studio). Maps from config `implementer.url`. | `http://127.0.0.1:8089/v1/chat/completions` |
 | `OLLAMA_URL` | Ollama endpoint when the implementer is a bare Ollama model name. | `http://localhost:11434` |
 | `LOCAL_OPENAI_MAXTOK` | Max tokens requested from the local implementer. | `16384` |
-| `LOCAL_GEN_TIMEOUT` | Timeout (s) for one local-implementer generation. | `900` |
+| `LOCAL_GEN_TIMEOUT` | Timeout (s) for one local-implementer generation. | `900` (openai) · `300` (ollama) |
 | `CLAUDE_TIMEOUT` | Timeout (s) for an analyst-endpoint request. | `600` |
 | `CLAUDE_RETRIES` | Retry attempts on an analyst-endpoint failure. | `2` |
 | `LATHE_TRIES` | Repair-loop attempt budget per plan. | `3` |
