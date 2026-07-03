@@ -318,8 +318,11 @@ assumption-auditor). All v2.5/v2.6 infographic work is complete:*
 - **NO CHANGE — still accurate:** #01–#04, #06–#12, #14, #15, #16. (None assert a gate count; they describe
   the loop, division of labour, strengths, determinism, provenance chain, safety spine, interop, persona
   library — all unchanged by v2.2.3 → v2.6.2.)
-- **Optional enhancement (needs a fresh render):** **#03 "strengths"** could gain a 6th tile "no silent
-  guessing" (clarify + assumption gate) — not stale, just upside. Prompt available on request.
+- **✅ #03 "Why Lathe is trustworthy"** — regenerated to **6 tiles**, adding "NO SILENT GUESSING" (clarify +
+  assumption gate) alongside test-gated / pinned / no-hand-edits / local-or-any / provenance. Verified.
+- **✅ #19 `19_method_overview.png` (NEW hero)** — single-canvas summary: the five-stage pipeline
+  (GOAL → ANALYST → LOCAL MODEL → GATE → PINNED) + red fail→spec loop + the seven-gate ENFORCE band with a
+  merged `test-kind (property · edge · error)` chip. Verified. Intended as the lead image.
 
 *Priority order to hand to Nano Banana: #18 (the trust headline — assumption gate is the newest, strongest
 beat) → #17 (its front-end twin) → #13 (regenerate to seven gates) → #00 (regenerate the map). #17/#18
