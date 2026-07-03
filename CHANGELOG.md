@@ -2,6 +2,30 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.8.1 — 2026-07-03
+
+**PR #1 capstone-review — 4 code-side findings fixed** (independent reviewer, cross-adjudicated; none refuted):
+- **#1 `mutation_equiv.equivalent_over_samples` was unsound as a mutation-gate input.** Two defects fixed
+  through the harness: (a) two functions are now equivalent ONLY when they agree on a real **value** over the
+  probe sample — error-agreement alone (a mutant that merely raises) no longer counts; (b) the equality oracle
+  is **value equality**, not `repr()`, so dict key-ordering / object identity no longer cause false
+  non-equivalence. Verified: both-raise → False, dict-order → True, real equivalent mutant → True.
+- **#2 INTEGRATION runner inherited the full env** (`engine_v2.py`): the plan-authored integration test now
+  runs with the **same secret-denylist scrub** as `_func_test` (previously only the functional path scrubbed).
+- **#3 docker sandbox** (`sandbox.py`): the container is now **named and `docker kill`ed on timeout** (the
+  `docker run` client dying didn't stop the container — a runaway kept burning CPU); and the docker→subprocess
+  **downgrade now warns loudly** instead of silently weakening isolation. (Docker runtime verification needs a
+  daemon — not run here; static fix only.)
+- **#4 REST API** (`lathe_api.py`): the build subprocess **no longer inherits `LATHE_API_TOKEN`** or any
+  secret-hinted var (denylist scrub); a gate **refusal** is now `status:done`+`build_ok:false` (not `failed`,
+  which is reserved for a job error) — matching `API.md`; the jobs dict is **bounded** (200, oldest evicted);
+  and a value-less `--bind` no longer `IndexError`s.
+
+Note: `mutation_equiv` rebuilt with the correctness gates (test-ack + regression-proof + lint + test-kind, 26
+tests); the mutation-score-on-this-meta-function itself doesn't clear 0.5 with the local model (some survivors
+are plausibly equivalent mutants — fittingly), so it isn't self-mutation-gated. `engine_v2`/`sandbox`/
+`lathe_api`/`lathe.py` are hand-maintained CORE_INFRA per doctrine. API + mutation-equiv acceptance tests green.
+
 ## v2.8.0 — 2026-07-03
 
 **REST/HTTP API (v0)** — the PR#1 reviewer's proposal, built full per owner direction (a web dashboard is on

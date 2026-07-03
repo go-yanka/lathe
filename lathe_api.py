@@ -34,13 +34,18 @@ _ENV_ALLOW = {"LATHE_STRICT", "LATHE_ASSUMPTION_POLICY", "LATHE_TEST_KIND", "LAT
 _JOBS = {}                          # job_id -> {"status":..., "result":...}
 _JOBS_LOCK = threading.Lock()
 _JOB_SEQ = [0]
+_JOBS_MAX = 200                     # bound the in-memory job history (oldest evicted)
+
+
+_SECRET_HINT = ("secret", "token", "key", "password", "passwd", "api", "cred")   # incl. LATHE_API_TOKEN ("api"/"token")
 
 
 def _run_json(argv, extra_env=None):
-    """Run a lathe CLI subprocess, return (rc, stdout)."""
-    env = dict(os.environ)
+    """Run a lathe CLI subprocess, return (rc, stdout). The child NEVER inherits the API token or any
+    secret-hinted var (PR#1 v2.8.0 #4a) — only the allow-listed request overrides are added back."""
+    env = {k: v for k, v in os.environ.items() if not any(h in k.lower() for h in _SECRET_HINT)}
     if extra_env:
-        env.update(extra_env)
+        env.update({k: str(v) for k, v in extra_env.items()})
     r = subprocess.run([PY, os.path.join(ROOT, "lathe.py")] + argv, cwd=ROOT, capture_output=True,
                        text=True, encoding="utf-8", errors="replace",
                        timeout=int(os.environ.get("LATHE_RUN_TIMEOUT", "0")) or None, env=env)
@@ -68,7 +73,9 @@ def _build_job(job_id, kind, value, extra_env):
             import re
             m = re.search(r"===METRICS_JSON_BEGIN===\s*(\{.*?\})\s*===METRICS_JSON_END===", out, re.S)
             result = json.loads(m.group(1)) if m else {"build_ok": rc == 0, "output": out[-2000:]}
-        status = "done" if result.get("build_ok") else "failed"
+        # PR#1 v2.8.0 #4b: the JOB ran to completion -> status 'done'. Whether the GATE passed is result.build_ok
+        # (done + build_ok:false = built-but-refused). 'failed' is reserved for an actual job error (the except).
+        status = "done"
     except Exception as e:
         result, status = {"build_ok": False, "error": str(e)}, "failed"
     with _JOBS_LOCK:
@@ -159,6 +166,8 @@ class Handler(BaseHTTPRequestHandler):
                 _JOB_SEQ[0] += 1
                 jid = "job_%d" % _JOB_SEQ[0]
                 _JOBS[jid] = {"status": "queued"}
+                while len(_JOBS) > _JOBS_MAX:                    # PR#1 v2.8.0 #4c: bound the jobs dict (evict oldest)
+                    _JOBS.pop(next(iter(_JOBS)))
             threading.Thread(target=_build_job, args=(jid, kind, value, extra_env), daemon=True).start()
             return self._send(202, {"job_id": jid, "status": "queued"})
 
@@ -183,6 +192,9 @@ def serve(bind="127.0.0.1", port=None):
 
 if __name__ == "__main__":
     _bind = "127.0.0.1"
-    if "--bind" in sys.argv:
-        _bind = sys.argv[sys.argv.index("--bind") + 1]
+    if "--bind" in sys.argv:                                    # PR#1 v2.8.0 #4d: guard a value-less --bind
+        _i = sys.argv.index("--bind")
+        if _i + 1 >= len(sys.argv):
+            sys.exit("lathe-api: --bind needs a value (e.g. --bind 0.0.0.0)")
+        _bind = sys.argv[_i + 1]
     serve(bind=_bind)

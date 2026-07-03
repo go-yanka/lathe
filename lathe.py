@@ -827,8 +827,15 @@ def cmd_serve(args):
     (`LATHE_API_TOKEN`), binds 127.0.0.1 by default; `--bind 0.0.0.0` additionally requires a docker sandbox.
     Every endpoint wraps the SAME gated engine path — no gate is weakened. See API.md."""
     import importlib.util
-    bind = args[args.index("--bind") + 1] if "--bind" in args else "127.0.0.1"
-    port = args[args.index("--port") + 1] if "--port" in args else None
+    def _flagval(flag, default):                               # guard a value-less --bind/--port (PR#1 v2.8.0 #4d)
+        if flag in args:
+            i = args.index(flag)
+            if i + 1 < len(args):
+                return args[i + 1]
+            print("serve: %s needs a value" % flag); return None
+        return default
+    bind = _flagval("--bind", "127.0.0.1")
+    port = _flagval("--port", None)
     spec = importlib.util.spec_from_file_location("lathe_api", os.path.join(ROOT, "lathe_api.py"))
     api = importlib.util.module_from_spec(spec)
     try:

@@ -986,7 +986,11 @@ if _intg and (not plan.FUNCTIONS or passed == len(plan.FUNCTIONS)):
     _refuse_if_foreign(_itestpath)
     _atomic_write(_itestpath, _LATHE_MARK + "\n" + _intg)
     try:
-        r = subprocess.run([sys.executable, _itest_name], cwd=out_dir,
+        # PR#1 v2.8.0 #2: the INTEGRATION test is plan-authored code too — scrub the harness's secrets from its
+        # env, same denylist as _func_test above (previously this path inherited the full parent env).
+        _ihint = ("secret", "token", "key", "password", "passwd", "api", "cred")
+        _ienv = {k: v for k, v in os.environ.items() if not any(h in k.lower() for h in _ihint)}
+        r = subprocess.run([sys.executable, _itest_name], cwd=out_dir, env=_ienv,
                            capture_output=True, text=True, timeout=int(os.environ.get("ITEST_TIMEOUT","360")))
         integration = ("PASS  :: " + r.stdout.strip()) if r.returncode == 0 \
                       else ("FAIL\n" + (r.stdout + r.stderr)[:800])

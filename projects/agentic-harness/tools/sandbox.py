@@ -124,6 +124,10 @@ def run_unit(header, code, tests, timeout=30):
             return _run_docker_ssh(pf.name, timeout)     # container on a remote host (the rig has docker; this box may not)
         if mode == "docker" and _docker_available():
             return _run_docker(pf.name, timeout)
+        if mode == "docker":                                 # PR#1 v2.8.0 #3: don't downgrade SILENTLY
+            sys.stderr.write("sandbox: WARNING — LATHE_SANDBOX=docker but the docker daemon is unavailable; "
+                             "DOWNGRADING to subprocess isolation (weaker for untrusted plans). Fix docker, "
+                             "use docker-ssh, or set LATHE_SANDBOX=subprocess deliberately.\n")
         return _run_isolated([sys.executable, os.path.abspath(__file__), "--child"], pf.name, timeout)
     finally:
         try:
@@ -146,7 +150,8 @@ def _run_docker(payload_path, timeout):
     import secrets
     nonce = secrets.token_hex(16)
     here = os.path.abspath(__file__)
-    argv = ["docker", "run", "--rm", "-i", "--network", "none", "--read-only", "--tmpfs", "/tmp",
+    cname = "lathe_sb_" + nonce[:16]                          # PR#1 v2.8.0 #3: named so a timeout can KILL it
+    argv = ["docker", "run", "--rm", "-i", "--name", cname, "--network", "none", "--read-only", "--tmpfs", "/tmp",
             "--memory", "512m", "--pids-limit", "128",
             "-v", "%s:/sb/sandbox.py:ro" % here, "-v", "%s:/sb/payload.json:ro" % payload_path,
             "-e", "LATHE_SANDBOX_PAYLOAD=/sb/payload.json", "-e", "LATHE_SANDBOX=0",
@@ -154,7 +159,13 @@ def _run_docker(payload_path, timeout):
     try:
         p = subprocess.run(argv, input=nonce + "\n", capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
-        return False, "docker sandbox timeout (%ss)" % timeout
+        # the `docker run` CLIENT was killed by the timeout, but the CONTAINER keeps running — kill it explicitly
+        # (a runaway function would otherwise burn CPU past the deadline). --rm then reaps it.
+        try:
+            subprocess.run(["docker", "kill", cname], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+        except Exception:
+            pass
+        return False, "docker sandbox timeout (%ss) — container killed" % timeout
     return _parse_result(p.stdout, p.stderr, nonce)
 
 
