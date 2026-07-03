@@ -177,13 +177,28 @@ move the discipline from advice to enforcement:
 - **Mutation-score.** Before code is pinned, Lathe mutates it (flip a `+` to a `-`, a `<` to a `<=`) and
   checks that your tests *notice*. A suite that can't tell the real code from a broken copy doesn't pin.
 
-Flip all three on at once with `LATHE_STRICT=1` and every change runs the full gauntlet. The thing you get is
-not "the AI is trustworthy." It's better and smaller: **the process is enforced by the build, so the kind and
-thoroughness of testing don't depend on anyone's discretion at deadline.**
+Those three were the start. Since then the stack has grown, and `LATHE_STRICT=1` composes all of them:
 
-![The methodology, enforced by the build: three gates a change must pass](infographics/13_methodology_enforced.png)
-*Three gates, composed by `LATHE_STRICT=1`: traceability, regression-proof, mutation-score. A change passes
-all three or it doesn't pin. Read the fine print at the bottom — it's there on purpose.*
+- **Required test-kind.** A function can declare the *kinds* of test its contract needs — a property, an
+  edge case, an error path — and the build refuses if the suite is missing one. "There are tests" becomes
+  "there are the *right* tests," checked structurally before a token is spent.
+- **Gate-the-glue.** The one thing the earlier gates left uncovered was hand-written glue. Turn this on and
+  substantive glue must be exercised by an integration test, or the build refuses — so under STRICT, no code
+  ships untested, not just the generated leaves.
+- **Assumption gate.** Before it builds, an adversarial auditor re-reads the spec against your goal and lists
+  the decisions the goal never made — encoding, rounding, ordering, empty-input — and the build refuses while
+  any *material* one is unconfirmed. You confirm them; changing the spec re-opens the audit. It's the answer
+  to the model's worst habit: filling a gap with a "reasonable default" and never telling you.
+
+Flip them all on at once with `LATHE_STRICT=1` — now **seven gates** — and every change runs the full
+gauntlet. The thing you get is not "the AI is trustworthy." It's better and smaller: **the process is
+enforced by the build, so the kind and thoroughness of testing don't depend on anyone's discretion at
+deadline.**
+
+![The methodology, enforced by the build: the gates a change must pass](infographics/13_methodology_enforced.png)
+*The gates composed by `LATHE_STRICT=1`: traceability, regression-proof, mutation-score, test-ack,
+test-kind, gate-the-glue, and the assumption gate. A change passes them all or it doesn't pin. Read the fine
+print at the bottom — it's there on purpose.*
 
 Now the honesty, because this is where most tools lie and it's where you should judge us. The mutation gate is
 a **bounded tripwire for vacuous tests** — a small set of mutation operators, capped per function, with
@@ -235,8 +250,9 @@ gate makes the code trustworthy: the value is in what it's willing to refuse.
 Three concrete reasons, in rough order of who they're for.
 
 - **You're a builder who wants reproducible AI code.** Clone it, run `lathe verify` on an example, watch the
-  pins replay at zero tokens. Break a spec's test on purpose and watch the gate refuse five times while the
-  analyst sharpens the spec. The whole loop is legible.
+  pins replay at zero tokens. Break a spec's test on purpose and watch the gate refuse — and keep refusing,
+  while the analyst sharpens the spec, until it either passes or (Rule-of-Three) escalates to you. The whole
+  loop is legible.
 - **You answer to auditors.** Your AI-generated code currently has no provenance; nobody can say how a line
   was produced or what it passed. Every Lathe-built function carries requirement → spec → test → gate → model
   → hash, machine-generated at build time. When the compliance questions land, that's the artifact.

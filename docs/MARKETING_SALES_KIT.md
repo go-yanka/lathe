@@ -17,14 +17,19 @@ which every working dev knows — not on obscure 1980s methods. See `GRAPHIC11_F
 
 **One-liner:** Stop chatting with the AI. Build with it.
 
-**Now sayable (as of v2.2.1 — verified, cleared in `METHODOLOGY_ENFORCEMENT_VALIDATION.md`):** *test
-comprehensiveness is measured and gated, not assumed.* Three enforcement gates — requirement→test
-traceability, a bug fix must ship a test that fails on the old code, and a mutation-score that rejects a
-suite that can't tell the code from a broken copy — composed by `LATHE_STRICT=1`. **Mandatory scope clause,
-always attach it:** the mutation gate is *"a bounded tripwire for vacuous tests (small operator set, capped
-per function, equivalent mutants excluded), not exhaustive coverage"*, and it gates *each function, not your
-whole system* (glue stays ungated). Say "the code Lathe gates is comprehensively tested," never "your whole
-system is."
+**Now sayable (as of v2.5.1 — verified, cleared in `METHODOLOGY_ENFORCEMENT_VALIDATION.md`):** *test
+comprehensiveness is measured and gated, not assumed — and the build won't guess silently.* Six enforcement
+disciplines, composed by `LATHE_STRICT=1` into **seven gates**: requirement→test traceability; a bug fix
+must ship a test that fails on the old code (regression-proof); a mutation-score that rejects a suite that
+can't tell the code from a broken copy; a human test-ack; a required *kind* of test per contract
+(property/edge/error); gate-the-glue (substantive hand-written glue must carry an integration test); and an
+assumption gate that refuses to build while a material silent assumption is unconfirmed. **Mandatory scope
+clause, always attach it:** the mutation gate is *"a bounded tripwire for vacuous tests (small operator set,
+capped per function, equivalent mutants excluded), not exhaustive coverage"*; comprehensiveness is measured
+*per gated function, not whole-program*. Under STRICT even glue is no longer ungated — but that's a
+*test-existence* check (glue must be exercised by an integration test), not per-function mutation rigor. Say
+"the code Lathe gates is comprehensively tested, and no code ships wholly untested," never "your whole system
+is comprehensively tested."
 
 **Tagline bank** (pick per surface, don't use all):
 - You'd never hand-patch a compiler's output. Hold AI code to the same contract.
@@ -33,6 +38,7 @@ system is."
 - Same spec, same code, every time.
 - Your tests are the language. The code is a build artifact.
 - Delete the generated code. It comes back, gated.
+- It refuses to build on a guess it didn't check with you. *(the v2.5 front-ends — clarify + assumption gate)*
 
 *Retired (do not use): "Discipline used to be expensive. Now it compiles." — the underlying "these
 disciplines died / developers never tested their own code" premise is false; a skeptical engineer will
@@ -51,8 +57,8 @@ fix the spec. It's make and a lockfile for the LLM era."
 
 **2 minutes (add):** the no-escalation repair loop (failures sharpen the spec — which is also why the
 specs end up readable by humans); the pristine-tree gates (one canonical implementation per capability, so
-an AI agent never patches the wrong copy); provenance by construction (every line traces to spec + tests +
-model + hash); runs standalone, inside Claude Code/Cursor via MCP, or embedded; any model in either role,
+an AI agent never patches the wrong copy); provenance by construction (every *gated function* traces to
+spec + tests + model + hash — glue is hand-written and marked as such); runs standalone, inside Claude Code/Cursor via MCP, or embedded; any model in either role,
 local by default. Close with the honest bit: "On easy tasks a frontier one-shot is faster — our own
 benchmark says so. You buy verification, reproducibility, and provenance, not speed of first draft."
 
@@ -77,7 +83,7 @@ our plan corpus and the ledger tells you your first-pass rate. Free per token, p
 
 **The CTO** (lead with risk, close with the metric):
 "Half your engineers distrust AI output and the other half ship it unreviewed. We make the machine hold
-the review line: nothing merges red, everything reproduces, every line has provenance. Ask any vendor one
+the review line: nothing merges red, everything reproduces, every gated function has provenance. Ask any vendor one
 question: *what fraction of your generated code carries a verifiable acceptance record?* Our answer is
 100% by construction. Everyone else's is zero."
 
@@ -88,7 +94,8 @@ question: *what fraction of your generated code carries a verifiable acceptance 
    "The code was never the source."
 3. Now evict the cache and **cold-rebuild**: every function regenerates on the model and re-passes its
    gate, live. "Different bytes, same contract — and the gate decides, not the model's confidence."
-4. Break a spec's test on purpose. Watch the gate refuse five times and the analyst sharpen the spec.
+4. Break a spec's test on purpose. Watch the gate refuse and the analyst sharpen the spec — up to three
+   tries, then it escalates to you (Rule-of-Three) rather than brute-forcing.
    **"The pitch isn't that it writes code. The pitch is that it refuses wrong code."**
 5. Close on the ledger: `lathe metrics summary` + the pin file. "This is your provenance record and, later,
    your model benchmark and your fine-tuning dataset. It's exhaust — you get it for building the right way."

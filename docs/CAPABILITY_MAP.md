@@ -179,8 +179,10 @@ shipped-autonomous surface.
    discipline.* Scope guard: opt-in/STRICT-forced; comprehensiveness measured **per gated function, not
    whole-program**; each gate is a tripwire, not a proof. See `METHODOLOGY_ENFORCEMENT_VALIDATION.md`.
 9. **No silent guessing — the two front-ends** (D) — `lathe clarify` (interrogate the goal) + the adversarial
-   `assumption-auditor` (audit the spec). ⚙️ The sharpest answer to "the AI just confidently does the wrong
-   thing." Honest scope: surfaces/structures ambiguity, doesn't guarantee the human's answers are right.
+   `assumption-auditor` (audit the spec). ✅ as advisory front-ends (Step 0 of `sdlc`); enforcement is the
+   ⚙️ assumption gate that refuses the build on an unconfirmed material assumption. The sharpest answer to
+   "the AI just confidently does the wrong thing." Honest scope: surfaces/structures ambiguity, doesn't
+   guarantee the human's answers are right.
 
 ## Infographic set — grounded in the prioritized buckets
 A constructive, trustworthy, intuitive set. Each maps to buckets/flagships above; each states status honestly

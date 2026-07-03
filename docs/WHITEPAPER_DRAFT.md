@@ -195,7 +195,7 @@ embarrassing number and make it climb than pretend. Track ours in the repo.
 ## 7. Evidence — and the limits, stated against interest
 
 ![The methodology, enforced by the build](infographics/13_methodology_enforced.png)
-*Three of the seven enforcement gates — traceability, regression-proof, mutation-score (also: test-kind, gate-the-glue, test-ack, assumption gate) — composed by `LATHE_STRICT=1`.
+*The seven enforcement gates — traceability, regression-proof, mutation-score, test-ack, test-kind, gate-the-glue, and the assumption gate — composed by `LATHE_STRICT=1`.
 The bottom band states the scope against interest: a bounded tripwire, per function, not whole-system.*
 
 What's demonstrated, reproducibly, in this repo:
