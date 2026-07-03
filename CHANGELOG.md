@@ -2,6 +2,18 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.5.1 — 2026-07-02
+
+**Docs completeness for the assumption gate + dogfood proof.** Swept *every* narrative doc so the assumption
+gate is reflected consistently: LATHE_GUIDE (seven gates + `lathe assume` in the CLI table), PERSONAS (new
+"purpose-built workflow personas" section documenting `requirements-liaison` **and** `assumption-auditor` —
+previously the persona doc covered neither), README (`sdlc` row now shows the assumption-audit step),
+WHITEPAPER (strict-rigor paragraph now names the adversarial auditor + user-governed scrutiny). No code change.
+- **Dogfood verified end-to-end with the *real* auditor** (not the mock): `lathe assume` on the assumption
+  plan itself surfaced 7 real unstated assumptions (4 HIGH) in its own spec; after confirming them the full
+  `LATHE_STRICT=1` build ran with `LATHE_ASSUMPTION_GATE=1` **active** and passed. The block-when-unconfirmed
+  path was separately proven (engine refuses pre-generation). `ASSUMPTIONS.md` gitignored (per-audit artifact).
+
 ## v2.5.0 — 2026-07-02
 
 **Assumption gate — surface the LLM's silent guesses before they ship** (owner idea). The known failure

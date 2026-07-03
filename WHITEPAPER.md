@@ -187,9 +187,11 @@ Three plain reasons, and the research happens to back each one:
    problem* in the literature; a real test is a blunt, effective answer.) And because a test is only as
    honest as it is strong, a strict mode makes the *rigor* non-optional: a change must ship a test that
    fails on the old code, trivial mutants of the accepted code must be killed, declared test kinds
-   (property/edge) are required, and every acceptance criterion must map to a named test. Honest scope:
-   these bound *test quality per gated function* — a tripwire against vacuous tests, not a proof of
-   whole-program correctness.
+   (property/edge) are required, every acceptance criterion must map to a named test, and — because the goal
+   itself is often underspecified — an adversarial auditor surfaces the choices the goal never stated so the
+   consequential ones are confirmed, not silently guessed (scrutiny is user-governed). Honest scope: these
+   bound *test quality and stated intent per gated function* — a tripwire against vacuous tests and silent
+   assumptions, not a proof of whole-program correctness.
 3. **A lockfile makes a build reproducible.** Nothing exotic — it's how every package manager already
    works.
 

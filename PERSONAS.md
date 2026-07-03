@@ -16,6 +16,16 @@ The full inventory is `projects/agentic-harness/agents/catalog.json` (143 entrie
 gate**: auto-fetch only for MIT/Apache/BSD/ISC/Unlicense/CC0 (`agent_router.license_ok`, fail-closed).
 A persona is prompt text — **LLM-independent**: it injects into whatever endpoint you configured.
 
+## Purpose-built workflow personas (not part of the 143-reviewer market)
+
+Two personas are authored by Lathe for specific pipeline stages rather than selected by the decider — they
+run at fixed points, not by match score:
+
+| Persona | Runs at | Job |
+|---|---|---|
+| **`requirements-liaison`** (`ce_personas/requirements-liaison.md`) | `lathe clarify` / step 0 of `sdlc` | *Interrogates the user* for clarity before any design — inputs/outputs/success/constraints/edge/non-goals — offering selectable options with a default. Writes `CLARIFIED_GOAL.md`. Does not design or implement. |
+| **`assumption-auditor`** (`ce_personas/assumption-auditor.md`) | `lathe assume` (pre-build gate) + advisory at `clarify` | *Adversarially* re-reads the spec against the goal and emits a materiality-ranked ledger of the choices the goal never specified; the gate blocks the build until the HIGH-materiality ones are confirmed (scrutiny is user-governed). Does not design or implement. |
+
 ## Buckets — when to invoke which (organized library)
 
 Every one of the 143 agents is tagged with a **when-to-invoke bucket** (`persona_market.bucket_of`, a

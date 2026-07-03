@@ -67,7 +67,7 @@ the automatable steps, halting on failure. Definitions are data in `projects/age
 | `enhancement` | Scope (vendor-don't-fork) → build **through** the harness → integrate → review → document → release. |
 | `doc-review` | Coherence/accuracy review + the docs-drift gate (every command documented with an example). |
 | `new-project` | Vendor Lathe → configure endpoints → verify → land the first gated build. |
-| `sdlc` | **The full process, enforced**: RTM-gated requirements (UC→BR→FR→TS) → criteria-mapped plan → STRICT build → trace matrix → review. |
+| `sdlc` | **The full process, enforced**: RTM-gated requirements (UC→BR→FR→TS) → criteria-mapped plan → assumption audit → STRICT build → trace matrix → review. |
 
 ```
 $ python lathe.py flow bug-fix        # show the steps
