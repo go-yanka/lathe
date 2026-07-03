@@ -89,7 +89,15 @@
   .reveal.in{opacity:1; transform:none;}
   @media (prefers-reduced-motion:reduce){ html{scroll-behavior:auto} .reveal{opacity:1;transform:none;transition:none} .rule>i{transition:none} }
   /* Print/PDF: scroll-reveal never fires without a live viewport, so force all content visible (else dark panels print as black boxes). */
-  @media print{ .reveal{opacity:1 !important; transform:none !important} .rule{display:none} }
+  @media print{
+    .reveal{opacity:1 !important; transform:none !important}
+    .rule{display:none}
+    /* Keep each problem block, figure, and card whole across page breaks. */
+    .prob, .fig, .side, .b, figure{ break-inside:avoid; page-break-inside:avoid; }
+    .fig img, img{ break-inside:avoid; page-break-inside:avoid; max-width:100%; height:auto; }
+    .plist li{ break-inside:avoid; page-break-inside:avoid; }
+    h1,h2,h3,.q,.head,.eyebrow{ break-after:avoid; page-break-after:avoid; break-inside:avoid; page-break-inside:avoid; }
+  }
 </style>
 
 <div class="rule" aria-hidden="true"><i id="prog"></i></div>
