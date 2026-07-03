@@ -70,6 +70,9 @@ REGISTRY = [
     # --- trust / safety (advanced; loosen guards deliberately) ---
     ("LATHE_TRUST_PLAN", "trust", "allow OUT_DIR outside the tree (dangerous)", "off"),
     ("LATHE_TRUST_REMOTE_ANALYST", "trust", "open the non-local analyst SSRF guard", "off"),
+    # --- REST API (lathe serve / lathe_api.py) ---
+    ("LATHE_API_TOKEN", "api", "bearer token the REST API requires (no token = server refuses to start)", "—"),
+    ("LATHE_API_PORT", "api", "port the REST API binds", "8799"),
 ]
 
 # Internal/forced vars — read by the code but NOT user-facing; excluded from `lathe env` and the drift gate.

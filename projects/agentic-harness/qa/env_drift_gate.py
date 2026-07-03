@@ -32,7 +32,7 @@ def main(argv):
     except Exception as e:
         print("env_drift_gate: dependencies unavailable (%s) — SKIPPED" % e); return 0
 
-    files = [os.path.join(ROOT, "lathe.py"), os.path.join(ROOT, "engine_v2.py")]
+    files = [os.path.join(ROOT, f) for f in ("lathe.py", "engine_v2.py", "lathe_api.py", "lathe_mcp.py")]
     files += sorted(glob.glob(os.path.join(INNER, "tools", "*.py")))
     files = [f for f in files if os.path.exists(f)]
     if not files:

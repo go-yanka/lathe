@@ -821,6 +821,24 @@ def cmd_lint_spec(args):
     return 1 if bad else 0
 
 
+def cmd_serve(args):
+    """Start the opt-in local REST API (lathe_api.py) — for NON-agent consumers (a web dashboard, a
+    language-agnostic service, CI-over-HTTP). Agents already have MCP. Bearer-token auth is required
+    (`LATHE_API_TOKEN`), binds 127.0.0.1 by default; `--bind 0.0.0.0` additionally requires a docker sandbox.
+    Every endpoint wraps the SAME gated engine path — no gate is weakened. See API.md."""
+    import importlib.util
+    bind = args[args.index("--bind") + 1] if "--bind" in args else "127.0.0.1"
+    port = args[args.index("--port") + 1] if "--port" in args else None
+    spec = importlib.util.spec_from_file_location("lathe_api", os.path.join(ROOT, "lathe_api.py"))
+    api = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(api)
+    except Exception as e:
+        print("serve: API unavailable (%s)" % e); return 1
+    api.serve(bind=bind, port=port)
+    return 0
+
+
 def cmd_env(args):
     """The canonical ENVIRONMENT-VARIABLE surface (PR#1 CLI-review #1). `lathe env` prints every env var the
     harness recognizes — grouped, with role + default — from the single source of truth `env_catalog.py`.
@@ -1674,7 +1692,7 @@ def main(argv):
         "metrics": cmd_metrics, "plans": cmd_plans, "dups": cmd_dups, "whatis": cmd_whatis,
         "clean": cmd_clean, "wait": cmd_wait, "resume": cmd_resume, "waiting": cmd_waiting,
         "report": cmd_report, "issues": cmd_issues, "logs": cmd_logs, "lint-spec": cmd_lint_spec,
-        "flow": cmd_flow, "map": cmd_map, "env": cmd_env, "checkin": cmd_checkin, "agent": cmd_agent, "ack": cmd_ack, "trace": cmd_trace, "sdlc": cmd_sdlc, "clarify": cmd_clarify, "assume": cmd_assume,
+        "flow": cmd_flow, "map": cmd_map, "env": cmd_env, "serve": cmd_serve, "checkin": cmd_checkin, "agent": cmd_agent, "ack": cmd_ack, "trace": cmd_trace, "sdlc": cmd_sdlc, "clarify": cmd_clarify, "assume": cmd_assume,
     }
     if cmd in table:
         return table[cmd](rest)

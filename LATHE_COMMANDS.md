@@ -202,6 +202,20 @@ spec_lint.py:
   function lint_plan(plan_path)
 ```
 
+### `lathe serve [--bind <addr>] [--port <n>]`
+Start the **opt-in local REST API** (`lathe_api.py`) — for NON-agent consumers (a web dashboard/UI,
+language-agnostic services, CI-over-HTTP). Agents already have the full surface via **MCP**; this is the
+HTTP surface. Requires `LATHE_API_TOKEN` (no token ⇒ refuses to start); binds `127.0.0.1` by default
+(`--bind 0.0.0.0` additionally requires a docker sandbox). Every endpoint wraps the **same gated engine
+path** — no gate is weakened; builds are async jobs whose result is the `lathe build --json` object.
+Full endpoint + security reference: **`API.md`**.
+```
+$ export LATHE_API_TOKEN=$(openssl rand -hex 16)
+$ python lathe.py serve
+lathe-api: listening on http://127.0.0.1:8799/v1  (bearer-token auth required)
+$ curl -s localhost:8799/v1/plans -H "Authorization: Bearer $LATHE_API_TOKEN"
+```
+
 ### `lathe env`
 The **canonical environment-variable surface** — every var the harness recognizes, grouped, with role +
 default, from the single source of truth `env_catalog.py`. A `(set)` marker shows which are currently exported.

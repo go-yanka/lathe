@@ -2,6 +2,25 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.8.0 — 2026-07-03
+
+**REST/HTTP API (v0)** — the PR#1 reviewer's proposal, built full per owner direction (a web dashboard is on
+the roadmap). An **opt-in, local-first** surface for NON-agent consumers (dashboard/UI, language-agnostic
+services, CI-over-HTTP); agents keep MCP. It is an *additional caller of the same gated engine* — no gate is
+weakened, pins/determinism unchanged.
+- **`lathe serve`** starts `lathe_api.py` (stdlib `http.server`, **no new deps**). Read-only sync endpoints
+  (`GET /v1/env|plans|metrics`, `POST /v1/gate|verify|trace|review`) + async **build jobs**
+  (`POST /v1/builds` → `202 {job_id}`, `GET /v1/builds/{id}` → the `build --json` object when terminal).
+- **Security**: bearer-token required (`LATHE_API_TOKEN`; no token ⇒ won't start), constant-time auth,
+  `127.0.0.1` bind by default (non-local bind requires a docker sandbox), every path `is_within_root`, every
+  string `reject_flags`, caller `env` overrides **allow-listed** (never `LATHE_TRUST_PLAN`/`SANDBOX`/endpoints),
+  `GET /v1/env` returns the catalog **never values**.
+- The security-critical request logic is the harness-built pinned `api_logic.py` (`bearer_token`, `auth_ok`,
+  `env_allowlist`, `classify_build_body`, `job_view`; STRICT, CRITERIA P1–P5, fable, first-try); the HTTP glue
+  is `lathe_api.py`, covered by `review_tests/test_api.py` (live server, real token, real async build job).
+- New docs `API.md`; new env vars `LATHE_API_TOKEN`/`LATHE_API_PORT` (documented — the env-drift gate now also
+  scans `lathe_api.py`/`lathe_mcp.py`, 55 vars). `lathe serve` documented (docs-drift, 36 commands).
+
 ## v2.7.0 — 2026-07-03
 
 **PR #1 CLI-review — 3 enhancement suggestions implemented.**
