@@ -74,7 +74,10 @@ in `tools/`) with its own acceptance test in `review_tests/`, and `LATHE_STRICT=
 4. **Test-ack** (`LATHE_TEST_ACK=1`, `lathe ack`) — the analyst's tests define truth, so a human acknowledges
    the exact test set (keyed by digest) before the build certifies it; any rewrite re-forces it.
 5. **Test-kind** (`LATHE_TEST_KIND=1`) — a function can require the *shape* of test it needs
-   (`'kinds': ['property','edge']`); a unit missing a declared kind is refused.
+   (`'kinds': ['property','edge']`); a unit missing a declared kind is refused. Honest caveat: kind detection
+   is a **substring heuristic** over the test text — a comment or string literal can satisfy a required kind
+   without a real assertion, so this catches *absence* of a kind, not its *quality*; the mutation-score gate
+   is the real backstop against vacuous tests.
 6. **Gate-the-glue** (`LATHE_GATE_GLUE=1`) — hand-written `GLUE` wiring must be exercised by an `INTEGRATION`
    test or the module is refused — so *no code* ships untested, not just no function.
 7. **Assumption gate** (`LATHE_ASSUMPTION_GATE=1`, `lathe assume`) — an underspecified goal makes the model

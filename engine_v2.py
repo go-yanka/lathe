@@ -169,13 +169,21 @@ if plan.FUNCTIONS and os.environ.get("LATHE_ASSUMPTION_GATE", "").strip().lower(
             if _blockers:
                 _lines = "\n".join("    - [%s|%s] %s" % (b.get("materiality"), b.get("category"), b.get("text"))
                                    for b in _blockers)
-                sys.exit("engine: ASSUMPTION GATE — %d unconfirmed %s-materiality assumption(s) (plan: %s):\n%s\n"
-                         "Confirm or correct them: lathe assume %s --confirm" %
+                sys.exit("engine: ASSUMPTION GATE — %d unresolved %s-materiality assumption(s) (plan: %s):\n%s\n"
+                         "Decide each: lathe assume %s --resolve" %
                          (len(_blockers), _policy, os.path.basename(PLAN_PATH), _lines, os.path.basename(PLAN_PATH)))
+            # PR#1 v2.6.1 #1: an EMPTY auto-audit is not human review — pass but WARN (never a silent clean pass),
+            # so a model self-audit that collapsed its own ledger can't launder as "audited, nothing to decide".
+            elif not (_entry.get("ledger") or []):
+                print("engine: ASSUMPTION GATE — the auditor surfaced 0 assumptions (advisory: an empty "
+                      "auto-audit is NOT equivalent to human review — confirm the auditor actually ran).")
     except SystemExit:
         raise
-    except Exception:
-        pass                             # gate module absent -> legacy behavior (gate is opt-in anyway)
+    except (ImportError, ModuleNotFoundError, FileNotFoundError):
+        pass                             # PR#1 v2.6.1 #4: gate module/state genuinely absent -> legacy opt-out
+    except Exception as _ae:             # gate enabled but enforcement errored -> FAIL CLOSED (don't silently pass)
+        sys.exit("engine: ASSUMPTION GATE — enforcement error, failing closed: %s (plan: %s)"
+                 % (_ae, os.path.basename(PLAN_PATH)))
 
 # A plan must NEVER write over a file the engine didn't generate, nor shadow an importable module.
 # MODULE_NAME is just an identifier, so without this MODULE_NAME="engine_v2" overwrites the engine, and

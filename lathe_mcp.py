@@ -60,7 +60,10 @@ def _call(name, a):
             return "refused: 'files' must be paths inside the project"
         return _run(["review"] + lenses + files)
     if name == "lathe_do":
-        return _run(["do", a.get("goal", "")])
+        ok_g, goal = reject_flags(a.get("goal", ""))                 # PR#1 v2.6.1 #3: guard the goal like the siblings
+        if not ok_g or not goal:
+            return "refused: 'goal' must be non-empty and must not start with '-' (argument-injection guard)"
+        return _run(["do"] + goal)
     return "unknown tool: %s" % name
 
 

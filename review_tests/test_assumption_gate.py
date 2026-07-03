@@ -120,6 +120,20 @@ check("bulk acceptance is honestly recorded ('accepted in bulk')", any("bulk" in
 CHANGED = [{"name": "parse", "prompt": "parse a JSON file instead", "tests": ["assert parse"]}]
 check("gate re-BLOCKS after spec change (digest mismatch)", gate_blocks(CHANGED, tmp, "H_demo.py") is True)
 
+# 5) PR#1 v2.6.1 #1: an EMPTY auto-audit is flagged advisory in the trail, NOT laundered as a clean "audited" pass
+fake.request_spec = lambda p: "NO ASSUMPTIONS"
+tmpE = tempfile.mkdtemp(prefix="assume_empty_")
+planE = os.path.join(tmpE, "H_empty.py")
+open(planE, "w", encoding="utf-8").write(
+    'OUT_DIR="x"\nMODULE_NAME="e"\nHEADER=""\nGLUE=""\n'
+    'FUNCTIONS=[{"name":"f","prompt":"do a thing","tests":["assert f"]}]\n')
+rc = lathe.cmd_assume([planE])
+check("empty audit exits 0", rc == 0, "rc=%r" % rc)
+etxt = open(os.path.join(tmpE, "H_empty.decisions.md"), encoding="utf-8").read()
+check("empty audit is flagged ADVISORY (not a silent clean pass)",
+      "advisory" in etxt.lower() and "not" in etxt.lower() and "human" in etxt.lower())
+shutil.rmtree(tmpE, ignore_errors=True)
+
 del sys.modules["request_spec"]
 shutil.rmtree(tmp, ignore_errors=True)
 print("\nassumption-gate acceptance: %s" % ("ALL PASS" if not fails else "FAILED: %s" % ", ".join(fails)))

@@ -2,6 +2,23 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.6.2 — 2026-07-03
+
+**PR #1 v2.6.1 review — 4 findings addressed** (independent reviewer, no HIGH bugs; the resolve flow verified clean):
+- **#1 MED (design): an empty auto-audit no longer launders as a clean pass.** If the auditor surfaces **0**
+  assumptions, the committed `<plan>.decisions.md` and the console now flag it **ADVISORY** — "auditor surfaced
+  nothing ≠ human review" — and the engine prints the same warning instead of a silent pass. (A model
+  self-audit that collapses its own ledger is exactly the drift the gate exists to stop.)
+- **#4 LOW: the engine-side assumption gate now fails CLOSED.** Only genuine module/state absence
+  (`ImportError`/`FileNotFoundError`) is opt-out; any other enforcement error when the gate is enabled now
+  `sys.exit`s instead of `except: pass`.
+- **#3 MED: `lathe_mcp.lathe_do` now flag-guards its `goal`** with `reject_flags`, matching its siblings
+  (`build`/`verify`/`review`) — a client goal starting with `-` is refused (argument-injection consistency).
+- **#2 MED: honest caveat added for test-kind.** Docs now state that kind detection is a *substring heuristic*
+  (a comment/string can satisfy a required kind) that catches an *absent* kind, not a weak one — mutation-score
+  is the real backstop. (ARCHITECTURE §enforcement, LATHE_CAPABILITIES.)
+Acceptance test extended (empty-audit advisory). Fixes are in the hand-maintained engine/CLI/MCP wiring (CORE_INFRA) + docs.
+
 ## v2.6.1 — 2026-07-02
 
 **`--accept-all` as an explicit opt-in** (owner refinement): bulk accept is useful, but must be a deliberate

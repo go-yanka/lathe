@@ -41,7 +41,7 @@ canonical `2026-07-01q`. Project-facing how-to-use: **`FOR_PROJECTS.md`**; every
 `LATHE_REGRESSION_PROOF` (a change must ship a test that fails on the old code) ·
 `LATHE_MUTATION_SCORE=<0..1>` (AST mutants must be killed; equivalent mutants excluded — a bounded tripwire, **not** exhaustive coverage) ·
 `LATHE_TEST_ACK` (`lathe ack` — a human acknowledges the test set that defines "correct") ·
-`LATHE_TEST_KIND` (a function can require the *shape* of test it needs, e.g. `property`/`edge`) ·
+`LATHE_TEST_KIND` (a function can require the *shape* of test it needs, e.g. `property`/`edge` — a substring heuristic that catches an *absent* kind, not a weak one; mutation-score is the real backstop) ·
 `LATHE_GATE_GLUE` (hand-written wiring must be exercised by an integration test — no code ships untested) ·
 `LATHE_ASSUMPTION_GATE` (`lathe assume` — an adversarial auditor surfaces the goal's unstated choices; HIGH-materiality ones block the build until confirmed) ·
 plus **traceability** (`CRITERIA` mapped to named tests). Honest scope: these bound *test quality + stated-intent per gated function*, not whole-program correctness.

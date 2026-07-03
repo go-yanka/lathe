@@ -1110,7 +1110,9 @@ def _assume_write_decisions(plan_path, key, ledger, decisions, blockers):
           "resolved by an explicit human decision (accepted as-is, an alternative chosen, or intent stated) "
           "before the build proceeds. Nothing here is silently accepted.\n\n"]
     if not ledger:
-        md.append("_No consequential unstated assumptions found._\n")
+        md.append("> **ADVISORY** — the auditor surfaced **0** assumptions. This is **not** the same as a "
+                  "human clearing the list — a model self-audit can collapse its own ledger. Confirm the auditor "
+                  "actually ran against a real endpoint before trusting this as \"nothing to decide.\"\n")
     for b in (ledger or []):
         t = b.get("text")
         d = by_text.get(t)
@@ -1302,6 +1304,9 @@ def cmd_assume(args):
     print("\naudit trail -> %s   (state: %s)" % (_assume_decisions_md(plan_path), asm_file))
     if blockers:
         print("decide each blocker before build:  lathe assume %s --resolve" % key)
+    elif not ledger:
+        print("advisory: the auditor surfaced 0 assumptions — NOT the same as human review (a model self-audit "
+              "can collapse its own ledger). Confirm the auditor ran against a real endpoint.")
     return 0
 
 
