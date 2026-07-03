@@ -1,5 +1,17 @@
 # Methodology-enforcement: what's real, what to build before we claim it
 
+> ## ✅ UPDATE — v2.6.2: empty-audit advisory + engine fails closed (this review's four findings, addressed).
+> Reproduced on the rebased branch (2026-07-03): `test_assumption_gate.py` **ALL PASS** (incl. the new
+> empty-audit assertion), each fix read against source (`engine_v2.py`, `lathe.py`, `lathe_mcp.py`).
+> - **Empty auto-audit is now ADVISORY, not a clean pass** (the design finding): if the auditor surfaces 0
+>   assumptions, the trail, the `lathe assume` console, *and* the engine all print "an empty auto-audit is NOT
+>   human review — confirm the auditor actually ran," so a model self-audit that collapses its own ledger can
+>   no longer masquerade as review. (It still doesn't *block* — a genuinely assumption-free spec is legitimate.)
+> - **Engine enforcement fails closed:** only `ImportError`/`ModuleNotFoundError`/`FileNotFoundError` (gate
+>   genuinely absent) opt out; any other error while the gate is enabled `sys.exit`s.
+> - **`lathe_do` MCP goal is now `reject_flags`-guarded** like its siblings; **test-kind** carries an honest
+>   "catches an absent kind, not a weak one — mutation-score is the backstop" caveat (matches ours).
+>
 > ## ✅ UPDATE — v2.6.0 / v2.6.1: the assumption gate **resolves, it doesn't rubber-stamp**.
 > Reproduced on the rebased branch (2026-07-03): `test_assumption_gate.py` **ALL PASS** against the rewritten
 > flow, and the fail-safe verified directly in source (`lathe.py:1236-1275`).

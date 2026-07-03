@@ -1,6 +1,6 @@
 # Lathe — Capability Map (bucketed + prioritized)
 
-An exhaustive inventory of Lathe's capabilities (**refreshed to v2.6.1**), grouped into buckets and
+An exhaustive inventory of Lathe's capabilities (**refreshed to v2.6.2**), grouped into buckets and
 prioritized within each.
 **Provenance (two separate channels):** the capability *list* was drawn from the code plus
 `LATHE_CAPABILITIES.md` / `LATHE_COMMANDS.md`; every *status label* below was **verified against the
@@ -71,7 +71,10 @@ the autonomous path); the two must be read together, not conflated.
 - **P0** **Assumption gate** (v2.5.0; **resolve-not-rubber-stamp v2.6.0/v2.6.1**) — `LATHE_ASSUMPTION_GATE=1`
   / `lathe assume`: an adversarial `assumption-auditor` re-reads the spec against the goal and emits a
   materiality-ranked ledger of the decisions the goal never specified; the engine REFUSES to build while any
-  HIGH assumption is unresolved. `--resolve` throws each blocker back for an **explicit per-item decision** —
+  HIGH assumption is unresolved. **An empty auto-audit (0 surfaced) is flagged ADVISORY, not a clean pass**
+  (v2.6.2, in the trail + console + engine) — a model self-audit that collapses its own ledger can't launder
+  as human review; and engine-side enforcement now **fails closed** (only genuine gate-absent import errors
+  opt out). `--resolve` throws each blocker back for an **explicit per-item decision** —
   accept as the real intent, pick an offered `[options: …]`, or type what you actually want; **skipping stays
   blocking** (fail-safe). Every decision is recorded (with its method) in a **committed `<plan>.decisions.md`
   audit trail** — a resolved assumption becomes a *stated decision*, not a silent guess. `--yes` blanket-accept
