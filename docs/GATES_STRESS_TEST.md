@@ -6,6 +6,14 @@ against the real pinned gate functions** — not by reading the code. Probe scri
 `scratchpad/gate_stress*.py`. **Round 1** (below): the seven build-time rigor gates. **Round 2** (further
 down): the seven standing tree gates.*
 
+> **✅ STATUS — RESOLVED in v2.9.0 (independently re-verified).** Every fail-open below was fixed by the
+> maintainer and re-confirmed by re-running the probes against `v2.9.0`: **F1/F2 glue** (counts AST
+> statements + requires an `assert` in INTEGRATION), **F3 test-kind** (strips comments, recognizes
+> `sorted`/`reversed`), **F4/F5 assumption** (fail-closed materiality — unknown → `high`), **F7 docs-drift**
+> (whole-word match), **F8 stale** (broadened retire pattern). The mutation gate (#2) and REST API (#3) were
+> likewise hardened. Findings are kept below as the record of what was found and how it was verified — not as
+> open defects.
+
 ## Method
 
 For each gate I imported its decision function from `projects/agentic-harness/tools/` and drove it with:

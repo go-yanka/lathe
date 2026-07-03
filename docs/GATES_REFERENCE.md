@@ -137,9 +137,11 @@ STRICT also requires that any FUNCTIONS plan declare `CRITERIA` (that's the trac
   `mutation_equiv.py` (`equivalent_over_samples`); wired near `engine_v2.py:563`, denominator at
   `engine_v2.py:708`.
 - **Known limits.** **This is a bounded tripwire, not exhaustive coverage** — small operator set, capped per
-  function. The equivalent-mutant exclusion is currently *unsound* (a fixed ~33-sample oracle, `repr()`
-  equality, raise-only mutants mis-scored — see **issue #2**), which can wrongly discard mutants and lower
-  the bar. Always state it as "kills trivially-broken copies," never "the code is comprehensively tested."
+  function. The equivalent-mutant exclusion was hardened in **v2.9.0** (issue #2, verified): raise-vs-return
+  now counts as non-equivalent, and structural `==` is the primary oracle with `repr()` only as a fallback,
+  so it fails *toward* "not equivalent" (the safe direction). It is still a fixed ~34-probe check, not
+  property-based sampling — so keep stating it as "kills trivially-broken copies," never "the code is
+  comprehensively tested."
 
 ### 1.5 Test-ack gate
 
@@ -170,9 +172,10 @@ STRICT also requires that any FUNCTIONS plan declare `CRITERIA` (that's the trac
 - **Configuration.** `LATHE_TEST_KIND=1` (forced by STRICT). Requirements come from per-function
   `"kinds": [...]` or a plan-level `TEST_KINDS`.
 - **Implementation.** `test_kind.py` (`detect_kinds`, `kind_gaps`); wired at `engine_v2.py:637`.
-- **Known limits.** Detection is a **substring heuristic** — it can be fooled (a comment mentioning `raises`
-  counts as an error test; a genuine property test written without the trigger words reads as absent). It
-  enforces *presence of a kind-shaped test*, not that the test is a good one.
+- **Known limits.** As of **v2.9.0** (issue #5 fixed, verified) detection strips comments before matching (a
+  `# never raises` comment no longer counts as an error test) and recognizes `sorted`/`reversed` as
+  property/round-trip signals. It's still a heuristic over test *shape*, not a proof the test is good — it
+  enforces *presence of a kind-shaped test*, not its quality.
 
 ### 1.7 Gate-the-glue gate
 
@@ -188,9 +191,10 @@ STRICT also requires that any FUNCTIONS plan declare `CRITERIA` (that's the trac
 - **Configuration.** `LATHE_GATE_GLUE=1` (forced by STRICT); `LATHE_GLUE_MAX=<int>` sets the trivial-glue
   threshold (default 2).
 - **Implementation.** `glue_gate.py` (`count_glue_lines`, `glue_gap`); wired near `engine_v2.py:959`.
-- **Known limits.** It checks that an INTEGRATION test *exists*, not that it's thorough — and the integration
-  runner itself doesn't scrub secrets from its environment (see **issue #3 / PR#1 finding**). Glue remains
-  hand-written and is marked as such in the provenance count.
+- **Known limits.** As of **v2.9.0** (issues #4 fixed, verified) it counts *AST statements* (so `;`-packed
+  one-liners no longer evade the threshold) and requires the INTEGRATION block to contain an `assert` (a
+  `pass` placeholder no longer counts as "exercised"). It still checks that an INTEGRATION test *exists*, not
+  that it's thorough. Glue remains hand-written and is marked as such in the provenance count.
 
 ### 1.8 Assumption gate
 
@@ -209,8 +213,11 @@ STRICT also requires that any FUNCTIONS plan declare `CRITERIA` (that's the trac
   blocks) · `med` (high+med) · `all`/`low` (everything). Also settable via config `assumptions.scrutiny`.
 - **Implementation.** `assumption_logic.py` (`blocking_assumptions`, `unconfirmed_blockers`,
   `parse_assumptions`, `spec_digest`); wired at `engine_v2.py:141`.
-- **Known limits.** It surfaces assumptions the auditor *finds*; it can't guarantee the auditor found every
-  one, nor that your resolution is correct. It's a hardening of the front end, not a proof of intent.
+- **Known limits.** As of **v2.9.0** (issue #6 fixed, verified) materiality is handled fail-closed: an
+  unranked/garbled/non-canonical label (empty, `medium`, `critical`, …) is treated as `high` rather than
+  silently defaulting to `med`, so a mislabeled material assumption can't slip under the default `high`
+  scrutiny. It still surfaces only assumptions the auditor *finds*, and can't guarantee your resolution is
+  correct — a hardening of the front end, not a proof of intent.
 
 ---
 
@@ -366,6 +373,9 @@ the tree dirty cannot ship. Each is also runnable by hand (`python qa/<gate>.py`
 
 ---
 
-*Known-limit notes above reference the independent review's open items: mutation-equivalence unsoundness
-(**issue #2**) and the REST API / integration-runner env findings (**issue #3** / PR#1). Verify any gate's
-behavior on your own machine — every claim here is traceable to the cited source.*
+*The fail-open findings from the gate stress-test (`GATES_STRESS_TEST.md`) were **fixed in v2.9.0** —
+mutation-equivalence hardening (#2), glue line-packing + placeholder-INTEGRATION (#4), test-kind comment
+stripping (#5), assumption fail-closed materiality (#6), docs-drift whole-word + broadened stale pattern
+(#8), and the REST API token scrub + status semantics (#3) — all independently re-verified. The known-limit
+notes above reflect the post-v2.9.0 behavior. Verify any gate on your own machine — every claim here is
+traceable to the cited source.*
