@@ -56,7 +56,9 @@ if it's wrong, you fix the spec and rebuild.
   code" gap.
 - **Cleanliness gates** (`qa/run_gates.py`, run every build) — the tree must stay pristine *intrinsically*, not
   via git: no stale/backup/duplicate files, one canonical DB, one `live` implementation per capability
-  (registry), no corrupt files, no real-bug lint. Divergence is a **build failure**, not a latent trap.
+  (registry), no corrupt files, no real-bug lint, every CLI command documented (docs-drift), and every env var
+  the code reads documented in `env_catalog.py` / `lathe env` (env-drift). Divergence is a **build failure**,
+  not a latent trap.
 
 ## The enforcement layer (methodology, not just a test-gate)
 

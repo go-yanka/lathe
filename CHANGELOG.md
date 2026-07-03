@@ -2,6 +2,23 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.7.0 — 2026-07-03
+
+**PR #1 CLI-review — 3 enhancement suggestions implemented.**
+- **Canonical env-var surface + anti-drift gate (#1).** New `lathe env` prints every recognized env var —
+  grouped, with role + default — from a single source of truth (`env_catalog.py`, 53 documented). New standing
+  gate **`env_not_drifted`** (`qa/env_drift_gate.py`) extracts the vars the code actually reads (harness-built
+  `env_logic.extract_env_vars`) and **fails the build** if any user-facing one is undocumented — so a new env
+  var can't drift in silently, the same discipline docs-drift applies to commands. Gate count 6 → 7.
+- **`lathe map` graceful degrade (#2).** Without `universal-ctags` it now **warns and skips (exit 0)** instead
+  of hard-failing (rc 1) — the repo-map is an optional convenience, not a hard dependency.
+- **`lathe build --json` (#3).** Emits a single stable JSON object (the metrics: `build_ok`,
+  `functions_passed/total`, `per_function {name,ok,tries,src}`, tokens, timings), exit 0 iff `build_ok` — no
+  more PASS/REUSED column drift for a CI wrapper to misparse.
+- New pinned module `env_logic.py` (`extract_env_vars`, `env_drift`) built through the harness under STRICT
+  (CRITERIA E1–E2), fable implementer, first-try; acceptance test `review_tests/test_env_drift.py` (units +
+  the live "registry documents every code var" guard). Also documented `LOCAL_OPENAI_MAXTOK` / `LOCAL_GEN_TIMEOUT`.
+
 ## v2.6.2 — 2026-07-03
 
 **PR #1 v2.6.1 review — 4 findings addressed** (independent reviewer, no HIGH bugs; the resolve flow verified clean):

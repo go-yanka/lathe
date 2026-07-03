@@ -27,6 +27,9 @@ $ python lathe.py build projects/agentic-harness/plans/auto_070.py
   registry_violations PASS (qwen)   1 tries  (11 tests)
   build_ok: true   run report: .../RUN_REPORT.md   metrics -> runs.jsonl
 ```
+**`--json` (machine-readable, for CI):** `lathe build <plan> --json` suppresses the human PASS/REUSED columns
+and prints a single stable JSON object (the metrics: `build_ok`, `functions_passed/total`, `per_function`
+`{name,ok,tries,src}`, tokens, timings), exit code 0 iff `build_ok`. Safe for a wrapper to parse.
 
 **Change-proof (`LATHE_REGRESSION_PROOF=1`):** ANY changed function — bug fix or enhancement — is refused
 unless ≥1 of its new tests FAILS on the old accepted implementation (a change must ship a test that proves
@@ -187,7 +190,9 @@ planner -> tools/planner_prompt.py (live)  entrypoint: build_planner_prompt
 ### `lathe map <path...>`  *(repo-map)*
 Multi-language **code-structure map** via universal-ctags (the real OSS C tool — we shell out to it, not
 reimplement it). Emits names, kinds, **signatures**, and scopes across ~150 languages (Python, JS, …) so a large
-model reads the *structure* instead of every full file — less context, fewer tool calls. Needs `ctags` on PATH.
+model reads the *structure* instead of every full file — less context, fewer tool calls. `ctags` is **optional**:
+if it isn't on PATH, `lathe map` **warns and skips (exit 0)** rather than hard-failing, so an opportunistic
+caller isn't broken by a missing optional dep.
 ```
 $ python lathe.py map projects/agentic-harness/tools/spec_lint.py
 spec_lint.py:
@@ -195,6 +200,24 @@ spec_lint.py:
   function _stub_survives(fname, body, tests)
   function lint_function(fname, tests)
   function lint_plan(plan_path)
+```
+
+### `lathe env`
+The **canonical environment-variable surface** — every var the harness recognizes, grouped, with role +
+default, from the single source of truth `env_catalog.py`. A `(set)` marker shows which are currently exported.
+This is the registry the standing **`env_not_drifted` gate** checks the code against: a var read anywhere in
+`lathe.py`/`engine_v2.py`/`tools/*.py` but absent here **fails the build**, so a new env var can't drift in
+undocumented (the same discipline as the docs-drift gate for commands).
+```
+$ python lathe.py env
+Lathe environment variables (53 documented; source of truth: env_catalog.py)
+[endpoints]
+  HARNESS_CLAUDE_URL           analyst endpoint (OpenAI-compatible); the 'thinker'
+                                 default: http://127.0.0.1:8787/v1/chat/completions
+  LOCAL_OPENAI_URL             endpoint for openai:* implementer models (set)
+                                 default: llama-server :8089
+  ...
+[gates]  LATHE_STRICT · LATHE_ASSUMPTION_GATE · LATHE_MUTATION_SCORE · …
 ```
 
 ### `lathe dups [--min N]`

@@ -17,7 +17,8 @@ CHECKS = [("tree_no_stale_dups", os.path.join(QA, "stale_gate.py")),
           ("capability_registry", os.path.join(QA, "registry_gate.py")),          # one 'live' canonical per capability
           ("pristine_tree", os.path.join(QA, "pristine_gate.py")),                 # no corrupt/half-written files linger
           ("lint_no_real_bugs", os.path.join(QA, "lint_gate.py")),                 # ruff: no undefined-name/syntax/format defects in generated code
-          ("docs_not_drifted", os.path.join(QA, "docs_drift_gate.py"))]             # every CLI command documented with an example in LATHE_COMMANDS.md
+          ("docs_not_drifted", os.path.join(QA, "docs_drift_gate.py")),            # every CLI command documented with an example in LATHE_COMMANDS.md
+          ("env_not_drifted", os.path.join(QA, "env_drift_gate.py"))]               # every env var the code reads is documented in env_catalog.py (lathe env)
 
 def main():
     failed = []

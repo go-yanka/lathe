@@ -128,15 +128,29 @@ def _resolve_plan(arg):
 # ---- commands -------------------------------------------------------------------------
 
 def cmd_build(args):
-    if not args:
-        print("usage: lathe build <plan>"); return 2
-    plan = _resolve_plan(args[0])
+    as_json = "--json" in args                            # PR#1 CLI-review #3: stable machine-readable output for CI
+    pos = [a for a in args if a != "--json"]
+    if not pos:
+        print("usage: lathe build <plan> [model] [tries] [--json]"); return 2
+    plan = _resolve_plan(pos[0])
     if not os.path.isfile(plan):
-        print("plan not found: %s" % args[0]); return 2
+        print("plan not found: %s" % pos[0]); return 2
     if not _validate_plan_file(plan):
         return 2
-    model = args[1] if len(args) > 1 else MODEL          # honor `lathe build <plan> [model] [tries]`
-    tries = args[2] if len(args) > 2 else TRIES
+    model = pos[1] if len(pos) > 1 else MODEL             # honor `lathe build <plan> [model] [tries]`
+    tries = pos[2] if len(pos) > 2 else TRIES
+    if as_json:
+        # capture the engine's ===METRICS_JSON=== block and print ONLY that stable object (no PASS/REUSED
+        # column drift for a wrapper to misparse); exit code reflects build_ok.
+        import subprocess, re, json as _json
+        r = subprocess.run([PY, ENGINE, plan, model, tries], cwd=ROOT, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=_RUN_TIMEOUT or None)
+        m = re.search(r"===METRICS_JSON_BEGIN===\s*(\{.*?\})\s*===METRICS_JSON_END===", r.stdout or "", re.S)
+        if not m:
+            print(_json.dumps({"build_ok": False, "error": "no metrics emitted", "rc": r.returncode})); return r.returncode or 1
+        obj = _json.loads(m.group(1))
+        print(_json.dumps(obj))
+        return 0 if obj.get("build_ok") else 1
     print("> building %s on %s (best-of-%s)..." % (os.path.basename(plan), model, tries))
     return _run([PY, ENGINE, plan, model, tries])
 
@@ -807,6 +821,32 @@ def cmd_lint_spec(args):
     return 1 if bad else 0
 
 
+def cmd_env(args):
+    """The canonical ENVIRONMENT-VARIABLE surface (PR#1 CLI-review #1). `lathe env` prints every env var the
+    harness recognizes — grouped, with role + default — from the single source of truth `env_catalog.py`.
+    A `set` marker shows which are currently exported. This is the registry the `env_drift` gate checks the
+    code against, so a new undocumented var fails the build rather than drifting in silently."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("env_catalog", os.path.join(ROOT, "env_catalog.py"))
+    ec = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(ec)
+    except Exception as e:
+        print("env: catalog unavailable (%s)" % e); return 1
+    groups = ec.grouped()
+    total = sum(len(v) for v in groups.values())
+    print("Lathe environment variables (%d documented; source of truth: env_catalog.py)" % total)
+    print("Precedence: an explicit env var ALWAYS wins over lathe.config.json, which wins over the default.\n")
+    for group, rows in groups.items():
+        print("[%s]" % group)
+        for name, role, default in rows:
+            mark = " (set)" if os.environ.get(name) not in (None, "") else ""
+            print("  %-28s %s%s" % (name, role, mark))
+            print("  %-28s   default: %s" % ("", default))
+        print()
+    return 0
+
+
 def cmd_map(args):
     """Multi-language CODE-STRUCTURE MAP (repo-map) via universal-ctags — names, kinds, signatures, scopes — so
     a large model reads the STRUCTURE instead of full files (less context, fewer tool calls). Works across ~150
@@ -819,7 +859,10 @@ def cmd_map(args):
     except Exception as e:
         print("map: unavailable (%s)" % e); return 1
     if not ctags_available():
-        print("map: ctags not found. Install universal-ctags (winget install UniversalCtags.Ctags) to enable the repo-map."); return 1
+        # PR#1 CLI-review #2: graceful degrade — repo-map is optional; warn + skip rather than hard-fail (rc=1),
+        # so a script/workflow that calls `lathe map` opportunistically isn't broken by a missing optional dep.
+        print("map: SKIPPED — universal-ctags not on PATH (optional). Install it to enable the repo-map: "
+              "winget install UniversalCtags.Ctags"); return 0
     m = render_map(list(args))
     print(m or "(no definitions found)")
     return 0
@@ -1631,7 +1674,7 @@ def main(argv):
         "metrics": cmd_metrics, "plans": cmd_plans, "dups": cmd_dups, "whatis": cmd_whatis,
         "clean": cmd_clean, "wait": cmd_wait, "resume": cmd_resume, "waiting": cmd_waiting,
         "report": cmd_report, "issues": cmd_issues, "logs": cmd_logs, "lint-spec": cmd_lint_spec,
-        "flow": cmd_flow, "map": cmd_map, "checkin": cmd_checkin, "agent": cmd_agent, "ack": cmd_ack, "trace": cmd_trace, "sdlc": cmd_sdlc, "clarify": cmd_clarify, "assume": cmd_assume,
+        "flow": cmd_flow, "map": cmd_map, "env": cmd_env, "checkin": cmd_checkin, "agent": cmd_agent, "ack": cmd_ack, "trace": cmd_trace, "sdlc": cmd_sdlc, "clarify": cmd_clarify, "assume": cmd_assume,
     }
     if cmd in table:
         return table[cmd](rest)
