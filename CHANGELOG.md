@@ -2,6 +2,26 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.18.0 — 2026-07-04
+
+**Capstone tail — the four tracked items from v2.17.0, finished.**
+
+- **#18 H3 — live review decider now RECORDS who-fired.** `cmd_review`'s decider (lens pick + license-gated
+  auto-spawn) now calls `persona_orchestrator.record_run` when explore/exploit is enabled, appending
+  considered/fired rows to the usage ledger. Combined with v2.17.0's `update_grades()` (H2), the grade loop
+  is now connected end to end: the review path feeds the ledger, which feeds verified grades. (Honest scope:
+  the lens *selection* is still word-match; UCB1 governs the additive auto-spawn — swapping the primary
+  selector to `select_live` is a larger architectural change left as a separate proposal.)
+- **#19 M1 — manifest selection/goal populated.** `run_spine` exposes the in-flight manifest via a
+  module handle; `cmd_do` calls `set_goal`, `cmd_review` calls `set_selection` (personas + lenses + `why`).
+  The record's "who/what" block is no longer always empty. Verified: `do` records `intake.goal`.
+- **#20 — adversarial-synth ON by default under STRICT** (owner greenlit). A STRICT build now arms adv-synth
+  automatically (explicit `LATHE_ADV_SYNTH=0` still forces it off). Combined with v2.17.0's discrimination
+  fix (a probe must call the function under test), the gate is both on-by-default and harder to dodge.
+- **#21 — docs counts.** `env_catalog` `LATHE_ADV_SYNTH` default reflects strict-on; README version + gate
+  count fixed (v2.17.0). Reviewer-authored `docs/CLI_REFERENCE.md` env/gate counts corrected in the public
+  export.
+
 ## v2.17.0 — 2026-07-04
 
 **Capstone-review fixes (PR #16 / issues #17, #19, #20, #21).**

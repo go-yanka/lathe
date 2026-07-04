@@ -32,7 +32,7 @@ REGISTRY = [
     # --- persona subsystem (#9) ---
     ("LATHE_PERSONA_UCB", "personas", "explore/exploit selection (usage ledger + verified grades); ON by default, set 0 to opt out", "on"),
     # --- adversarial test synthesis gate (#11) ---
-    ("LATHE_ADV_SYNTH", "gates", "arm the adversarial-synthesis gate (analyst synthesizes bypass probes pre-pin)", "off"),
+    ("LATHE_ADV_SYNTH", "gates", "arm the adversarial-synthesis gate; default-ON under LATHE_STRICT, off elsewhere (set 0 to force off)", "strict"),
     ("LATHE_ADV_POLICY", "gates", "which functions face synthesis: off | gates (default) | all", "gates"),
     ("LATHE_ADV_MIN", "gates", "minimum admissible adversarial cases required (fail-closed below this)", "3"),
     ("LATHE_ADV_MODEL", "gates", "model the analyst-adversary synthesizes probes with (a capable model)", "claude"),

@@ -366,7 +366,7 @@ This reference was **tested, not just read off the source** (v2.6.2):
   anything needing a live implementer or analyst endpoint — cold `build`/`do`, `auto`, real `sdlc`,
   live `clarify`/`assume` audits, and the `regression-proof`/`reproducibility` acceptance tests (they SKIP
   without an implementer). `selftest` correctly reports these two endpoints as unreachable and exits non-zero.
-- **v2.7.0 additions, verified live here:** `lathe env` (53 vars from `env_catalog.py`); the `env_not_drifted`
+- **v2.7.0 additions, verified live here:** `lathe env` (66 vars from `env_catalog.py`); the `env_not_drifted`
   standing gate (green, "all 53 code-referenced env vars documented"); `lathe map` now warns-and-skips at
   exit 0 without `universal-ctags` (was rc=1); `lathe build --json` emits one valid JSON line with `build_ok`
   and stable keys (exit 0 iff `build_ok`). These landed from this review's own CLI-pass suggestions.

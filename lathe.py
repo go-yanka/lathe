@@ -169,6 +169,9 @@ def cmd_do(args):
     goal = " ".join(args).strip()
     if not goal:
         print("usage: lathe do \"<goal>\""); return 2
+    _mf = _manifest()                                    # #19 M1: record the goal in the run manifest
+    if _mf:
+        _mf.set_goal(goal)
     live = _load_autonomy()
     print("> drafting + building toward: %s\n" % goal)
     _gdb = _goal_board()
@@ -293,13 +296,33 @@ def cmd_review(args):
         except Exception:
             pass
         print("decider selected lenses for this code: %s" % ", ".join(lenses))
+        _spawned = []
         try:                                        # D7: a needed-but-absent expert is FETCHED (license-gated) and injected
             from persona_spawn import auto_spawn_for_goal
             for _name, _md, _body in auto_spawn_for_goal(_sample, 2):
                 lenses.append("@" + _md)            # hreview loads the fetched persona BODY from this path
+                _spawned.append(_name)
                 print("decider auto-spawned expert persona: %s (license-gated fetch -> %s)" % (_name, os.path.relpath(_md, ROOT)))
         except Exception as _sp_e:
             print("(persona auto-spawn skipped: %s)" % _sp_e)   # best-effort — never blocks the review floor
+        # #19 M1: record the resolved selection in the run manifest (the #9 "who's in the room" payload).
+        _mf = _manifest()
+        if _mf:
+            _mf.set_selection({"mode": "review-decider"},
+                              [{"id": p, "role": "reviewer"} for p in (_picked + _spawned)], lenses)
+        # #18 H3: record who-FIRED to the usage ledger so the grade loop (update_grades) has data. The lens
+        # decider is word-match today; recording its picks makes the UCB1 visit-counts + grades real on the
+        # live review path (was the missing recording end). Best-effort; never blocks the review.
+        try:
+            import persona_orchestrator as _po
+            if _po.is_enabled():
+                _considered = [{"name": p, "grade": 0.0, "picked": True, "reason": "review-decider"}
+                               for p in (_picked + _spawned)]
+                if _considered:
+                    _po.record_run(_sample, _considered, [c["name"] for c in _considered], {},
+                                   os.environ.get("LATHE_RUN_ID", "review"))
+        except Exception:
+            pass
     elif args[0] == "all":
         lenses, files = _ALL_LENSES, args[1:]
     elif args[0] in _ALL_LENSES:
@@ -1695,6 +1718,13 @@ def _apply_config_env(cfg):
 # only honored bypass is LATHE_SPINE=off set by the operator before process start — and even that still emits
 # a manifest recording the bypass.
 _SPINE_GUARD = "_LATHE_SPINE_RUN"
+_CURRENT_MF = None                                        # #19 M1: the current run's manifest (set by run_spine)
+
+
+def _manifest():
+    """The manifest object for the in-flight invocation, or None outside a spine run. Deciders use it to
+    populate the audit fields (set_goal/set_selection) the record exists to carry."""
+    return _CURRENT_MF
 
 
 def _dispatch(cmd, rest, argv):
@@ -1732,6 +1762,8 @@ def run_spine(cmd, rest, argv):
     define bad steps but cannot delete a phase — phases are not in the data. Emission is unconditional."""
     routed = "table" if cmd not in ("",) and not _is_bare(cmd) else "bare-goal"
     mf = _manifest_begin(argv, cmd if routed == "table" else "do", routed)
+    global _CURRENT_MF                                   # #19 M1: expose the run's manifest to the deciders
+    _CURRENT_MF = mf                                     #         so cmd_do/cmd_review can set_goal/set_selection
     _mm0 = _metrics_offset()
     try:
         if TOOLS not in sys.path:
@@ -1795,6 +1827,7 @@ def run_spine(cmd, rest, argv):
         raise
     finally:
         os.environ.pop(_SPINE_GUARD, None)
+        _CURRENT_MF = None                                # cleared (global already declared at top of run_spine)
         if mf:
             _manifest_merge_metrics(mf, _mm0)
             mf.finalize()                                    # phase 5: ALWAYS

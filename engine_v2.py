@@ -473,7 +473,13 @@ def _adv_synth_gate(name, winner, tests, kinds, plan_name, gen_model, base_ns, s
     """Returns (ok, detail). ok=True means 'pinnable' (gate passed OR not applicable). Fail-closed.
     Synthesis is the ANALYST's job (a capable adversary probing the implementer's output), not the
     implementer model — LATHE_ADV_MODEL overrides; default 'claude' (the analyst proxy)."""
-    if os.environ.get("LATHE_ADV_SYNTH", "").strip().lower() not in ("1", "true", "yes", "on"):
+    # #20: default-ON under STRICT (owner greenlit). Off elsewhere unless explicitly armed; explicit
+    # LATHE_ADV_SYNTH=0 always disables (an operator can still opt a STRICT build out deliberately).
+    _adv_env = os.environ.get("LATHE_ADV_SYNTH", "").strip().lower()
+    _strict_on = os.environ.get("LATHE_STRICT", "").strip().lower() in ("1", "true", "yes", "on")
+    if _adv_env in ("0", "false", "no", "off"):
+        return True, "adv-synth off (explicit)"
+    if _adv_env not in ("1", "true", "yes", "on") and not _strict_on:
         return True, "adv-synth off"
     _m = _adv_synth_module()
     if _m is None:
