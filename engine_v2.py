@@ -435,6 +435,70 @@ def validate(code, name, tests, base_ns):
             return False
     return True
 
+
+# --- issue #11: adversarial test synthesis GATE (opt-in LATHE_ADV_SYNTH=1; policy LATHE_ADV_POLICY off|gates|all)
+# For a gate-critical function, the analyst SYNTHESIZES bypass probes; the pinned decision module (adv_synth.py)
+# decides which functions face it, admits the cases FAIL-CLOSED (zero/lazy/copied/prose -> REFUSE), and returns
+# the tri-state verdict (unrun probes are INOPERATIVE, never a silent pass). Model text never decides — the
+# asserts run against the candidate and the rc decides. This makes the harness find its OWN coverage gaps
+# before a module pins (every fail-open the external reviewer found was an uncovered adversarial case).
+def _adv_synth_module():
+    try:
+        _p = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          "projects", "agentic-harness", "tools", "adv_synth.py")
+        _s = importlib.util.spec_from_file_location("adv_synth", _p)
+        _m = importlib.util.module_from_spec(_s); _s.loader.exec_module(_m)
+        return _m
+    except Exception:
+        return None
+
+
+def _adv_synth_gate(name, winner, tests, kinds, plan_name, gen_model, base_ns, spec=""):
+    """Returns (ok, detail). ok=True means 'pinnable' (gate passed OR not applicable). Fail-closed.
+    Synthesis is the ANALYST's job (a capable adversary probing the implementer's output), not the
+    implementer model — LATHE_ADV_MODEL overrides; default 'claude' (the analyst proxy)."""
+    if os.environ.get("LATHE_ADV_SYNTH", "").strip().lower() not in ("1", "true", "yes", "on"):
+        return True, "adv-synth off"
+    _m = _adv_synth_module()
+    if _m is None:
+        return False, "INOPERATIVE: adv_synth policy module unavailable"    # armed but unloadable -> refuse
+    policy = os.environ.get("LATHE_ADV_POLICY", "gates")
+    if not _m.needs_adversarial(kinds, plan_name, policy):
+        return True, "not gate-critical"
+    adv_model = os.environ.get("LATHE_ADV_MODEL", "claude")                 # analyst adversary, not gen_model
+    min_cases = int(os.environ.get("LATHE_ADV_MIN", "3"))
+    # CALIBRATION (critical): the adversary probes the function's OWN CONTRACT (its spec), NOT the analyst's
+    # opinion of ideal behavior. Without the spec, probes over-reach — asserting stricter behavior the spec
+    # never promised (e.g. a spec that ALLOWS '.' gets a probe demanding it be rejected) → false failures.
+    synth_prompt = (
+        "You are an adversarial test author. A function `%s` PASSED its example tests. Its EXACT SPECIFICATION "
+        "(the only contract that counts) is:\n---SPEC---\n%s\n---END SPEC---\n\n"
+        "Write %d NEW assert statements that catch the function VIOLATING THIS SPEC — inputs where the spec "
+        "clearly dictates one result but a lazy/fail-open implementation returns another (wrong-type, "
+        "boundary, mislabeled, packed/whitespace/comment tricks, the does-a-bad-input-read-as-OK case). "
+        "CRITICAL: assert ONLY what THIS spec mandates — never assert behavior the spec does not state; if the "
+        "spec ALLOWS an input, do NOT demand it be rejected. Each assert must be DERIVABLE from the spec text "
+        "above. Output ONLY assert lines, one per line, no prose, no markdown; each starts with 'assert' and "
+        "is NEW (not a copy of an example).\n\n# function under test\n%s\n\n# example tests (do NOT copy)\n%s\n"
+        % (name, spec or "(spec text unavailable — infer the contract from the example tests only)",
+           max(min_cases, 4), winner, "\n".join(tests)))
+    try:
+        raw = call_model(synth_prompt, 0.4, adv_model, role="analyst")
+    except Exception as _e:
+        return False, "INOPERATIVE: synthesis call failed (%r)" % (_e,)
+    synth = [ln.strip() for ln in (raw or "").splitlines() if ln.strip().lstrip().startswith("assert")]
+    kept, why = _m.admit_cases(synth, list(tests), min_cases)
+    if why:                                                    # zero/lazy/copied/prose synthesis -> REFUSE
+        return False, why
+    ran = failures = 0
+    for case in kept:
+        ran += 1
+        if not validate(winner, name, [case], base_ns):       # the probe runs against the candidate
+            failures += 1
+    ok, detail = _m.adv_verdict(ran, failures, len(kept))
+    return ok, detail
+
+
 def _quality_score(code):
     """Heuristic cleanliness score (lower = cleaner): penalize length, bare excepts, long lines."""
     lines = [l for l in code.splitlines() if l.strip()]
@@ -745,6 +809,16 @@ for f in plan.FUNCTIONS:
                 if _mblocked:
                     print(f"  {name:16} MUTATION-SCORE GATE — {_mwhy}")
                     _save_fn_fail(name, fmodel, 0, winner, "mutation gate: " + _mwhy)
+                    winner = None
+            # ADVERSARIAL-SYNTHESIS GATE (#11): before a gate-critical function may PIN, the analyst
+            # synthesizes bypass probes and the candidate must survive them (fail-closed; unrun = INOPERATIVE).
+            if winner is not None:
+                _aok, _awhy = _adv_synth_gate(name, winner, tests, f.get("kinds"),
+                                              os.path.basename(PLAN_PATH), fmodel, solved_ns,
+                                              f.get("prompt", ""))
+                if not _aok:
+                    print(f"  {name:16} ADVERSARIAL-SYNTH GATE — {_awhy}")
+                    _save_fn_fail(name, fmodel, 0, winner, "adversarial-synth gate: " + _awhy)
                     winner = None
             if winner is None:
                 solved_src[name] = None

@@ -25,6 +25,11 @@ REGISTRY = [
     # --- operating contract spine (#12) ---
     ("LATHE_THINK", "spine", "thinking dial casual|medium|high -> tries/personas/assumption depth", "medium"),
     ("LATHE_SPINE", "spine", "operator bypass: off = raw dispatch (still manifested + recorded)", "on"),
+    # --- adversarial test synthesis gate (#11) ---
+    ("LATHE_ADV_SYNTH", "gates", "arm the adversarial-synthesis gate (analyst synthesizes bypass probes pre-pin)", "off"),
+    ("LATHE_ADV_POLICY", "gates", "which functions face synthesis: off | gates (default) | all", "gates"),
+    ("LATHE_ADV_MIN", "gates", "minimum admissible adversarial cases required (fail-closed below this)", "3"),
+    ("LATHE_ADV_MODEL", "gates", "model the analyst-adversary synthesizes probes with (a capable model)", "claude"),
     # --- enforcement gates (STRICT umbrella arms all of these) ---
     ("LATHE_STRICT", "gates", "umbrella: arm all enforcement gates + require CRITERIA", "off"),
     ("LATHE_TEST_ACK", "gates", "require a human-acked test set (lathe ack)", "off"),

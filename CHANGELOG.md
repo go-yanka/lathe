@@ -2,6 +2,38 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.13.0 — 2026-07-04
+
+**Issue #11 — adversarial test synthesis as a GATE.** The harness now finds its OWN coverage gaps: before a
+gate-critical function may pin, the analyst (a capable adversary) synthesizes bypass probes and the candidate
+must survive them. Every fail-open the external reviewer found was a harness-built module whose tests didn't
+cover the adversarial case — this closes that loop internally. Opt-in: `LATHE_ADV_SYNTH=1`.
+
+- **Pinned decision core** `adv_synth.py` (harness-built under STRICT, 3/3 incl. mutation):
+  - `needs_adversarial(kinds, plan, policy)` — which functions face synthesis (`off`|`gates` default|`all`;
+    `gates` = kind `gate` or a gate/valid/strict/guard plan name).
+  - `admit_cases(cases, example_tests, min_cases)` — **fail-closed** admissibility: zero cases, prose,
+    non-asserts, or copies of the example tests are REFUSED (symmetric to the v2.9.0 zero-cases guard); a lazy
+    analyst cannot rubber-stamp.
+  - `adv_verdict(ran, failures, admitted)` — **tri-state honest**: an admitted probe that did not run is
+    `INOPERATIVE` (never a silent pass), any failure is `FAIL`, else `PASS` (the #12-U1 direction).
+- **Engine gate** (`_adv_synth_gate`, hand-edited, fires at the pin point after the mutation gate): synthesizes
+  with the ANALYST model (`LATHE_ADV_MODEL`, default `claude`) — not the implementer — runs each admitted probe
+  against the candidate via the real sandbox, and refuses the pin on FAIL/INOPERATIVE. Analyst usage is
+  role-attributed in the run manifest (#12 Phase 0).
+- **Calibration (the hard part, solved):** the adversary is given the function's EXACT SPEC and instructed to
+  probe ONLY for spec violations — never to assert behavior the spec doesn't mandate. Without this, probes
+  over-reach (a spec that *allows* `.` gets a probe demanding it be rejected → false failure); with it, a
+  correct allow-list impl survives while a naive deny-list impl is caught on real gaps (`\\`-absolute + UNC
+  paths). Both directions verified live.
+- Env: `LATHE_ADV_SYNTH` / `LATHE_ADV_POLICY` / `LATHE_ADV_MIN` / `LATHE_ADV_MODEL` (documented in
+  `env_catalog.py`). Off by default; a future release folds it into the STRICT umbrella once calibration is
+  proven across the catalog.
+- **Two test-authoring bugs the harness caught in MY OWN plan during this build** (logged for honesty): the
+  `admit_cases` tests asserted a kept list survives alongside a REFUSED verdict (contradicts the spec — refuse
+  returns `[]`); the throwaway probe plan used invalid `\x`/`C:\` escapes. The gates refused to pin against the
+  buggy specs — the discipline catching its author.
+
 ## v2.12.0 — 2026-07-04
 
 **Operating contract Phase 2a — the 19 per-invocation WORKFLOWS + bare-command PROMOTION** (issue #12;
