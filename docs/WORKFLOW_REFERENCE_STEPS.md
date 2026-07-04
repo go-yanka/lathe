@@ -1,4 +1,4 @@
-# Lathe — Workflow Reference (Harness edition)
+# Lathe — Workflow Steps (canonical `lathe flow` dump)
 
 *This edition is written **through the harness itself**: it is the verbatim output of `lathe flow <name>` for
 every workflow the harness defines — the tool's own account of how it works, straight out of `tools/workflows.py`
