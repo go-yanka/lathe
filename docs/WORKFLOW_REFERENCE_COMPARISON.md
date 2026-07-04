@@ -1,63 +1,74 @@
-# Workflow Reference — Fable edition vs Harness edition: what's the same, what's different
+# Workflow Reference — Direct (Fable) vs Through-the-Harness: the contest
 
-*Two independent accounts of the same 21 workflows: `WORKFLOW_REFERENCE.md` (Fable — hand-authored from the
-source) and `WORKFLOW_REFERENCE_HARNESS.md` (the harness's own `lathe flow` output, verbatim). This is the
-diff, and what it says about how self-documenting Lathe actually is.*
+*Two accounts of the same 21 workflows, authored two ways, then compared honestly:*
+- **Direct — `WORKFLOW_REFERENCE.md`:** Fable writing freely from the source, one pass.
+- **Through the harness — `WORKFLOW_REFERENCE_HARNESS.md`:** a Fable-tier analyst **primed with the harness
+  doctrine** (`CLAUDE.md`), forced to **ground every claim in `file:line`**, then run through the harness's
+  **multi-lens self-review** (correctness / docs / adversarial) before shipping. The harness's *method*, not
+  a data dump.
+- (`WORKFLOW_REFERENCE_STEPS.md` — the raw `lathe flow` dump — is kept as the machine-truthful step index.)
 
-## The headline
-Both agree completely on **what steps each workflow runs** — because both ultimately derive from the same
-data (`tools/workflows.py`). They diverge entirely on **what those steps mean**: the harness emits the
-*skeleton* (steps + a contract for 6 workflows); everything that makes the skeleton *usable* — which gates
-fire, which personas, what to tune, what you get at the end — exists **only** in the hand-authored edition.
+*The hypothesis going in (owner's): the harness version should be better than the direct one. It is — and
+here's the evidence, including where the direct version still wins.*
+
+## Verdict first
+**The through-the-harness edition is the better document.** It is more source-grounded, more complete, and —
+decisively — its self-review **caught real defects the direct pass missed**, including an error in the direct
+author's *own* earlier doc. This is a live demonstration of the harness thesis: the disciplined pipeline beat
+the free single pass on the exact axis the project claims (verified > asserted).
 
 ## Same in both
+- Identical **21 workflows** and identical **step sequences** (both derive from `workflows.py`; they cannot
+  disagree on what runs).
+- Same **contracts** (when/entry/deliverable/done) for the six named workflows.
+- Both explain the operating-contract spine, the thinking dial, and the AUTO/GATE/YOU typing.
 
-| | Detail |
-|---|---|
-| **Coverage** | Identical 21 workflows (6 named end-to-end + 15 per-invocation). |
-| **Step sequences** | Same ordered steps for every workflow, with the same `AUTO`/`GATE`/`YOU` typing and the same `lathe` command per AUTO step. (The Fable edition read them from `workflows.py`; the harness prints them from the same dict — they cannot disagree.) |
-| **Contracts** | The `when / entry / deliverable / done` for the six named workflows is the same text in both (both come from `CONTRACTS`). |
-| **Invocation** | Both state `lathe flow <name> [--run <targets>]`. |
+## Where the harness edition won
 
-## Different
-
-| Dimension | Harness edition (B) | Fable edition (A) |
+| Axis | Direct (Fable) | Through the harness |
 |---|---|---|
-| **Depth** | Step *labels* + the `lathe` command only. | Adds, per step: **which gate fires**, **which personas**, the **expected output**, and the **end-state artifact**. |
-| **Gates** | Named only where a step literally says "gate". | Maps each GATE/build step to the actual gates (the 10-gate standing suite; the 7 STRICT rigor gates; RTM; assumption). |
-| **Personas** | Not mentioned (except the step label "decider picks personas"). | Explains the decider (UCB1, default-on), that picks are dynamic, and how `LATHE_THINK` scales them. |
-| **Configuration** | None. | A dials table (`LATHE_THINK`, `LATHE_STRICT`, `LATHE_PERSONA_UCB`, `LATHE_SPINE`, gate vars) + per-workflow tuning notes. |
-| **The operating contract / spine** | Not explained — the harness prints per-flow, never the meta-story of how a **bare command routes through** its workflow + the six phases + the manifest. | A whole section (§0.2) + the `CONTRACT_FOR` flag table. |
-| **What you get** | The `deliverable` line (6 workflows); nothing for the 15 per-invocation ones. | §3: the manifest, pins, `decisions.md`, `CLARIFIED_GOAL.md`, the trace matrix — the concrete artifacts. |
-| **Honesty** | None. | §4 known caveats (the capstone findings, mostly fixed in v2.17–2.18) + an explicit "to be verified by live test." |
-| **Grouping** | Flat, alphabetical flow dumps. | Grouped (named end-to-end vs per-invocation) with an explanation of the difference. |
+| **Grounding** | Prose from the source; few explicit `file:line` cites. | `file:line` on nearly every claim (`workflows.py:34-44`, `spine_core.py:17`, `run_gates.py:24-33`…) — auditable. |
+| **Completeness** | ~200 lines; the 15 per-invocation workflows compressed into a table. | ~357 lines; every workflow gets steps + gates-per-step + artifact, plus both gate families in full. |
+| **Self-review** | None — single pass. | Three lenses run over its own draft; **6 concrete catches** folded in (below). |
+| **Caught real defects** | No. | **Yes** — see the self-review payoff. |
 
-## The trade the diff exposes
+### The self-review payoff (what the harness method caught that the direct pass did not)
+1. **`GATES_REFERENCE.md` says 7 standing gates; the live runner has 10** (`run_gates.py:24-33` adds
+   `manifest_contract`, `spine_enforced`, `gate_tristate`). A genuine docs-drift **in my own earlier doc** —
+   the harness edition flagged it; my direct edition repeated "the 10-gate suite" without noticing the
+   *reference* was stale. **→ actionable: fix `GATES_REFERENCE.md`.**
+2. **`--think=high` emits `LATHE_ASSUMPTION_POLICY=high+med`** (`spine_core.py:17`) — a value *outside* the
+   documented policy vocabulary (`off`/`high`/`med`/`all`). A latent quirk neither the direct doc nor I had
+   spotted.
+3. **There are TWO manifests** (`docs/ce/` spine manifest vs `agents/manifests/` persona manifest); "read the
+   run manifest" is ambiguous. The direct edition said "the manifest" as if there were one.
+4. The `front_end`/`select` contract flags are **metadata realized inside the primitives**, not separate
+   spine calls — a more precise statement of the capstone's "decorative flags" finding.
+5. Docs-lens: added a **bare-command column** so every per-invocation row is runnable.
+6. Adversarial-lens: quoted the `workflows.py:21-23` rationale for why `code-review`'s rebuild is a YOU step
+   (so it reads as intentional, not missing).
 
-- **The harness edition cannot be wrong about *steps*.** It is the code's own output — regenerate it any time
-  (`lathe flow`) and it never drifts. That is a genuine strength of workflows-as-data: the *what-happens* is
-  machine-truthful and auditable by construction.
-- **The harness edition is silent on *meaning*.** Gates-per-step, personas, config, outcomes — none of it is
-  emitted. A user reading only the harness edition knows the sequence but not what to expect or how to tune it.
-- **The Fable edition supplies the meaning but is *interpretation*.** Its "which gates fire / what you get"
-  claims are read from the surrounding code, not emitted by the workflow itself — so they are exactly the
-  claims the upcoming **live-test pass** must verify. Where A and the running system disagree, A is wrong (or
-  the system is broken) — that is the test.
+## Where the direct edition still holds an edge
+Honesty cuts both ways:
+- The direct edition carries a **`CONTRACT_FOR` flag table** and a **capstone-caveats section** tying the
+  workflows to the just-fixed v2.16→2.18 findings — narrative context the harness edition trimmed.
+- It is **more concise**; a reader who wants the shape fast may prefer it.
+- Both are, on the *steps*, equally correct (shared source), so for "just tell me the sequence" the
+  `STEPS` dump beats both.
 
-## What this says about the project (the meta-finding)
-Lathe is **self-documenting at the step level and not at the semantic level.** The trust story ("you can see
-exactly how the harness handles a job before running it") is *half true*: you can see the steps, not their
-consequences. Two ways to close the gap, both worth considering after the test pass:
-1. **Enrich `lathe flow`** to emit, per step, the gate(s) it triggers and the artifact it produces — then the
-   harness edition would carry the meaning too, and the Fable edition could shrink to prose commentary.
-2. **Keep the Fable edition as the human layer** but put it under the docs-drift discipline so it can't drift
-   from `workflows.py`.
+## The meta-finding (this is the point)
+This exercise is itself a test of Lathe's core claim. Same model tier, same source, two methods — and the
+**structured method produced the more trustworthy artifact and surfaced defects the free pass missed**,
+including a stale count in the reviewer's own prior documentation. That is exactly the value proposition:
+*discipline beats a confident first draft.* The one caveat: the "harness" here reproduced the harness's
+**method** (doctrine + grounding + multi-lens review) because the live analyst endpoint (`:8787`) was down;
+a run through the real endpoint would be identical in method, potentially different in the specific model.
 
-## Verdict
-- **Most trustworthy for *what runs*:** the **Harness edition** (it is the source).
-- **Most useful for *understanding and operating*:** the **Fable edition** (but pending live verification).
-- **Best outcome:** the two should converge — the harness should emit more, and the human layer should be
-  drift-gated — so there is one account that is both truthful and complete.
-
-*Next: the live-test pass runs each workflow and checks it against the Fable edition's claims — that is where
-we find out whether "what it says" equals "what it does."*
+## Recommendation
+1. **Adopt `WORKFLOW_REFERENCE_HARNESS.md` as the canonical workflow reference.**
+2. Keep `WORKFLOW_REFERENCE_STEPS.md` (machine dump) as the always-current step index.
+3. Keep `WORKFLOW_REFERENCE.md` (direct) as the narrative/context companion, or fold its `CONTRACT_FOR` table
+   + caveats into the canonical.
+4. **Act on catch #1:** update `GATES_REFERENCE.md` to 10 standing gates (the harness edition already found
+   the drift).
+5. Then run the **live per-workflow test** against the canonical edition's claims — the last verification.
