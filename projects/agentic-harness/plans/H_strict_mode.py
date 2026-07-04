@@ -15,7 +15,34 @@ MODULE_NAME = "strict_mode"
 HEADER = ""
 GLUE = ""
 _ONLY = "Output ONLY the Python function code — no prose, no markdown, no tests. Import inside the function."
+# #12 Phase-2 U2 (reviewer finding, CONFIRMED): strict_defaults FILLS-IF-EMPTY, so a pre-exported weak value
+# (LATHE_MUTATION_SCORE=0.01, LATHE_LINT_SPEC=warn) SURVIVES STRICT untouched — a caller could lower every
+# threshold below the floor by pre-setting env. strict_clamp is the fix: STRICT clamps, never defers.
 FUNCTIONS = [
+    {"name": "strict_clamp",
+     "kinds": ["edge"],
+     "prompt": ("Write strict_clamp(env_value, existing) -> list of [key, value, configured] triples: the env "
+                "overrides STRICT must apply so no configured value stays below the STRICT floor. If env_value "
+                "is not a str, or its stripped lowercase form is not one of ('1','true','yes','on') -> []. "
+                "existing is a dict (None/bad -> treat as {}); configured = existing.get(key) if a str else "
+                "None. MODE keys force their strict value whenever configured differs (or is missing): "
+                "LATHE_TEST_ACK->'1', LATHE_REGRESSION_PROOF->'1', LATHE_LINT_SPEC->'block', "
+                "LATHE_GATE_GLUE->'1', LATHE_TEST_KIND->'1', LATHE_ASSUMPTION_GATE->'1'. NUMERIC floor key "
+                "LATHE_MUTATION_SCORE (floor 0.5): parse configured as float; if missing, unparseable, or "
+                "< 0.5 -> clamp to '0.5'; if >= 0.5 keep it (emit NO triple). Each emitted triple is "
+                "[key, forced_value, configured_or_None] in the key order listed above — the third element "
+                "makes every clamped/overridden value LOUD for the report. Never raise." + "\n" + _ONLY),
+     "tests": [
+        "assert strict_clamp('0', {}) == [] and strict_clamp(None, {}) == []",
+        "r = strict_clamp('1', {}); assert ['LATHE_LINT_SPEC', 'block', None] in r and ['LATHE_MUTATION_SCORE', '0.5', None] in r and len(r) == 7",
+        "assert ['LATHE_LINT_SPEC', 'block', 'warn'] in strict_clamp('1', {'LATHE_LINT_SPEC': 'warn'})  # U2 kill-shot: pre-set weak mode is FORCED",
+        "assert ['LATHE_MUTATION_SCORE', '0.5', '0.01'] in strict_clamp('1', {'LATHE_MUTATION_SCORE': '0.01'})  # U2 kill-shot: sub-floor threshold CLAMPED",
+        "assert not any(t[0] == 'LATHE_MUTATION_SCORE' for t in strict_clamp('1', {'LATHE_MUTATION_SCORE': '0.8'}))  # above floor -> untouched",
+        "assert ['LATHE_MUTATION_SCORE', '0.5', 'abc'] in strict_clamp('1', {'LATHE_MUTATION_SCORE': 'abc'})  # unparseable -> clamped",
+        "full = {'LATHE_TEST_ACK':'1','LATHE_REGRESSION_PROOF':'1','LATHE_LINT_SPEC':'block','LATHE_MUTATION_SCORE':'0.5','LATHE_GATE_GLUE':'1','LATHE_TEST_KIND':'1','LATHE_ASSUMPTION_GATE':'1'}",
+        "assert strict_clamp(' TRUE ', full) == []  # already strict -> nothing to force",
+        "assert strict_clamp('1', None)[0][0] == 'LATHE_TEST_ACK'  # key order stable, None existing tolerated",
+     ]},
     {"name": "strict_defaults",
      "prompt": ("Write strict_defaults(env_value, existing) -> list. The LATHE_STRICT policy: which enforcement "
                 "env vars strict mode turns on. If env_value is None, not a str, or its stripped lowercased form "
@@ -61,8 +88,10 @@ FUNCTIONS = [
 
 # Requirement -> test traceability (consumed by `lathe trace`, enforced under LATHE_STRICT).
 CRITERIA = [
-    {"id": "S1", "text": "STRICT turns on exactly the enforcement env vars, letting an explicit user setting win",
+    {"id": "S1", "text": "strict_defaults fills unset enforcement vars (LEGACY fill-if-empty — superseded for STRICT floors by S3)",
      "tests": ["strict_defaults"]},
     {"id": "S2", "text": "STRICT refuses a plan missing CRITERIA, and refuses an ARTIFACTS-only plan",
      "tests": ["strict_plan_gaps"]},
+    {"id": "S3", "text": "STRICT CLAMPS: no pre-set env value may keep a gate below the STRICT floor; every override is loud (#12 U2)",
+     "tests": ["strict_clamp"]},
 ]

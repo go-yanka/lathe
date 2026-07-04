@@ -90,15 +90,23 @@ for _attr, _dflt in (("FUNCTIONS", []), ("ARTIFACTS", []), ("HEADER", ""), ("GLU
 # forced through every proof mechanism — tests acknowledged (TEST_ACK), changed code must ship a test that
 # fails on the old implementation (REGRESSION_PROOF), new code must ship tests a trivial stub can't satisfy
 # (LINT_SPEC=block), and the plan MUST declare CRITERIA (requirement→test traceability). The policy itself
-# is harness-built + pinned (tools/strict_mode.py); an explicitly-set env var still wins over the umbrella.
+# is harness-built + pinned (tools/strict_mode.py). #12 U2: STRICT CLAMPS — a pre-exported weak value
+# (MUTATION_SCORE=0.01, LINT_SPEC=warn) can no longer keep a gate below the STRICT floor; every override
+# is printed LOUDLY with the value it displaced. (Old fill-if-empty strict_defaults kept as fallback.)
 try:
     _sm = importlib.util.spec_from_file_location("strict_mode", os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "strict_mode.py"))
     _smm = importlib.util.module_from_spec(_sm); _sm.loader.exec_module(_smm)
     _strict = os.environ.get("LATHE_STRICT")
-    for _k, _v in _smm.strict_defaults(_strict, dict(os.environ)):
-        os.environ[_k] = _v
-        print("engine: STRICT mode -> %s=%s" % (_k, _v))
+    if hasattr(_smm, "strict_clamp"):
+        for _k, _v, _was in _smm.strict_clamp(_strict, dict(os.environ)):
+            os.environ[_k] = _v
+            print("engine: STRICT mode -> %s=%s%s" % (_k, _v,
+                  (" (CLAMPED: env had %r below the STRICT floor)" % _was) if _was is not None else ""))
+    else:                                # older pinned policy module: legacy fill-if-empty
+        for _k, _v in _smm.strict_defaults(_strict, dict(os.environ)):
+            os.environ[_k] = _v
+            print("engine: STRICT mode -> %s=%s" % (_k, _v))
     _gaps = _smm.strict_plan_gaps(_strict, bool(plan.FUNCTIONS), getattr(plan, "CRITERIA", None),
                                   bool(plan.ARTIFACTS))          # E3: ARTIFACTS-only plans are not gateable
     if _gaps:

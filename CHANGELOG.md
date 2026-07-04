@@ -2,6 +2,40 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.12.0 — 2026-07-04
+
+**Operating contract Phase 2a — the 19 per-invocation WORKFLOWS + bare-command PROMOTION** (issue #12;
+specs: `docs/operating-contract/workflows/*.md` on PR #7). Plus the reviewer's U2 structural fail-open, closed.
+
+- **19 workflow ids** (data, `workflows.py`): build-from-goal, build-from-plan, code-review (hardened),
+  clarify-goal, assumption-audit, verify-reproduce, gate-quality, trace-inspect, maintain-tree, ship-release,
+  serve-api, select-grade-experts, report-triage, autonomous, sdlc-requirements, onboard-project + the
+  existing bug-fix / enhancement / doc-review. Design rule: primitive-FIRST with `{args}` passthrough
+  (stdout + exit code preserved; the manifest is a side-file), then only steps that ADD enforcement — the
+  contract never runs the same gate twice (the engine gates its own builds internally).
+- **Promotion wired into `run_spine` phase 3:** a contracted bare command now runs its per-invocation
+  workflow — steps in order, halt on the first blocked, verdicts from rc via the pinned classifier (never
+  model text), every step recorded in the manifest's `work.steps`. `--json` stays primitive-only (compat:
+  the stable metrics object is the only stdout). Steps re-enter `main()` RAW under the guard — still exactly
+  one manifest per top-level invocation.
+- **Guided `code-review` workflow hardened:** its AUTO `build {plan}` step mis-bound a bare review's FILE
+  target as a plan (verified: would hard-block every promoted review) — rebuilding the owning plan needs a
+  human to identify WHICH plan owns the finding, so it is now a YOU checkpoint.
+- **U2 closed (reviewer's structural finding, CONFIRMED): STRICT now CLAMPS, never defers.** The old
+  `strict_defaults` filled-only-if-empty, so a pre-exported `LATHE_MUTATION_SCORE=0.01` or
+  `LATHE_LINT_SPEC=warn` silently survived STRICT. New pinned `strict_clamp` (harness-built, first-pass
+  under STRICT incl. mutation): mode keys are forced to the strict value, the numeric mutation floor is
+  `max(configured, 0.5)`, and every displaced value prints LOUDLY
+  (`CLAMPED: env had '0.01' below the STRICT floor`). Live-verified.
+- **Recursion fail-open found & fixed during validation:** the promoted `do` workflow carries a real gate
+  step; the manifest acceptance gate runs INSIDE that gate suite and probes a promoted command — the probe
+  re-entered the suite → infinite regress → the engine's regression timed out and rolled back a green
+  build. The acceptance gate now stubs the gate step for its probes (it asserts routing/manifest behavior,
+  not gate content), breaking the cycle at the only edge that loops.
+- Deferred to Phase 2b (declared, not hidden): U1 tri-state gate verdicts + canary pairs, U3 engine
+  contract-token (no around-the-spine engine entry), H1 pin re-verification + gate-regime versioning,
+  hreview structured findings output, and the review-path usage ledger (lands with PR #13's orchestrator).
+
 ## v2.11.0 — 2026-07-04
 
 **Operating contract Phase 1 — the ENFORCEMENT SPINE** (issue #12; design:

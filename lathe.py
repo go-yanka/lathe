@@ -1760,7 +1760,22 @@ def run_spine(cmd, rest, argv):
             if mf:
                 mf.record_gate("intake", "pass", False, "thinking=%s contract=%s" % (think, contract or "TRIVIAL"))
         os.environ[_SPINE_GUARD] = mf._d["run_id"] if mf else "1"   # from here, inner main() calls run RAW
-        rc = _dispatch(cmd, rest, argv)                      # phase 3 work (workflow promotion lands Phase 2)
+        # phase 3 work — #12 P2 PROMOTION: a contracted command runs its per-invocation WORKFLOW (primitive
+        # step + gates in order, halt on blocked). --json stays primitive-only (compat guarantee: the stable
+        # metrics object is the ONLY stdout). No workflow / unknown name -> the primitive, exactly as today.
+        wf = None
+        if contract.get("workflow") and "--json" not in rest:
+            try:
+                from workflows import get_workflow
+                wf = get_workflow(contract["workflow"])
+            except Exception:
+                wf = None
+        if wf:
+            if mf:
+                mf.record_gate("promotion", "pass", False, "workflow=%s" % contract["workflow"])
+            rc = _run_workflow(wf, " ".join(rest if routed == "table" else argv), mf)
+        else:
+            rc = _dispatch(cmd, rest, argv)
         if contract.get("gate") and rc == 0:                 # phase 4: standing gates after a green write
             rc = _phase_gates(mf) or rc
         if mf:
@@ -1779,6 +1794,37 @@ def run_spine(cmd, rest, argv):
         if mf:
             _manifest_merge_metrics(mf, _mm0)
             mf.finalize()                                    # phase 5: ALWAYS
+
+
+def _run_workflow(wf, tgt, mf=None):
+    """#12 P2: run a per-invocation workflow's steps IN ORDER, halting on the first blocked step. Verdicts
+    come from rc via the pinned classifier (flow_report), never from model text. Steps re-enter main() and
+    run RAW under the spine's guard — the outer manifest records every step; no nested manifests."""
+    import shlex
+    if TOOLS not in sys.path:
+        sys.path.insert(0, TOOLS)
+    from flow_report import classify_step, workflow_verdict
+    rows = []
+    for kind, label, action in wf.get("steps", []):
+        act = ((action or "").replace("{args}", tgt).replace("{files}", tgt)
+               .replace("{plan}", tgt).replace("{goal}", tgt))
+        if kind == "you":
+            print("  [YOU checkpoint] %s" % label)
+            rows.append("todo")
+            if mf:
+                mf.append_step(label, "todo", "you")
+            continue
+        if kind != "gate" and "{" not in (action or "") and not act.strip():
+            continue                                        # malformed empty step: skip, never a silent pass
+        rc = cmd_gate([]) if kind == "gate" else main(shlex.split(act))
+        status = classify_step(kind, rc, "")
+        rows.append(status)
+        if mf:
+            mf.append_step(label, status, kind)
+        if status == "blocked":
+            print("  [workflow] step BLOCKED — halting: %s" % label)
+            break
+    return 0 if workflow_verdict(rows) == "PASS" else 1
 
 
 def _is_bare(cmd):

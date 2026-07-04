@@ -18,13 +18,14 @@ immediately; harness-framework vs project-specific respects the vendoring bounda
 WORKFLOWS = {
     "code-review": {
         "desc": "Run a ready change through the multi-lens gauntlet and land ONLY verified fixes.",
+        # #12 P2: invocation-safe — the old AUTO `build {plan}` step mis-bound a bare review's FILE target
+        # as a plan and hard-blocked every promoted `lathe review <files>`; rebuilding the owning plan is a
+        # human-judgment step (you must first identify WHICH plan owns the finding), so it is a YOU row.
         "steps": [
             ("auto", "Decider picks the right reviewer personas for the change, then reviews", "review auto {files}"),
-            ("you",  "Triage: separate real findings from false positives; write the fix for each real one", ""),
-            ("you",  "Fix UPSTREAM: fold each real finding into the OWNING plan and rebuild — never hand-edit generated code", ""),
-            ("auto", "Rebuild the owning plan(s)", "build {plan}"),
             ("gate", "Verify the tree: cleanliness / lint / docs-drift gates", ""),
-            ("auto", "Test-quality check on touched plan(s)", "lint-spec {plan}"),
+            ("you",  "Triage: separate real findings from false positives; write the fix for each real one", ""),
+            ("you",  "Fix UPSTREAM: fold each real finding into the OWNING plan and rebuild (lathe build <plan>) — never hand-edit generated code", ""),
             ("you",  "If this is a shipped fix: re-cut canonical (release immediately — projects wait on it)", ""),
         ],
     },
@@ -131,6 +132,59 @@ CONTRACTS = {
 }
 
 
+# --- Operating contract #12 Phase 2: PER-INVOCATION workflows (the reviewer's 19-id set) ---------------------
+# Design: primitive-FIRST with {args} passthrough (stdout + exit code preserved — the manifest is a side-
+# file), then only steps that ADD enforcement (no duplicate gate runs: the engine gates its own builds).
+# Single-step entries make the promotion machinery uniform: primitive + spine + manifest, nothing else.
+WORKFLOWS.update({
+    "build-from-goal": {
+        "desc": "Bare `lathe do`: goal -> clarified spec -> gated build, then the standing gates.",
+        "steps": [
+            ("auto", "Goal -> analyst spec+tests -> gated build (the do primitive)", "do {args}"),
+            ("gate", "Standing gates on the mutated tree", ""),
+            ("you",  "Read the run manifest (docs/ce/) — confirm assumptions + selection look right", ""),
+        ],
+    },
+    "build-from-plan": {
+        "desc": "Bare `lathe build`: gated engine build (engine runs the standing regression itself), then traceability.",
+        "steps": [
+            ("auto", "Engine build under the plan's declared gates", "build {args}"),
+            ("auto", "Requirement->test traceability check on the plan", "trace {plan}"),
+            ("you",  "Read the run manifest — verify gates + per-role usage recorded", ""),
+        ],
+    },
+    "clarify-goal":        {"desc": "Bare `lathe clarify`: requirements-liaison interview -> committed brief.",
+                            "steps": [("auto", "Liaison interview -> brief", "clarify {args}")]},
+    "assumption-audit":    {"desc": "Bare `lathe assume`: adversarial assumption audit -> committed decisions.",
+                            "steps": [("auto", "Adversarial auditor -> materiality-ranked ledger -> resolutions", "assume {args}")]},
+    "verify-reproduce":    {"desc": "Bare `lathe verify`: re-verify pinned bytes reproduce from the pin store.",
+                            "steps": [("auto", "Verify pins reproduce", "verify {args}")]},
+    "gate-quality":        {"desc": "Bare `lathe gate`: the standing gate suite, exit-code honest.",
+                            "steps": [("auto", "Run the standing gates", "gate")]},
+    "trace-inspect":       {"desc": "Bare `lathe trace`: requirement->test traceability report.",
+                            "steps": [("auto", "Trace CRITERIA -> tests", "trace {args}")]},
+    "maintain-tree":       {"desc": "Bare `lathe clean`: janitor pass, then prove the tree is pristine.",
+                            "steps": [("auto", "Janitor: remove stale/dup/corrupt files", "clean {args}"),
+                                      ("gate", "Standing gates prove the tree is clean", "")]},
+    "ship-release":        {"desc": "Bare `lathe checkin`: leak-safe check-in, then human tags/notes.",
+                            "steps": [("auto", "Leak-scanned check-in", "checkin {args}"),
+                                      ("you",  "Tag + release notes + notify consuming projects", "")]},
+    "serve-api":           {"desc": "Bare `lathe serve`: the REST API v0 (runs until stopped).",
+                            "steps": [("auto", "Serve the API", "serve {args}")]},
+    "select-grade-experts": {"desc": "Bare `lathe agent`: decider matches personas to the need (license-gated fetch).",
+                             "steps": [("auto", "Match/spawn the best persona(s)", "agent {args}")]},
+    "report-triage":       {"desc": "Bare `lathe report`: consuming-project issue intake, then human triage.",
+                            "steps": [("auto", "Collect/emit the report", "report {args}"),
+                                      ("you",  "Triage: accept/fix/decline each item, on the record", "")]},
+    "autonomous":          {"desc": "Bare `lathe auto`: the supervised autonomy loop (its own gates inside).",
+                            "steps": [("auto", "Autonomy loop", "auto {args}")]},
+    "sdlc-requirements":   {"desc": "Bare `lathe sdlc`: analyst writes UC->BR->FR->TS, RTM-gated.",
+                            "steps": [("auto", "Requirements authoring (RTM-gated)", "sdlc {args}"),
+                                      ("you",  "Review REQUIREMENTS.md — every TS maps to a UC before building", "")]},
+    "onboard-project":     {"desc": "Alias of new-project: vendor Lathe into a repo and land the first gated build.",
+                            "steps": [("you", "Follow the new-project guided workflow (lathe flow new-project)", "")]},
+})
+
 # --- Operating contract #12 Phase 1: command -> CONTRACT (data — auditable; the spine's PHASES are code) ---
 # Keys: workflow (Phase-2 promotion target; run when it exists AND binds cleanly), front_end (clarify/assume),
 # select (personas), gate (phase-4 standing gates after a green write), writes (mutates the tree), argmap
@@ -139,19 +193,26 @@ CONTRACTS = {
 # NOTE Phase 1: build/do gate:0 because the ENGINE already runs the standing regression inside the build
 # (gating twice doubles cost for zero coverage); their workflow promotion + phase-4 wiring lands in Phase 2.
 CONTRACT_FOR = {
-    "do":       {"workflow": "build-from-goal", "front_end": 1, "select": 1, "gate": 0, "writes": 1, "argmap": "goal"},
-    "build":    {"workflow": "build-from-plan", "front_end": 0, "select": 0, "gate": 0, "writes": 1, "argmap": "plan"},
-    "review":   {"workflow": "code-review",     "front_end": 0, "select": 1, "gate": 1, "writes": 0, "argmap": "files"},
-    "sdlc":     {"workflow": "sdlc",            "front_end": 1, "select": 1, "gate": 1, "writes": 1, "argmap": "goal"},
-    "assume":   {"gate": 1, "writes": 1, "argmap": "plan"},
-    "clarify":  {"front_end": 1, "writes": 1, "argmap": "goal"},
-    "verify":   {"gate": 1, "writes": 0, "argmap": "plan"},
+    # workflow-promoted (#12 P2). gate flags: 0 where the workflow carries its own gate step or the engine
+    # gates internally — the contract never runs the same gate twice for zero coverage.
+    "do":       {"workflow": "build-from-goal",     "front_end": 1, "select": 1, "gate": 0, "writes": 1, "argmap": "goal"},
+    "build":    {"workflow": "build-from-plan",     "front_end": 0, "select": 0, "gate": 0, "writes": 1, "argmap": "plan"},
+    "review":   {"workflow": "code-review",         "front_end": 0, "select": 1, "gate": 0, "writes": 0, "argmap": "files"},
+    "sdlc":     {"workflow": "sdlc-requirements",   "front_end": 1, "select": 1, "gate": 1, "writes": 1, "argmap": "goal"},
+    "clarify":  {"workflow": "clarify-goal",        "front_end": 1, "writes": 1, "argmap": "goal"},
+    "assume":   {"workflow": "assumption-audit",    "gate": 1, "writes": 1, "argmap": "plan"},
+    "verify":   {"workflow": "verify-reproduce",    "gate": 0, "writes": 0, "argmap": "plan"},
+    "trace":    {"workflow": "trace-inspect",       "writes": 0, "argmap": "plan"},
+    "clean":    {"workflow": "maintain-tree",       "writes": 1},
+    "checkin":  {"workflow": "ship-release",        "writes": 1},
+    "serve":    {"workflow": "serve-api",           "writes": 0},
+    "agent":    {"workflow": "select-grade-experts", "writes": 0},
+    "report":   {"workflow": "report-triage",       "writes": 0},
+    "auto":     {"workflow": "autonomous",          "writes": 1},
     "gate":     {"writes": 0},                 # cmd_gate IS the gate run — phase-4 repeating it adds nothing
-    "clean":    {"writes": 1},
-    "checkin":  {"writes": 1},
     # read-only -> TRIVIAL (spine runs; phases no-op):
-    "status": {}, "logs": {}, "metrics": {}, "board": {}, "plans": {}, "whatis": {}, "trace": {},
-    "map": {}, "env": {}, "dups": {}, "flow": {}, "issues": {}, "report": {}, "waiting": {},
+    "status": {}, "logs": {}, "metrics": {}, "board": {}, "plans": {}, "whatis": {},
+    "map": {}, "env": {}, "dups": {}, "flow": {}, "issues": {}, "waiting": {},
 }
 
 

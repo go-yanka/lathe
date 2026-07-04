@@ -47,6 +47,11 @@ def main():
     # env is inherited. This gate calls lathe.main() as a LIBRARY, so emulate the process-entry clear
     # (a real child `lathe` process does this at its own entry) before the in-process top-level probes.
     os.environ.pop("_LATHE_SPINE_RUN", None)
+    # RECURSION BREAK (#12 P2): promoted workflows carry real `gate` steps that run the standing suite —
+    # but THIS gate runs INSIDE that suite. A probe on a promoted command (T6's bare goal -> `do`) would
+    # re-enter run_gates -> this gate -> ... forever (found live: it timed out the engine's regression and
+    # rolled back a green build). Probes assert manifest/routing behavior, not gate content — stub it.
+    lathe.cmd_gate = lambda rest: 0
     emitted = []
 
     # T2 — un-skippable under every terminal path (stub handlers injected into the REAL table via cmd names)

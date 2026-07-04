@@ -120,6 +120,13 @@ class Manifest:
         except Exception:
             pass
 
+    def append_step(self, label, status, kind="auto"):
+        """#12 P2: one row per workflow step, in execution order — the promotion audit trail."""
+        try:
+            self._d["work"]["steps"].append({"label": str(label), "status": str(status), "kind": str(kind)})
+        except Exception:
+            pass
+
     def record_gate(self, gate, verdict, blocking=True, detail=""):
         try:
             self._d["gates"]["verdicts"].append({"gate": str(gate), "verdict": str(verdict),
