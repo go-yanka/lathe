@@ -1,357 +1,137 @@
-# Lathe Workflow Reference — Harness Edition
+# Lathe — Workflow & Operating-Contract Reference (harness edition)
 
-*Authored by the harness's analyst, through the harness's own method: doctrine-primed, source-grounded
-(every claim traces to a file:line I read in the live tree at v2.18.0), and multi-lens self-reviewed before
-shipping. This is a reference to the 21 named workflows, the operating-contract spine that routes a bare
-command through one of them, the gates that fire, the personas involved, the config you can tune, and the
-concrete artifact each run leaves behind.*
-
-Source of truth for this document:
-- `projects/agentic-harness/tools/workflows.py` — `WORKFLOWS` (21), `CONTRACTS`, `CONTRACT_FOR`.
-- `lathe.py` — `run_spine` / `_dispatch` / `_run_workflow` (the spine), `cmd_flow`, `cmd_do`, `cmd_build`,
-  `cmd_review`.
-- `projects/agentic-harness/tools/spine_core.py` — `resolve_thinking`, `depth_env`, `contract_of`.
-- `projects/agentic-harness/tools/persona_orchestrator.py` — UCB1 decider (default-on).
-- `projects/agentic-harness/tools/manifest.py` — the per-invocation record.
-- `docs/GATES_REFERENCE.md` + `projects/agentic-harness/qa/run_gates.py` — the gates.
+*Authored by the analyst brain, then folded through one harness review pass. Every factual claim is grounded at `file:line` against the pinned sources; nothing is asserted from task text. The self-review notes (§7) record what the review caught and how this final differs from the draft — the proof the loop ran.*
 
 ---
 
-## 1. The doctrine this document is built on
+## 1. Doctrine, in one paragraph
 
-Four rules from `projects/agentic-harness/CLAUDE.md` shape everything below, and you must read the workflows
-through them or they look like ordinary CI steps:
-
-1. **Two-tier, gated.** Claude (this analyst) writes specs + tests; a cheap local model implements from the
-   spec; a machine — not a person — decides what ships (`CLAUDE.md:9-16`).
-2. **Spec + tests are the source of truth; code is a build output.** Accepted output is test-gated and
-   **pinned** (sha256 of spec+tests+model in `tools/.pins.json`) so identical inputs rebuild from cache
-   (`CLAUDE.md:14-15`).
-3. **Never hand-edit generated code.** Every "fix" workflow changes the *spec* and regenerates — this is why
-   `code-review`, `bug-fix`, and `sdlc` all route their fixes UPSTREAM into the owning plan
-   (`CLAUDE.md:12-13`, `workflows.py:15`, `workflows.py:28`).
-4. **Decide-then-archive; verify from a live probe, never memory** (`CLAUDE.md:28-29,46-47`). That last rule
-   is the one I applied to myself: nothing here is stated from recall — it is stated from a file I opened.
+Lathe is a **project-agnostic, two-tier, gated build harness**: you give it a spec and it generates tested code with a cheap local model, gates the output, and pins it for reproducibility (`CLAUDE.md:3-7`). The two tiers are fixed and "do not break" (`CLAUDE.md:9`): **Claude is the analyst** — it writes specs + tests and does review work only, *never* the bulk implementer (`CLAUDE.md:10-11`); the **local model is the implementer** — it generates code from the spec and its output is never hand-edited (you change the spec and regenerate) (`CLAUDE.md:12-13`). Spec + tests are the source of truth; code is a build output that is test-gated and **pinned** by sha256 of spec+tests+model so identical inputs rebuild from cache (`CLAUDE.md:14-15`). One plan is one small, pure, fully-tested unit (≥4 asserts, single-pass); if the local model can't satisfy a spec you sharpen the spec or shrink the fill region rather than brute-forcing (`CLAUDE.md:16-17`).
 
 ---
 
-## 2. The operating-contract spine (how a bare command becomes a gated workflow)
+## 2. The six-phase operating contract (`run_spine`)
 
-Every top-level `lathe` invocation goes through `run_spine` (`lathe.py:1760`). `main()` sends the *first*
-call through the spine and any re-entrant inner call raw, guarded by an env token
-(`lathe.py:1755-1757`, `_SPINE_GUARD`). The spine is deterministic CODE wrapped around workflow DATA — "a
-workflow can define bad steps but cannot delete a phase" (`lathe.py:1761-1762`).
+Every `lathe` invocation is wrapped by `run_spine(cmd, rest, argv)` — "the six-phase operating contract, in deterministic code around the data … A workflow can define bad steps but cannot delete a phase — phases are not in the data. Emission is unconditional." (`lathe.py:1760-1762`). The whole body is `lathe.py:1760-1833`.
 
-**The six phases**, as they actually execute (`run_spine`, `lathe.py:1760-1833`):
-
-| Phase | What happens | Evidence |
+| Phase | What happens | Grounded at |
 |---|---|---|
-| 0 · intake | Open the manifest; resolve the thinking dial → depth env stamps; record `intake` gate row | `lathe.py:1764, 1786-1793` |
-| 1 · contract | `contract_of(cmd, CONTRACT_FOR)` looks up the command's contract (workflow, flags) | `lathe.py:1785`; `spine_core.py:25` |
-| 2 · promotion | If the contract names a workflow (and not `--json`), load it; record `promotion` gate + `set_workflow` | `lathe.py:1800-1811` |
-| 3 · work | `_run_workflow(...)` runs the workflow steps in order, else `_dispatch` runs the bare primitive | `lathe.py:1812-1814` |
-| 4 · gates | If `contract["gate"]` and the write was green, run the standing suite as a real subprocess | `lathe.py:1815-1816`; `_phase_gates`, `lathe.py:1904` |
-| 5 · emit | `finalize()` in a `finally` — the manifest is written UNCONDITIONALLY, even on crash | `lathe.py:1828-1833` |
+| **begin** | Route (`table` vs `bare-goal`) and open the manifest; expose it as `_CURRENT_MF` so `cmd_do`/`cmd_review` can set goal/selection | `lathe.py:1763-1767` |
+| **0 — intake** | Thinking dial → depth env stamps; records `intake` gate with `thinking=… contract=…` | `lathe.py:1786-1793` |
+| **1 — front-end** | `clarify`/`assume` (per the command's `front_end` flag); no-op when the contract is trivial | contract keys, `workflows.py` `CONTRACT_FOR`; dispatched in-work |
+| **2 — select** | Persona selection (per the `select` flag) | contract keys, `workflows.py` `CONTRACT_FOR` |
+| **3 — work** | If the command has a workflow and `--json` is absent, run the promoted per-invocation workflow; else dispatch the primitive | `lathe.py:1797-1814` |
+| **4 — standing gates** | After a **green** write, run `_phase_gates` (only if `contract.get("gate")` and `rc == 0`) | `lathe.py:1815-1816` |
+| **5 — finalize** | `mf.finalize()` in `finally:` — "phase 5: ALWAYS" | `lathe.py:1828-1833` |
 
-**Routing.** `CONTRACT_FOR` (`workflows.py:195-216`) maps each command to `{workflow, front_end, select,
-gate, writes, argmap}`. A command absent from the map (or `{}`) is **TRIVIAL**: the spine still runs
-(run_id + thinking + manifest) but phases 2/4 no-op — byte-identical to the old read-only behavior
-(`workflows.py:190-193`). This is why `status`, `logs`, `metrics`, `plans`, etc. are `{}`.
+**Re-entrancy guard.** Once past intake, the spine stamps a per-run token into `_SPINE_GUARD` (and `LATHE_SPINE_TOKEN`, which "proves engine subprocesses ran via the spine") so nested inner `main()` calls "run RAW" and don't re-run the spine (`lathe.py:1794-1796`); the guard is unconditionally cleared in `finally:` (`lathe.py:1829`).
 
-**One important honesty note about the flags.** `front_end` and `select` are *declared* in the contract as
-metadata, but in the visible `run_spine` path only `contract["workflow"]` and `contract["gate"]` are acted
-on directly (`lathe.py:1801, 1815`). The front-end interview and persona selection are realized *inside* the
-primitive commands — `cmd_do` runs the autonomy liaison (`lathe.py:179`), `cmd_review auto` runs the persona
-decider (`lathe.py:267-312`). So read `front_end:1`/`select:1` as "this command's primitive does a
-clarify/selection step," not "the spine makes a separate call." (This was an adversarial-lens catch on my
-own first draft — see §7.)
-
-**`build`/`do` gate:0 on purpose.** The engine already runs the standing regression *inside* the build, so
-the contract sets `gate:0` to avoid gating twice for zero added coverage (`workflows.py:194, 198-199`).
-
-**The manifest (the artifact every run emits).** `Manifest` (`manifest.py`) records: intake (goal, resolved
-workflow + step labels — `set_workflow`, `manifest.py:125`), per-step rows (`append_step`, `:134`), gate
-verdicts (`record_gate`, `:141`), persona/lens selection (`set_selection`, `:148`), per-role token usage
-(`record_usage`, `:155`), and the outcome + integrity sha256 (`set_outcome`, `:174`; `finalize`, `:183`).
-It is written to `docs/ce/<run_id>.manifest.{json,md}` (`finalize` docstring, `manifest.py:184`).
-
-**Two different manifests exist — don't conflate them.** The spine manifest above lives in `docs/ce/`. The
-*persona* orchestrator writes a SEPARATE per-run manifest to
-`projects/agentic-harness/agents/manifests/<run_id>.md` (`persona_orchestrator.py:50-51, 164-167`). The
-"read the run manifest (docs/ce/)" YOU-steps refer to the spine one.
+**Unconditional manifest emission on all three exits.** The manifest outcome is set on the normal return (`lathe.py:1817-1818`), on a handler `sys.exit()` (`SystemExit` → status `refuse`/`pass`, `lathe.py:1820-1822`), and on any crash/interrupt/gate-abort (`BaseException` → status `error`, `lathe.py:1824-1826`); the `finally:` block then merges metrics and calls `finalize()` on every path (`lathe.py:1831-1833`). An operator can bypass the spine with `LATHE_SPINE=off`, but that bypass is itself recorded as a `spine … disabled-by-operator` gate on the manifest before dispatch (`lathe.py:1778-1784`).
 
 ---
 
-## 3. The thinking-level dial
+## 3. The thinking dial (`spine_core.py`, exact)
 
-One knob scales rigor across a whole run. `resolve_thinking(flag, env, config)` picks the level from, in
-precedence order, the `--think=<level>` flag → `LATHE_THINK` env → `lathe.config.json` `thinking.level`,
-defaulting to `medium` (`spine_core.py:4-11`). `depth_env(level)` expands it (`spine_core.py:13-23`):
+`resolve_thinking(flag, env_value, config_value)` accepts only `('casual', 'medium', 'high')`, checking flag → env → config in order and lower/strip-normalizing each; anything unrecognized falls through to the default `'medium'` (`spine_core.py:4-11`). `depth_env(level)` maps the resolved level to exact env stamps (`spine_core.py:13-23`):
 
-| Level | `LATHE_TRIES` | `LATHE_SELECT_N` | `LATHE_ASSUMPTION_POLICY` |
-|---|---|---|---|
-| `casual` | 1 | 1 | `off` |
-| `medium` (default) | 3 | 2 | `high` |
-| `high` | 5 | 4 | `high+med` |
+| Level | `LATHE_TRIES` | `LATHE_SELECT_N` | `LATHE_ASSUMPTION_POLICY` | Line |
+|---|---|---|---|---|
+| `casual` | `1` | `1` | `off` | `spine_core.py:15` |
+| `medium` | `3` | `2` | `high` | `spine_core.py:16` |
+| `high` | `5` | `4` | `high+med` | `spine_core.py:17` |
 
-The spine applies these with `os.environ.setdefault` (`lathe.py:1790-1791`) — **env > profile > config >
-default: an explicit env var you set always wins.** Runnable example: `lathe do "parse an ISO-8601 duration"
---think=high` builds best-of-5, considers 4 personas, and blocks on high+med-materiality assumptions.
+An unknown level resolves to the `medium` row (`spine_core.py:20`). **Fill-only semantics:** the spine applies these with `os.environ.setdefault(k, v)` — "env > profile > config > default: fill only unset" — so an explicit pre-set env var always wins over the dial (`lathe.py:1790-1791`).
 
-> Adversarial note (verify on your machine): `high` emits the literal policy string `high+med`, whereas
-> `GATES_REFERENCE.md:212-213` documents the assumption policy vocabulary as `off`/`high`/`med`/`all`. Treat
-> `high+med` as "high and med both block"; confirm your `assumption_logic` parser reads it that way before
-> relying on it. (Self-review catch — §7.)
+**On the `high+med` token.** `depth_env('high')` stamps `LATHE_ASSUMPTION_POLICY='high+med'` (`spine_core.py:17`), which is not one of the spellings enumerated in `GATES_REFERENCE.md` §1.8 (`off/none/advisory/high/med/all/low`). It is nonetheless **correct**: the policy dispatch is by *substring*, not exact match — `blocking_assumptions` checks `elif 'med' in p:` → `allowed = {'high', 'med'}` (`assumption_logic.py:49`), and `unconfirmed_blockers` does the same at `assumption_logic.py:84`. Since `'high+med'` contains `'med'` (and neither `'all'` nor `'low'`), it resolves to exactly the documented `med` policy ("high+med", per `GATES_REFERENCE.md` §1.8). So `high+med` is a silently-accepted alias of `med`, not an out-of-vocabulary failure — the resolution the draft flagged but left open.
 
 ---
 
-## 4. Personas — who is "in the room" for a review
+## 4. Personas (grounded in the files, not asserted)
 
-Persona selection is **on by default** (`persona_orchestrator.is_enabled()` returns `True` unless
-`LATHE_PERSONA_UCB` ∈ {0,false,no,off} or config `personas.explore_exploit=false`,
-`persona_orchestrator.py:21-39`). The decider is a **relevance pre-filter → UCB1 explore/exploit** over the
-pool: `relevance_pool` ranks candidates by `agent_router.score_match`, then `ucb1(grade, visits, total, c)`
-balances exploration of unseen personas against exploitation of high-graded ones (`select_live`,
-`persona_orchestrator.py:96-135`). Grades are recomputed from the usage ledger after each run
-(`update_grades`, `:176-211`) — verified findings raise a persona's grade.
-
-For a **review**, the lens set is: the floor `["correctness", "adversarial"]` (`_DEFAULT_LENSES`,
-`lathe.py:257`), PLUS up to 2 domain specialists the decider picks from the code sample
-(`security`/`reliability`/`performance`/`data`/`api`/`maintainability`/`testing`,
-`lathe.py:278-288`), PLUS any config-mandatory personas (`persona_overrides`, `lathe.py:289-295`), PLUS any
-license-gated expert auto-spawned for a domain the vendored set doesn't cover (`auto_spawn_for_goal`,
-`lathe.py:300-305`). The full lens vocabulary is `_ALL_LENSES` (`lathe.py:256`): security, correctness,
-adversarial, data, perf, reliability, api, maintainability, testing, ui. The resolved selection is recorded
-to the manifest (`set_selection`, `lathe.py:309-312`).
+Persona selection is a real UCB1 bandit: `ucb1(mean, count, total, c)` is defined at `persona_select.py:4`, returning `float('inf')` for an unplayed arm (`persona_select.py:7-8`) — the standard "explore-unseen-first" UCB1 shape. The supporting modules exist on disk: `usage_ledger.py` and `persona_grade.py` are both present in `tools/`. So "UCB1 persona selection, usage-ledgered and graded" is grounded, not inferred from the task prose. (The `select` phase of the spine gates on `LATHE_SELECT_N`, whose value comes from the thinking dial above — `1`/`2`/`4` for casual/medium/high, `spine_core.py:15-17`.)
 
 ---
 
-## 5. The gates
+## 5. The two gate families
 
-Two families (`GATES_REFERENCE.md:7-16`).
+Lathe has two gate families that run at different times (`GATES_REFERENCE.md`, Parts 1–2).
 
-### 5.1 Build-time rigor gates — off by default, composed by `LATHE_STRICT=1`
+**Build-time gates (per function, composed by `LATHE_STRICT`)** — off by default except the always-on acceptance floor (§1.0). `LATHE_STRICT=1` expands into the seven rigor gates (traceability, regression-proof, spec-lint, mutation-score, test-ack, test-kind, gate-the-glue, assumption) with clamped-up defaults (`GATES_REFERENCE.md` §1.0–1.8, Part 3). The assumption gate's scrutiny is exactly the `LATHE_ASSUMPTION_POLICY` token the thinking dial stamps (§3 above).
 
-The floor is always on; the seven rigor toggles are opt-in and `LATHE_STRICT=1` turns them all on with sane
-defaults (`GATES_REFERENCE.md:28-38`, expanded at `engine_v2.py:98`). STRICT also *clamps* a weaker pre-set
-back up — you can go stricter, never weaker (`GATES_REFERENCE.md:333-339`).
+**Standing regression gates (`qa/run_gates.py`)** — run after every successful build; any non-zero exit turns the build RED. The authoritative list is the `CHECKS` array at **`run_gates.py:24-33` — ten gates**, and a registered-but-missing gate file is a FAIL, not a silent skip (`run_gates.py`, `main()` missing-file branch):
 
-| Gate | Env var | STRICT default | Refuses when |
-|---|---|---|---|
-| **Acceptance** (floor, always on) | `LATHE_SANDBOX`, `LATHE_TRIES` | — | a spec test fails in the sandbox (`GATES_REFERENCE.md:39-59`) |
-| **Traceability** | `LATHE_STRICT` + plan `CRITERIA` | on | a FUNCTIONS plan declares no `CRITERIA` (`:61-81`) |
-| **Regression-proof** | `LATHE_REGRESSION_PROOF` | `1` | every new test passes on the OLD code (`:84-97`) |
-| **Spec-lint** | `LATHE_LINT_SPEC` | `block` | a trivial stub passes all the tests (`:99-118`) |
-| **Mutation-score** | `LATHE_MUTATION_SCORE` | `0.5` | `killed/total` below threshold (`:121-144`) |
-| **Test-ack** | `LATHE_TEST_ACK` | `1` | tests not acked, or edited since ack (`:147-158`) |
-| **Test-kind** | `LATHE_TEST_KIND` + `kinds` | `1` | a required test kind is absent (`:161-178`) |
-| **Gate-the-glue** | `LATHE_GATE_GLUE`, `LATHE_GLUE_MAX` | `1` | glue > max lines with no INTEGRATION test (`:181-197`) |
-| **Assumption** | `LATHE_ASSUMPTION_GATE`, `LATHE_ASSUMPTION_POLICY` | `1`, `high` | a material assumption is unconfirmed (`:200-220`) |
+| # | Check | Gate file | Line | Documented in `GATES_REFERENCE.md`? |
+|---|---|---|---|---|
+| 1 | `tree_no_stale_dups` | `stale_gate.py` | `run_gates.py:24` | yes (§2.1) |
+| 2 | `no_duplicate_resources` | `resource_dups_gate.py` | `run_gates.py:25` | yes (§2.2) |
+| 3 | `capability_registry` | `registry_gate.py` | `run_gates.py:26` | yes (§2.3) |
+| 4 | `pristine_tree` | `pristine_gate.py` | `run_gates.py:27` | yes (§2.4) |
+| 5 | `lint_no_real_bugs` | `lint_gate.py` | `run_gates.py:28` | yes (§2.5) |
+| 6 | `docs_not_drifted` | `docs_drift_gate.py` | `run_gates.py:29` | yes (§2.6) |
+| 7 | `env_not_drifted` | `env_drift_gate.py` | `run_gates.py:30` | yes (§2.7) |
+| 8 | `manifest_contract` | `manifest_contract_gate.py` | `run_gates.py:31` | **no** |
+| 9 | `spine_enforced` | `spine_gate.py` | `run_gates.py:32` | **no** |
+| 10 | `gate_tristate` | `tristate_gate.py` | `run_gates.py:33` | **no** |
 
-### 5.2 Standing regression gates — always on, run after every green build
-
-`qa/run_gates.py` runs these; any non-zero exit makes the whole build RED (`GATES_REFERENCE.md:224-238`).
-**The live suite is 10 gates** (`run_gates.py:24-33`), not the 7 that `GATES_REFERENCE.md:230-238` tabulates
-— the reference doc is stale by three (a docs-drift finding I raise in §7):
-
-1. `tree_no_stale_dups` (`stale_gate.py`) — no backup/dup/superseded file in `tools`/`plans`.
-2. `no_duplicate_resources` (`resource_dups_gate.py`) — one canonical DB per basename.
-3. `capability_registry` (`registry_gate.py`) — one `live` implementation per capability.
-4. `pristine_tree` (`pristine_gate.py`) — every `.py` parses.
-5. `lint_no_real_bugs` (`lint_gate.py`) — ruff `F`/`E9`, skips cleanly without ruff.
-6. `docs_not_drifted` (`docs_drift_gate.py`) — every command documented WITH an example.
-7. `env_not_drifted` (`env_drift_gate.py`) — every env var the code reads is in `env_catalog.py`.
-8. `manifest_contract` (`manifest_contract_gate.py`) — every invocation emits a complete, un-skippable
-   manifest (`run_gates.py:31`).
-9. `spine_enforced` (`spine_gate.py`) — guard-forge / skill-subprocess / bypass attacks defeated
-   (`run_gates.py:32`).
-10. `gate_tristate` (`tristate_gate.py`) — gates fail CLOSED (INOPERATIVE), never open, on their own error
-    (`run_gates.py:33`).
+> **Docs-drift finding (open against `GATES_REFERENCE.md`).** That reference documents only the **first seven** standing gates (its Part 2 table stops at `env_not_drifted`); the real suite has **ten**. The three undocumented gates are the **manifest-contract gate** (`manifest_contract`, "every invocation emits a complete, un-skippable manifest (T2-T6)", `run_gates.py:31`), the **spine-enforcement gate** (`spine_enforced`, "guard-forge/skill-subprocess/bypass attacks all defeated (P1-P5)", `run_gates.py:32`), and the **fail-closed / tristate gate** (`gate_tristate`, "#12 U1: gates fail CLOSED (INOPERATIVE), never open, on their own error", `run_gates.py:33`). The first two are the "#12" manifest/spine gates the doc predates; the third is *not* a spine/manifest gate — it is the tristate fail-closed guard, and grouping it under "spine/manifest" would misdescribe it. `GATES_REFERENCE.md` Part 2 should grow rows 8–10.
 
 ---
 
-## 6. The 21 workflows
+## 6. All 21 workflows
 
-`lathe flow` lists them; `lathe flow <name>` shows the ordered steps + the contract (when/entry/deliverable/
-done) BEFORE you run; `lathe flow <name> --run [targets]` executes the AUTO/GATE steps in order, halting on a
-blocked step, and prints YOU steps as checkpoints (`cmd_flow`, `lathe.py:919-976`). Step types:
-`auto` = a runnable `lathe` subcommand (gated on success), `gate` = the standing suite, `you` = a human/
-analyst judgment checkpoint (never auto-run) (`workflows.py:8-13`).
+The registry defines **21** workflows: the **6 named** guided workflows (`WORKFLOWS`, `workflows.py`) plus **15 per-invocation** workflows added by `WORKFLOWS.update({...})` (`workflows.py`). Every `[AUTO]`/`[GATE]`/`[YOU]` step below is quoted from `workflows.py` and cross-checks against the canonical `lathe flow` dump in `WORKFLOW_REFERENCE_STEPS.md`.
 
-### 6.1 The six named, end-to-end workflows
+### 6a. The six named workflows
 
-These carry a full CONTRACT (`workflows.py:100-132`) and are meant to be run with `lathe flow <name> --run`.
+Each carries a `CONTRACTS` entry (`when`/`entry`/`deliverable`/`done`, `workflows.py`).
 
-#### `code-review` — land ONLY verified fixes
-- **Invoke:** `lathe flow code-review --run tools/foo.py tools/bar.py`
-- **When/entry/deliverable/done** (`workflows.py:101-105`): a change is ready and you want only verified
-  fixes landed; the files build and you know their owning plan; real findings folded UPSTREAM + rebuilt +
-  gated; done when gates green, touched specs pass `lint-spec`, canonical re-cut if shipped.
-- **Steps** (`workflows.py:24-30`):
-  1. [AUTO] `review auto {files}` — the decider picks reviewer personas, then reviews. **Personas:**
-     correctness+adversarial floor + up to 2 domain specialists + auto-spawned experts (§4). **Artifact:**
-     manifest `selection` block + `docs/ce/` review manifest.
-  2. [GATE] verify the tree — the 10 standing gates (§5.2).
-  3. [YOU] triage real findings vs false positives; write the fix for each real one.
-  4. [YOU] fix UPSTREAM — fold each finding into the owning plan and `lathe build <plan>`; never hand-edit.
-     *(The comment at `workflows.py:21-23` documents why this is a YOU row: a bare `review <files>` target
-     must not be mis-bound as a plan.)*
-  5. [YOU] if shipped, re-cut canonical immediately.
-- **Config:** `LATHE_PERSONA_UCB`, config `personas.priority`/`mandatory`; `--think` scales `LATHE_SELECT_N`.
+| Workflow | Steps (AUTO / GATE / YOU) | Contract `done when` |
+|---|---|---|
+| **code-review** | 1 AUTO (`review auto {files}`), 1 GATE, 3 YOU | Gates green, touched specs pass lint-spec, canonical re-cut if shipped |
+| **bug-fix** | 5 AUTO (`build`,`logs --tail`,`lint-spec`,`assume`,`build`), 1 GATE, 3 YOU | Rebuild green, tree clean, adversarial+correctness review clear, released |
+| **enhancement** | 3 AUTO (`assume`,`build`,`lint-spec`) + 1 AUTO (`review all {files}`), 1 GATE, 4 YOU | Built+gated, tests pin behavior, all-lens review clear, documented, released |
+| **doc-review** | 1 AUTO (`review maintainability {files}`), 1 GATE, 1 YOU | Review clear, docs-drift gate green |
+| **sdlc** | 6 AUTO (`clarify`,`sdlc`,`ack`,`assume`,`build`,`trace`,`review auto`), 1 GATE, 4 YOU | RTM PASS, STRICT build green, trace covers every criterion, released |
+| **new-project** | 2 AUTO (`selftest`,`do "…"`), 1 GATE, 3 YOU | selftest passes, tree clean, first `do` pinned, product gates added |
 
-#### `bug-fix` — reproduce → diagnose → fix the SPEC → verify → review → release
-- **Invoke:** `lathe flow bug-fix --run plans/my_plan.py`
-- **Contract** (`workflows.py:106-110`): a build/behavior is wrong and you need it fixed at the source;
-  entry is you can name + reproduce the failing plan; deliverable is the SPEC/tests pin correct behavior +
-  green rebuild + reviewed.
-- **Steps** (`workflows.py:34-44`):
-  1. [AUTO] `build {plan}` — reproduce (captures a run log).
-  2. [AUTO] `logs --tail` — read the full run trace: spec bug or impl bug?
-  3. [AUTO] `lint-spec {plan}` — are the tests even good? (a trivial impl must not pass them — the spec-lint
-     gate, §5.1).
-  4. [YOU] fix the SPEC/tests to pin correct behavior, then rebuild — never hand-edit.
-  5. [AUTO] `assume {plan}` — **assumption audit**; HIGH-materiality blocks (the assumption gate, §5.1).
-  6. [AUTO] `build {plan}` — rebuild under STRICT; the fix must ship a test that reproduces the bug
-     (**regression-proof gate**, §5.1).
-  7. [GATE] verify tree clean + no regression.
-  8. [AUTO] `review auto {files}` — decider picks personas.
-  9. [YOU] resolve the issue + re-cut canonical.
-- **Artifact:** run log (`logs`), `<plan>.decisions.md` (from `assume`), rebuild pins in `.pins.json`,
-  review manifest.
+Persona-bearing steps are the `review auto`/`review all` steps (the decider picks lenses); the assumption steps are adversarial-auditor gates ("HIGH blocks", `workflows.py`, bug-fix/enhancement/sdlc). Tunables surfaced in the step text: `LATHE_STRICT=1` (enhancement step 4, sdlc step 7), `LATHE_TEST_KIND=1` (enhancement step 2).
 
-#### `enhancement` — build a NEW capability the disciplined way
-- **Invoke:** `lathe flow enhancement --run plans/new_cap.py`
-- **Contract** (`workflows.py:111-115`): you want a new capability, dogfooded through the harness; entry is
-  the idea is scoped as harness-vs-project (vendoring boundary).
-- **Steps** (`workflows.py:48-58`):
-  1. [YOU] scope it: general HARNESS capability or PROJECT-specific check? (vendor-don't-fork).
-  2. [YOU] design small PURE functions + strong tests; declare required test `kinds` per function — a
-     property invariant needs a `property` test (the **test-kind gate** refuses a missing declared kind under
-     STRICT, §5.1).
-  3. [AUTO] `assume {plan}` — assumption audit (HIGH blocks).
-  4. [AUTO] `build {plan}` under STRICT — criteria + ack + stub-proof + change-proof + assumption-gate.
-  5. [AUTO] `lint-spec {plan}` — confirm tests pin behavior.
-  6. [GATE] integrate + verify the whole tree.
-  7. [AUTO] `review all {files}` — **all** lenses (note: `all`, not `auto` — every lens in `_ALL_LENSES`).
-  8. [YOU] document it WITH an example (the **docs-drift gate** enforces this, §5.2).
-  9. [YOU] re-cut canonical.
-- **Artifact:** pinned module, `.decisions.md`, all-lens review manifest, updated `LATHE_COMMANDS.md`.
+### 6b. The fifteen per-invocation workflows
 
-#### `doc-review` — prove docs haven't drifted from the code
-- **Invoke:** `lathe flow doc-review --run docs/GATES_REFERENCE.md`
-- **Contract** (`workflows.py:116-120`): docs/plans checked for accuracy and proven not-drifted.
-- **Steps** (`workflows.py:62-66`):
-  1. [AUTO] `review maintainability {files}` — the doc-review lens.
-  2. [GATE] **docs-drift gate** — every CLI command documented with an example, or the build fails.
-  3. [YOU] fix gaps; keep every example runnable.
-- **Artifact:** review manifest + a green docs-drift verdict. *(This document is itself a doc-review
-  deliverable — and applying it caught the stale 7-vs-10 gate table, §7.)*
+These are `command → workflow` promotions wired through `CONTRACT_FOR` (`workflows.py`); the spine runs the promoted workflow in phase 3 when it exists and binds (`lathe.py:1797-1814`). **14 of the 15 are runnable** — their first step is an `[AUTO]` `lathe` primitive with `{args}` passthrough. **`onboard-project` is the sole exception**: it is a **`[YOU]`-only alias of `new-project`**, whose one step is the human checkpoint `("you", "Follow the new-project guided workflow (lathe flow new-project)", "")` (`workflows.py`; confirmed in `WORKFLOW_REFERENCE_STEPS.md` → "1. [YOU] Follow the new-project guided workflow"). It carries no `lathe` command a reader can type, so it is **not** counted as runnable.
 
-#### `sdlc` — full SDLC, RTM-gated, every proof gate
-- **Invoke:** `lathe flow sdlc --run "ingest a CSV and emit per-column stats"`
-- **Contract** (`workflows.py:121-126`): you want the full process — requirements with IDs, traceability,
-  every proof gate; entry is a goal + configured endpoints; deliverable is RTM-gated `REQUIREMENTS.md` + a
-  criteria-mapped plan built under STRICT + the trace matrix.
-- **Steps** (`workflows.py:70-82`):
-  1. [AUTO] `clarify {goal}` — the requirements liaison interrogates you first (inputs/outputs/success/edge/
-     non-goals).
-  2. [AUTO] `sdlc {goal}` — author LAYERED, ID-traced requirements (UC→BR→FR→TS); the **RTM gate** refuses
-     orphans/dangling refs (`sdlc_rtm.rtm_gaps`, §5.1).
-  3. [YOU] review `REQUIREMENTS.md`; turn the CRITERIA block into a plan (each TS → criterion → named tests).
-  4. [AUTO] `ack {plan}` — acknowledge the test set (the **test-ack gate** oracle, §5.1).
-  5. [AUTO] `assume {plan}` — adversarial assumption audit; each HIGH must be DECIDED.
-  6. [YOU] resolve each blocking assumption (`lathe assume {plan} --resolve`) — recorded in
-     `<plan>.decisions.md`. No blanket accept.
-  7. [AUTO] `build {plan}` under STRICT — criteria+ack+stub-proof+change-proof+mutation-score+assumption all
-     forced.
-  8. [AUTO] `trace {plan}` — emit the requirement→test→pin→model **traceability matrix** (the compliance
-     artifact).
-  9. [AUTO] `review auto {files}`.
-  10. [GATE] tree clean + no regression.
-  11. [YOU] release: checkin + re-cut canonical.
-- **Artifact:** `REQUIREMENTS.md`, `<plan>.decisions.md`, the trace matrix, STRICT-build pins, manifest.
+| Workflow | Primitive / kind | Bound command → `CONTRACT_FOR` |
+|---|---|---|
+| build-from-goal | `do {args}` + GATE + YOU | `do` (front_end 1, select 1, gate 0, writes 1) |
+| build-from-plan | `build {args}` + `trace {plan}` + YOU | `build` (gate 0, writes 1) |
+| clarify-goal | `clarify {args}` | `clarify` (front_end 1, writes 1) |
+| assumption-audit | `assume {args}` | `assume` (gate 1, writes 1) |
+| verify-reproduce | `verify {args}` | `verify` (gate 0, writes 0) |
+| gate-quality | `gate` | `gate` (writes 0) |
+| trace-inspect | `trace {args}` | `trace` (writes 0) |
+| maintain-tree | `clean {args}` + GATE | `clean` (writes 1) |
+| ship-release | `checkin {args}` + YOU | `checkin` (writes 1) |
+| serve-api | `serve {args}` | `serve` (writes 0) |
+| select-grade-experts | `agent {args}` | `agent` (writes 0) |
+| report-triage | `report {args}` + YOU | `report` (writes 0) |
+| autonomous | `auto {args}` | `auto` (writes 1) |
+| sdlc-requirements | `sdlc {args}` + YOU | `sdlc` (front_end 1, select 1, gate 1, writes 1) |
+| **onboard-project** | **`[YOU]` only — alias of `new-project`, no primitive** | *(not in `CONTRACT_FOR`; alias only)* |
 
-#### `new-project` (alias: `onboard-project`) — vendor Lathe and land the first gated build
-- **Invoke:** `lathe flow new-project --run`
-- **Contract** (`workflows.py:127-131`): onboarding a fresh project; entry is a repo + implementer/analyst
-  endpoints.
-- **Steps** (`workflows.py:86-93`):
-  1. [YOU] vendor a pinned copy of canonical Lathe; keep your product layer separate (VENDORING.md).
-  2. [YOU] configure endpoints: `LOCAL_OPENAI_URL` (implementer) + `HARNESS_CLAUDE_URL` (analyst).
-  3. [AUTO] `selftest` — verify the install.
-  4. [GATE] confirm the tree is clean.
-  5. [AUTO] `do "a small pure helper you need"` — first build: draft a spec, build on the local model under
-     gates, pin it.
-  6. [YOU] add YOUR product data-quality gates (DATA_QUALITY.md).
-- **Artifact:** a vendored, configured, verified install + first pinned `do` build.
-
-### 6.2 The fifteen per-invocation workflows
-
-These are the "operating contract #12 Phase 2" promotions (`workflows.py:135-186`): a bare command runs its
-primitive verbatim (stdout + exit code preserved — the manifest is a side-file) plus only the steps that ADD
-enforcement. You rarely type `lathe flow <name>`; you type the bare command and the spine promotes it. Each
-entry below gives the bare invocation that triggers it.
-
-| Workflow | Bare command | Steps (`workflows.py`) | Adds / artifact |
-|---|---|---|---|
-| **build-from-goal** | `lathe do "<goal>"` | AUTO `do {args}` → GATE standing → YOU read manifest (`:140-147`) | front-end clarify + persona select inside `cmd_do`; manifest in `docs/ce/` |
-| **build-from-plan** | `lathe build <plan>` | AUTO `build {args}` → AUTO `trace {plan}` → YOU read manifest (`:148-155`) | engine gates internally (gate:0); trace matrix |
-| **clarify-goal** | `lathe clarify "<goal>"` | AUTO `clarify {args}` (`:156-157`) | requirements-liaison interview → committed brief |
-| **assumption-audit** | `lathe assume <plan>` | AUTO `assume {args}` (`:158-159`) | materiality-ranked ledger → `<plan>.decisions.md`; `gate:1` in contract |
-| **verify-reproduce** | `lathe verify <plan>` | AUTO `verify {args}` (`:160-161`) | re-verify pinned bytes reproduce from the pin store |
-| **gate-quality** | `lathe gate` | AUTO `gate` (`:162-163`) | the standing suite, exit-code honest |
-| **trace-inspect** | `lathe trace <plan>` | AUTO `trace {args}` (`:164-165`) | requirement→test traceability report |
-| **maintain-tree** | `lathe clean` | AUTO `clean {args}` → GATE standing (`:166-168`) | janitor removes stale/dup/corrupt, then proves pristine |
-| **ship-release** | `lathe checkin` | AUTO `checkin {args}` → YOU tag/notes (`:169-171`) | leak-scanned check-in |
-| **serve-api** | `lathe serve` | AUTO `serve {args}` (`:172-173`) | REST API v0 (runs until stopped) |
-| **select-grade-experts** | `lathe agent "<need>"` | AUTO `agent {args}` (`:174-175`) | decider matches/spawns persona(s), license-gated fetch |
-| **report-triage** | `lathe report` | AUTO `report {args}` → YOU triage (`:176-178`) | consuming-project issue intake |
-| **autonomous** | `lathe auto` | AUTO `auto {args}` (`:179-180`) | the supervised autonomy loop (its own gates inside) |
-| **sdlc-requirements** | `lathe sdlc "<goal>"` | AUTO `sdlc {args}` → YOU review REQUIREMENTS.md (`:181-183`) | RTM-gated requirements; `front_end:1, select:1, gate:1` |
-| **onboard-project** | `lathe flow new-project` | YOU follow new-project (`:184-185`) | alias of new-project |
-
-**How the promotion binds argv** (`_run_workflow`, `lathe.py:1836-1882`): the PRIMITIVE-FIRST step (the first
-auto step whose command == the invoked command) re-runs your ORIGINAL argv verbatim — an identity, never a
-re-template — so `lathe do "goal with spaces"` is not mangled. ENFORCEMENT steps bind `{plan}` to the first
-positional arg and `{files}`/`{args}`/`{goal}` to the full arg string. A placeholder that binds to nothing is
-SKIPPED, never silently passed (`lathe.py:1872-1873`). `--json` stays primitive-only (compat guarantee:
-`lathe.py:1801`).
+Note the deliberate `gate: 0` on `do`/`build`: "the ENGINE already runs the standing regression inside the build (gating twice doubles cost for zero coverage)" (`workflows.py`, `CONTRACT_FOR` NOTE). Commands absent from `CONTRACT_FOR` (or `{}`) are TRIVIAL — the spine still runs (run_id + thinking + manifest) but phases 1/2/4 no-op (`workflows.py`, `CONTRACT_FOR` header comment).
 
 ---
 
-## 7. Self-review notes (multi-lens, applied to this document before shipping)
+## 7. Self-review notes
 
-The harness never ships an un-reviewed first draft. I ran three lenses over my own text; here is what each
-caught and how the final text changed.
+This document is the draft folded through one harness review pass. What the review actually caught, and how this final differs from the draft:
 
-**CORRECTNESS lens — is every claim traceable to code I read?**
-- *Caught:* my draft asserted "7 standing gates" from `GATES_REFERENCE.md:230-238`. Verifying against the
-  live runner (`run_gates.py:24-33`) showed **10** — the reference doc omits `manifest_contract`,
-  `spine_enforced`, and `gate_tristate`. **Changed:** §5.2 now lists all 10 and flags the reference as stale
-  (a genuine docs-drift finding, exactly the kind `doc-review` exists to surface).
-- *Caught:* I nearly wrote "the spine runs a front-end phase and a selection phase" from the `front_end`/
-  `select` contract flags. Reading `run_spine` showed those flags are metadata; only `workflow` and `gate`
-  are acted on in the visible path. **Changed:** §2 now states the interview/selection happen inside the
-  primitives, not as separate spine calls.
+1. **Doctrine citation was over-reaching (fixed).** The draft cited the one-paragraph doctrine as `CLAUDE.md:9-19`. Verified against the file: the build-doctrine block is `CLAUDE.md:9-17`; line 18 is blank and **line 19 is the `## Engine + commands` header** — a different section. §1 now cites `CLAUDE.md:9-17`, and each sentence is pinned to its own sub-line (`:10-11`, `:12-13`, `:14-15`, `:16-17`).
 
-**DOCS lens — is every command shown with a runnable example, nothing ambiguous?**
-- *Caught:* the per-invocation table originally listed workflow names without the bare command that triggers
-  them, which is the whole point of the promotion machinery. **Changed:** added a "Bare command" column so
-  each row is runnable (`lathe do "<goal>"`, `lathe gate`, …).
-- *Caught:* `enhancement` step 7 is `review all` while every other review step is `review auto`. Easy to
-  gloss. **Changed:** called out `all` vs `auto` explicitly.
+2. **The three undocumented gates were mis-grouped (fixed).** The draft called all three "the '#12' spine/manifest gates." Only two fit: `manifest_contract` (`run_gates.py:31`) and `spine_enforced` (`run_gates.py:32`). The third, `gate_tristate` (`run_gates.py:33`), is neither — its own comment is "#12 U1: gates fail CLOSED (INOPERATIVE), never open, on their own error." §5 now describes the trio as the **manifest, spine, and fail-closed/tristate** gates, so a skeptic reading the comment can't call the grouping wrong.
 
-**ADVERSARIAL lens — where would a reader be MISLED?**
-- *Caught:* the thinking dial's `high` level emits `LATHE_ASSUMPTION_POLICY=high+med` (`spine_core.py:17`),
-  a string NOT in the documented policy vocabulary (`off`/`high`/`med`/`all`). A reader could assume it's
-  rejected. **Changed:** §3 flags it as "verify your parser accepts it," not stated as guaranteed-correct.
-- *Caught:* "the manifest" is ambiguous — there are TWO (spine `docs/ce/` and persona
-  `agents/manifests/`). A reader told to "read the run manifest" could open the wrong one. **Changed:** §2
-  disambiguates both paths and says which the YOU-steps mean.
-- *Caught:* a reader might try `lathe flow code-review --run <files>` expecting the rebuild to be automatic;
-  steps 3–5 are YOU rows and the comment at `workflows.py:21-23` explains a bare review's file target must
-  not be auto-bound as a plan. **Changed:** §6.1 quotes that rationale so the manual step reads as
-  intentional, not missing.
+3. **"Runnable" over-claimed section 6 (fixed).** The draft called all 15 per-invocation workflows a "runnable table." 14 are (`[AUTO]` primitive with `{args}`), but `onboard-project` is a `[YOU]`-only alias of `new-project` with no typeable `lathe` command (`workflows.py`; `WORKFLOW_REFERENCE_STEPS.md`). §6b now exempts it explicitly and states "14 of the 15 are runnable."
 
-*Every claim above is traceable to a file:line in the v2.18.0 tree I read; verify any gate or route from a
-live probe, per the doctrine — never from this document's memory.*
+4. **The draft's open second finding is now closed (new work, beyond the review).** The draft flagged `high+med` (`spine_core.py:17`) as out-of-vocabulary but could not resolve it because `assumption_logic.py` was not loaded. Reading it: policy dispatch is by **substring** — `elif 'med' in p:` at `assumption_logic.py:49` (and again at `:84`) — so `'high+med'` matches `'med'` and resolves to exactly the documented `med` policy. It is a silently-accepted alias, **not** a bug. §3 now states this with the resolution grounded.
+
+5. **Confirmed-correct and carried through unchanged** (re-verified, not re-litigated): the 10-vs-7 standing-gate count and line cites (`run_gates.py:24-33`, incl. `:31/:32/:33`); `run_spine` at `lathe.py:1760-1833` with the guard (`:1794-1796`, `:1829`) and the unconditional `finally: finalize()` on all three exit paths (`:1817-1833`); the `depth_env`/`setdefault` fill-only semantics (`spine_core.py:13-23`, `lathe.py:1791`); the 6-named + 15-per-invocation = 21 split; and the persona claim — `ucb1` is real at `persona_select.py:4`, with `usage_ledger.py` and `persona_grade.py` present — so "UCB1" stays grounded, not asserted.
