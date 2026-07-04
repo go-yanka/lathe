@@ -44,7 +44,12 @@ canonical `2026-07-01q`. Project-facing how-to-use: **`FOR_PROJECTS.md`**; every
 `LATHE_TEST_KIND` (a function can require the *shape* of test it needs, e.g. `property`/`edge` — a substring heuristic that catches an *absent* kind, not a weak one; mutation-score is the real backstop) ·
 `LATHE_GATE_GLUE` (hand-written wiring must be exercised by an integration test — no code ships untested) ·
 `LATHE_ASSUMPTION_GATE` (`lathe assume` — an adversarial auditor surfaces the goal's unstated choices; HIGH-materiality ones block the build until confirmed) ·
+`LATHE_ADV_SYNTH` (opt-in; before a gate-critical function pins, the analyst synthesizes adversarial bypass probes calibrated to the spec, and the candidate must survive them) ·
 plus **traceability** (`CRITERIA` mapped to named tests). Honest scope: these bound *test quality + stated-intent per gated function*, not whole-program correctness.
+
+**Gates fail CLOSED, not open (#12 U1).** Every gate carries a tri-state verdict `{PASS, FAIL, INOPERATIVE}` (`tools/gate_tristate.py`, pinned): a gate whose own probe *cannot run* (broken sandbox, timeout, OOM) is INOPERATIVE — never a silent pass — and under STRICT that refuses the build. Probes run a positive+negative **canary** before trusting a result. This closed real fail-opens (spec-lint's `except: return False`-as-pass; glue/mutation error paths; run_gates on a missing/crashed gate file).
+
+**The operating contract (#12).** Every `lathe` invocation runs through an enforced spine and emits a per-invocation **manifest** (`docs/ce/<run_id>.manifest.{json,md}`): intake + resolved workflow, persona selection, contributors with role-attributed tokens + imputed cost, gate verdicts, outcome, tamper-evident self-hash. Bare commands are **promoted** to their named workflow (`tools/workflows.py`), can't bypass the contract (guard-forge-proof), and a direct `python engine_v2.py` is flagged `spine_bypassed` (U3). Pins record the **gate regime** they were verified under; a pin from a weaker regime is re-gated, not trusted (H1).
 
 Also since the original catalog: engine hardening (atomic writes, pin rollback, prelude fail-loud), a
 MODULE_NAME path-traversal guard, cross-platform fixes, and a full self-review pass (Lathe reviewing its own code).

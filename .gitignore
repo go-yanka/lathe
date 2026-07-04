@@ -38,3 +38,6 @@ docs/ce/*.manifest.md
 # per-environment assumption-gate machine state (spec digest + resolutions cache; the committed audit
 # trail is <plan>.decisions.md, which IS versioned)
 **/.assumptions.json
+
+# #12 H1 pin gate-regime sidecar (per-user runtime, like .pins.json)
+**/.pins.regime.json

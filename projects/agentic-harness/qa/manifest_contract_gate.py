@@ -6,6 +6,14 @@ routes through the contract. Runs in-process against lathe.main() with stub hand
 (standing regression runs this on every build). T1-full (~35 real commands), T7 (verbatim hash-match) and
 T8 (byte-identical reruns) are covered by the reviewer's external stress suite, not this fast gate.
 """
+
+# UTF-8 stdout: this gate is captured via a cp1252 pipe by the engine; a unicode print would
+# crash it mid-run and read as a spurious failure. (#12 U1 hardening.)
+for _s in (__import__("sys").stdout, __import__("sys").stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 import glob
 import json
 import os
@@ -47,6 +55,8 @@ def main():
     # env is inherited. This gate calls lathe.main() as a LIBRARY, so emulate the process-entry clear
     # (a real child `lathe` process does this at its own entry) before the in-process top-level probes.
     os.environ.pop("_LATHE_SPINE_RUN", None)
+    import tempfile                            # isolate manifest probes from a concurrent nested build (LATHE_CE_DIR)
+    os.environ["LATHE_CE_DIR"] = tempfile.mkdtemp(prefix="mf_gate_")
     # RECURSION BREAK (#12 P2): promoted workflows carry real `gate` steps that run the standing suite —
     # but THIS gate runs INSIDE that suite. A probe on a promoted command (T6's bare goal -> `do`) would
     # re-enter run_gates -> this gate -> ... forever (found live: it timed out the engine's regression and

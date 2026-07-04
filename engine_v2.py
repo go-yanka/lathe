@@ -26,6 +26,10 @@ N = int(sys.argv[3]) if len(sys.argv) > 3 else 12
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools"))
 from spine_helpers import resolve_out_dir, integration_label  # harness-built fix-logic (B1/B5)
 try:
+    import gate_tristate as _GTS             # #12 U1: pinned tri-state blocking policy (classify/canary/blocks)
+except Exception:
+    _GTS = None
+try:
     import run_logger
 except Exception:
     class run_logger:                      # no-op fallback: the engine runs even if the logger module is absent
@@ -68,6 +72,18 @@ _spec = importlib.util.spec_from_file_location("plan", PLAN_PATH)
 plan = importlib.util.module_from_spec(_spec)
 exec(compile(_plan_src, PLAN_PATH, "exec"), plan.__dict__)   # exec the validated bytes, not a fresh disk read (no TOCTOU)
 sys.modules.setdefault("plan", plan)
+
+# #12 U3 — around-the-spine detection (WARN-FIRST, owner's choice). `lathe build` mints LATHE_SPINE_TOKEN in
+# the env before it spawns the engine; a bare `python engine_v2.py <plan>` has no token -> it ran AROUND the
+# operating contract (no manifest, no phases). Today we WARN loudly + record it (metrics `spine_bypassed`) so
+# the bypass is on the record; set LATHE_ENGINE_REQUIRE_TOKEN=1 to make it a hard refuse instead.
+_SPINE_BYPASSED = not bool(os.environ.get("LATHE_SPINE_TOKEN"))
+if _SPINE_BYPASSED:
+    _msg = ("engine: NOTE — invoked directly (no spine token): this build runs AROUND the operating contract "
+            "(no run manifest, no phase gates). Prefer `lathe build %s`." % os.path.basename(PLAN_PATH))
+    if os.environ.get("LATHE_ENGINE_REQUIRE_TOKEN", "").strip().lower() in ("1", "true", "yes", "on"):
+        sys.exit(_msg.replace("NOTE —", "REFUSING —") + " (LATHE_ENGINE_REQUIRE_TOKEN=1)")
+    sys.stderr.write(_msg + "\n")
 
 if os.environ.get("LATHE_VALIDATE_PLAN") == "1" and os.environ.get("LATHE_TRUST_PLAN") != "1":
     # OUT_DIR is analyst/model-chosen; the engine WRITES module.py/itest.py/.pins.json there and RUNS
@@ -627,6 +643,42 @@ if os.path.exists(PIN_FILE):
     except Exception:
         pins = {}
 
+# #12 H1 — gate-regime versioning. Pin re-verification (re-run tests vs pinned bytes) already happens on
+# replay; but a pin minted under a WEAKER past regime (before mutation-score, under LINT_SPEC=warn) would be
+# trusted wholesale — "0 gate calls". Sidecar `.pins.regime.json` records the regime each pin was verified
+# under; on replay a pin is honoured ONLY if its regime COVERS the current one (regime.regime_covers), else
+# it is re-gated (rebuilt). Decision logic is pinned (tools/regime.py); this is the I/O + policy wiring.
+_REGIME_FILE = PIN_FILE.replace(".pins.json", ".pins.regime.json")
+_pin_regime = {}
+if os.path.exists(_REGIME_FILE):
+    try:
+        _pin_regime = json.loads(open(_REGIME_FILE, encoding="utf-8").read())
+    except Exception:
+        _pin_regime = {}
+try:
+    _rgs = importlib.util.spec_from_file_location("regime", os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "regime.py"))
+    _REGIME = importlib.util.module_from_spec(_rgs); _rgs.loader.exec_module(_REGIME)
+    _cur_regime = _REGIME.regime_signature(dict(os.environ))
+except Exception:
+    _REGIME = None
+    _cur_regime = {}
+
+
+def _pin_regime_ok(pkey):
+    """True if the pin at pkey may be TRUSTED under the current regime (its recorded regime is at least as
+    strict). A pin with NO recorded regime predates H1 -> GRANDFATHER it: stamp the current regime and trust
+    it this once (its tests are still re-verified on replay), so H1 applies going forward without forcing a
+    rebuild of the entire pre-existing pinned corpus. A pin whose recorded regime is genuinely WEAKER than
+    current is re-gated (rebuilt)."""
+    if _REGIME is None:
+        return True                          # policy module absent -> legacy behavior
+    rec = _pin_regime.get(pkey)
+    if rec is None:
+        _pin_regime[pkey] = _cur_regime      # grandfather: record now; future stricter regimes will compare
+        return True
+    return bool(_REGIME.regime_covers(rec, _cur_regime))
+
 # TRANSITIVE PIN INVALIDATION (review V3 §3 — the make-without-depfiles hole): if function A was freshly
 # regenerated this run, any later function whose PINNED code references A was verified against the OLD A —
 # reusing it would be stale-but-green even if its own tests still pass. Deps are derived from the pinned
@@ -759,6 +811,9 @@ for f in plan.FUNCTIONS:
     _dep_stale = bool(_pin_stale_by_deps and pkey in pins and _pin_stale_by_deps(pins[pkey], _fresh_fn_names))
     if _dep_stale:
         print(f"  {name:16} pin INVALIDATED — references a dependency regenerated this run; rebuilding")
+    if not _dep_stale and pkey in pins and not _pin_regime_ok(pkey):
+        print(f"  {name:16} pin RE-GATED — verified under a weaker gate regime than current (#12 H1); rebuilding")
+        _dep_stale = True                    # treat like a stale pin: fall through to regenerate + re-gate
     if not _dep_stale and pkey in pins and validate(pins[pkey], name, tests, solved_ns):
         winner, source = pins[pkey], "pinned"
     else:
@@ -807,6 +862,7 @@ for f in plan.FUNCTIONS:
             # MUTATION-SCORE GATE (mechanism #3): before this code may PIN, the suite must kill enough
             # deterministic mutants of it — otherwise the tests can't distinguish right from nearly-right.
             if winner is not None and _mut_gate is not None:
+              try:                           # #12 U1: mutation scoring that ERRORS must not fail-open (skip)
                 _mut_env = os.environ.get("LATHE_MUTATION_SCORE")
                 _muts = _mut_code(winner, int(os.environ.get("LATHE_MUTATION_LIMIT", "8"))) if _mut_code else []
                 if not _muts and _mut_env and str(_mut_env).strip():
@@ -825,6 +881,15 @@ for f in plan.FUNCTIONS:
                     print(f"  {name:16} MUTATION-SCORE GATE — {_mwhy}")
                     _save_fn_fail(name, fmodel, 0, winner, "mutation gate: " + _mwhy)
                     winner = None
+              except Exception as _mue:       # gate ARMED but scoring crashed -> INOPERATIVE (block under STRICT)
+                _strict_on = os.environ.get("LATHE_STRICT", "").strip().lower() in ("1", "true", "yes", "on")
+                _armed = bool((os.environ.get("LATHE_MUTATION_SCORE") or "").strip())
+                if _GTS and _armed and _GTS.gate_blocks("inoperative", _strict_on):
+                    print(f"  {name:16} MUTATION-SCORE GATE — INOPERATIVE (scoring errored: {_mue}); refusing under STRICT")
+                    _save_fn_fail(name, fmodel, 0, winner, "mutation gate inoperative: %r" % (_mue,))
+                    winner = None
+                else:
+                    print(f"  {name:16} MUTATION: scoring errored ({_mue}) — not gated (non-strict)")
             # ADVERSARIAL-SYNTHESIS GATE (#11): before a gate-critical function may PIN, the analyst
             # synthesizes bypass probes and the candidate must survive them (fail-closed; unrun = INOPERATIVE).
             if winner is not None:
@@ -841,6 +906,7 @@ for f in plan.FUNCTIONS:
                 continue
             source = short
             pins[pkey] = winner          # pin the SELECTED (cleanest) implementation
+            _pin_regime[pkey] = _cur_regime   # #12 H1: stamp the regime this pin was verified under
             _pins_added_this_run.add(pkey)
             _fresh_fn_names.append(name)  # dirty seed: later pins that reference this name are invalidated
     # FAIL -> analyst improves the spec so THIS model passes (D6/D19); NO model fall-through.
@@ -1048,6 +1114,18 @@ try:
     _merged = dict(_disk); _merged.update(pins)
     open(PIN_FILE + ".tmp", "w", encoding="utf-8").write(json.dumps(_merged))   # atomic: a crash mid-write won't zero all pins
     os.replace(PIN_FILE + ".tmp", PIN_FILE)
+    # #12 H1: persist the regime sidecar alongside pins (merge with on-disk, this build's stamps win).
+    try:
+        _rdisk = {}
+        if os.path.exists(_REGIME_FILE):
+            try: _rdisk = json.loads(open(_REGIME_FILE, encoding="utf-8").read())
+            except Exception: _rdisk = {}
+        _rmerged = dict(_rdisk); _rmerged.update(_pin_regime)
+        _rmerged = {k: v for k, v in _rmerged.items() if k in _merged}   # drop regimes for pins no longer present
+        open(_REGIME_FILE + ".tmp", "w", encoding="utf-8").write(json.dumps(_rmerged))
+        os.replace(_REGIME_FILE + ".tmp", _REGIME_FILE)
+    except Exception:
+        pass
     if _have_lock:
         try: os.remove(_plock)
         except OSError: pass
@@ -1091,8 +1169,15 @@ if module_ok:
             module_ok = False; _glue_unverified = True
     except SystemExit:
         raise
-    except Exception:
-        pass                                 # module absent -> legacy behavior (gate is opt-in anyway)
+    except (ImportError, ModuleNotFoundError, FileNotFoundError):
+        pass                                 # gate module genuinely absent -> legacy opt-out (feature not installed)
+    except Exception as _ge:                 # #12 U1: gate ARMED but enforcement ERRORED -> INOPERATIVE, not a
+        _armed = os.environ.get("LATHE_GATE_GLUE", "").strip().lower() in ("1", "true", "yes", "on")
+        _strict_on = os.environ.get("LATHE_STRICT", "").strip().lower() in ("1", "true", "yes", "on")
+        _blk = _GTS.gate_blocks("inoperative", _strict_on) if (_GTS and _armed) else False
+        print("  GLUE GATE — %s: enforcement error (%s)" % ("BLOCK (inoperative)" if _blk else "warn", _ge))
+        if _blk:
+            module_ok = False; _glue_unverified = True   # STRICT: a gate that can't run refuses, never silent-pass
 if module_ok:
     os.makedirs(out_dir, exist_ok=True)
     parts = [plan.HEADER] + [solved_src[f["name"]] for f in plan.FUNCTIONS] + [plan.GLUE]
@@ -1306,6 +1391,7 @@ _metrics = {
     "regression": (regression.splitlines()[0] if regression else ""), "module_ok": module_ok, "retired": len(retired),
     "mutation_unmeasured": _mutation_unmeasured,   # E1: gated build, but these fns had no mutable nodes — visible, not hidden
     "artifacts_total": artifacts_total, "artifacts_passed": artifacts_passed, "build_ok": build_ok,
+    "spine_bypassed": _SPINE_BYPASSED,   # #12 U3: True = ran directly around the operating contract (warn-first)
     "per_function": [{"name": nm, "ok": ok, "tries": tries, "src": src} for nm, ok, tries, src in report],
 }
 print("===METRICS_JSON_BEGIN===")

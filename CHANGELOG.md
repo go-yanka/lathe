@@ -2,6 +2,64 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.16.0 — 2026-07-04
+
+**Review close-out punch list (PR #15): persona default-on + property-based sampling.**
+
+- **#1 — persona explore/exploit is now ON BY DEFAULT** (validated 143/143 reachable, PR #13). The
+  `persona_orchestrator` UCB1 selector + usage-ledger/grade **recording** run out of the box; the old
+  word-match path (which left ~99/143 personas unreachable) is retired as the default. Explicit opt-out:
+  `LATHE_PERSONA_UCB=0` or config `personas.explore_exploit=false`. Graceful-degrade fallback unchanged.
+- **#2/#3 — property-based sampling replaces the fixed-sample oracle.** New pinned `pbt_sample.py`
+  (`adversarial_strings` — a deterministic library of structural bypass classes: `;`-packed statements,
+  `#`-comment injection, whitespace, NUL; `sample_inputs(seed, n)` — seeded, reproducible input generation
+  that always covers those classes + the fixed anchors). `mutation_equiv.equivalent_over_samples` now
+  broadens its differential probe with `sample_inputs(1337, 24)` (fixed seed → still deterministic), so a
+  mutant that differs only on a structural-string class the old fixed 15-probe set missed is no longer
+  wrongly excluded. Honest scope: full *semantic* test-generation for arbitrary functions remains
+  analyst-driven (the adv-synth gate, v2.13.0); this delivers the deterministic input-generation core.
+- **Gate robustness:** the manifest/spine/tristate acceptance gates now force UTF-8 on their own stdout —
+  under the engine's cp1252-piped capture a unicode `print` inside a probe was crashing the gate mid-run and
+  reading as a spurious regression failure (same class as the run_gates fix in v2.15.0). Now all captured
+  gates are cp1252-safe.
+- Harness-built (`pbt_sample` via self-proxy; `mutation_equiv` regenerated). Hand-edited: gate UTF-8 guards,
+  `persona_orchestrator.is_enabled` default flip.
+
+## v2.15.0 — 2026-07-04
+
+**#12 Phase 2b complete — U1 rollout to all gates, U3 engine-bypass seal, H1 pin gate-regime versioning.**
+Finishes the operating-contract hardening tail. `hreview` structured-output is moot — a promoted `review`
+emits a per-run manifest (Phase 0/2a) which is the structured findings record.
+
+- **U1 rolled out** (the tri-state `gate_tristate` primitive from v2.14.0, now applied across the gates):
+  - **glue gate** — the `except Exception: pass` fail-open is closed: a gate *armed but errored* is
+    INOPERATIVE (blocks under STRICT), distinct from *module absent* (legacy opt-out).
+  - **mutation gate** — wrapped fail-closed: scoring that crashes is INOPERATIVE, refused under STRICT
+    instead of silently skipping.
+  - **run_gates** — a gate subprocess that can't run (spawn error/timeout) or crashes (traceback, no clean
+    summary) is labelled INOPERATIVE and always fails the standing regression closed; a **missing** gate file
+    already FAILs (v2.10). Also: run_gates now forces UTF-8 on its own stdout/stderr — a gate summary line
+    with a non-latin1 char was crashing `print` under the engine's cp1252-piped capture, killing the
+    regression mid-run and rolling back a green build (a real latent bug this surfaced + fixed).
+  - assumption gate was already fail-closed (`except: sys.exit`) — unchanged.
+- **U3 — around-the-spine engine bypass sealed (WARN-FIRST, owner's choice).** `lathe build` mints
+  `LATHE_SPINE_TOKEN` before it spawns the engine; a bare `python engine_v2.py <plan>` has no token → it ran
+  around the operating contract (no manifest, no phases) → the engine prints a loud NOTE and records
+  `spine_bypassed:true` in metrics, but still runs. `LATHE_ENGINE_REQUIRE_TOKEN=1` flips it to a hard refuse.
+- **H1 — pin gate-regime versioning.** Pin re-verification (re-run tests vs pinned bytes on replay) already
+  existed; H1 adds a `.pins.regime.json` sidecar recording the gate regime each pin was verified under
+  (pinned `regime.py`: `regime_signature` + `regime_covers`, harness-built under STRICT). On replay a pin is
+  honoured only if its regime **covers** (is at least as strict as) the current one; a pin from a genuinely
+  **weaker** regime is RE-GATED (rebuilt), not trusted. Unstamped pre-H1 pins are **grandfathered** (stamped
+  at current regime on first reuse) so H1 applies going forward without a full-corpus rebuild.
+- **Gate-probe isolation** (`LATHE_CE_DIR`): the manifest/spine acceptance gates count files in the manifest
+  dir; running INSIDE a build, the outer build + sibling gates polluted the count. Both gates now isolate
+  their probes into a private temp dir (inherited by spawned children), making them deterministic under
+  nested concurrency.
+- Harness-built under STRICT (first-pass): `regime.py`. Hand-edited CORE_INFRA (called out): `engine_v2.py`
+  (U1 glue/mutation, U3 token, H1 sidecar + regime check), `lathe.py` (token mint), `qa/run_gates.py`,
+  `qa/spine_gate.py` + `qa/manifest_contract_gate.py` (isolation), `tools/manifest.py` (`LATHE_CE_DIR`).
+
 ## v2.14.0 — 2026-07-04
 
 **#12 Phase 2b / U1 — gates fail CLOSED, not open** (reviewer's headline structural finding). A gate whose

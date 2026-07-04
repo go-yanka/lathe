@@ -14,16 +14,18 @@ def equivalent_over_samples(code_a, code_b, name):
         fb = ns_b.get(name)
         if not callable(fa) or not callable(fb):
             return False
-
         P = [-2, -1, 0, 1, 2, 10, -10, '', 'a', 'ab', None, True, False, [], [0, 1]]
         probes = [(x,) for x in P] + list(zip(P, reversed(P))) + [(0, 0), (1, 2), ('a', 'b'), (True, False)]
-
+        try:
+            from pbt_sample import sample_inputs
+            probes = probes + sample_inputs(1337, 24)
+        except ImportError:
+            pass
         def capture(f, args):
             try:
                 return ('ok', f(*args))
             except Exception as e:
                 return ('err', type(e).__name__)
-
         value_agreement = False
         for args in probes:
             ca = capture(fa, args)
@@ -45,7 +47,6 @@ def equivalent_over_samples(code_a, code_b, name):
                 value_agreement = True
             else:
                 return False
-
         return value_agreement
     except Exception:
         return False

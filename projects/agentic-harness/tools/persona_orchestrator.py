@@ -19,16 +19,24 @@ def _tools_on_path():
 
 
 def is_enabled():
-    """Explore/exploit selection is OPT-IN until validated: env LATHE_PERSONA_UCB=1 or config
-    personas.explore_exploit=true. Default OFF keeps the live decider on today's proven path."""
-    if str(os.environ.get("LATHE_PERSONA_UCB", "")).strip() in ("1", "true", "yes", "on"):
+    """Explore/exploit selection is ON BY DEFAULT (#9 rollout, validated 143/143 reachable). It replaces the
+    word-match path that left ~99/143 personas unreachable, and turns on usage-ledger/grade RECORDING. The
+    graceful-degrade fallback still applies (a missing ledger just means all-explore). Explicit opt-out:
+    env LATHE_PERSONA_UCB in (0/false/no/off) or config personas.explore_exploit=false."""
+    _env = str(os.environ.get("LATHE_PERSONA_UCB", "")).strip().lower()
+    if _env in ("0", "false", "no", "off"):
+        return False
+    if _env in ("1", "true", "yes", "on"):
         return True
     try:
         _root = os.path.dirname(os.path.dirname(_INNER))
         cfg = json.load(open(os.path.join(_root, "lathe.config.json"), encoding="utf-8"))
-        return bool((cfg.get("personas") or {}).get("explore_exploit"))
+        _cfg = (cfg.get("personas") or {}).get("explore_exploit")
+        if _cfg is not None:
+            return bool(_cfg)
     except Exception:
-        return False
+        pass
+    return True                              # default ON
 
 
 def ledger_path():

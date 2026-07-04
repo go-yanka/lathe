@@ -7,6 +7,14 @@ P4 operator bypass on the record: LATHE_SPINE=off still emits a manifest recordi
 P5 single-raw-path: _dispatch is underscore-private and called only from main/run_spine (static).
 Uses `plans` (read-only, network-free) as the probe command. Fast: 2 subprocess + 2 in-process probes.
 """
+
+# UTF-8 stdout: this gate is captured via a cp1252 pipe by the engine; a unicode print would
+# crash it mid-run and read as a spurious failure. (#12 U1 hardening.)
+for _s in (__import__("sys").stdout, __import__("sys").stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 import glob
 import json
 import os
@@ -37,6 +45,12 @@ def main():
     # it at its entry (that's the design); this gate calls lathe.main() as a LIBRARY, so it must emulate
     # the process entry the same way before its in-process top-level probes.
     os.environ.pop("_LATHE_SPINE_RUN", None)
+    # ISOLATE manifest output to a private temp dir via LATHE_CE_DIR: the P2 'exactly-one-manifest' probe
+    # counts files in the manifest dir; when this gate runs INSIDE a build, the outer build + sibling gates
+    # write manifests to the shared docs/ce concurrently, polluting the count. LATHE_CE_DIR is inherited by
+    # the spawned `lathe` child processes too, so BOTH in-process and subprocess probes stay isolated.
+    import tempfile
+    os.environ["LATHE_CE_DIR"] = tempfile.mkdtemp(prefix="spine_gate_")
     ok = []
 
     # P1 — guard-forge: forged guard in the env; the subprocess entry must clear it and still emit

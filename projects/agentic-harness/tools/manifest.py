@@ -33,7 +33,9 @@ def _atomic_write(path, content):
 
 
 def out_dir():
-    return os.path.join(_ROOT, "docs", "ce")
+    # LATHE_CE_DIR overrides the manifest output dir (tests/gates isolate their probes into a temp dir so
+    # concurrent manifest writes from a nested build can't pollute their file counts). Default docs/ce.
+    return os.environ.get("LATHE_CE_DIR") or os.path.join(_ROOT, "docs", "ce")
 
 
 def _skeleton(run_id, argv, command, routed_via):

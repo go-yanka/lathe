@@ -26,8 +26,11 @@ REGISTRY = [
     ("LATHE_THINK", "spine", "thinking dial casual|medium|high -> tries/personas/assumption depth", "medium"),
     ("LATHE_SPINE", "spine", "operator bypass: off = raw dispatch (still manifested + recorded)", "on"),
     ("LATHE_RUN_ID", "spine", "explicit run id for the persona usage ledger + manifest (else per-run stamp)", "—"),
+    ("LATHE_SPINE_TOKEN", "spine", "#12 U3: dispatcher-minted token proving the engine ran via `lathe build`, not around it", "—"),
+    ("LATHE_CE_DIR", "spine", "override manifest output dir (docs/ce); gates isolate probes into a temp dir", "docs/ce"),
+    ("LATHE_ENGINE_REQUIRE_TOKEN", "spine", "#12 U3: hard-refuse a direct engine call with no spine token (default warn-first)", "off"),
     # --- persona subsystem (#9) ---
-    ("LATHE_PERSONA_UCB", "personas", "opt-in explore/exploit selection (usage ledger + verified grades)", "off"),
+    ("LATHE_PERSONA_UCB", "personas", "explore/exploit selection (usage ledger + verified grades); ON by default, set 0 to opt out", "on"),
     # --- adversarial test synthesis gate (#11) ---
     ("LATHE_ADV_SYNTH", "gates", "arm the adversarial-synthesis gate (analyst synthesizes bypass probes pre-pin)", "off"),
     ("LATHE_ADV_POLICY", "gates", "which functions face synthesis: off | gates (default) | all", "gates"),

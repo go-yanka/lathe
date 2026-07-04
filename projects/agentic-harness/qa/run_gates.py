@@ -11,6 +11,15 @@ Add more standing checks here as the harness grows (e.g. no two tools exporting 
 """
 import os, subprocess, sys
 
+# Force UTF-8 on our own stdout/stderr: the ENGINE captures this via a pipe, whose default Windows encoding is
+# cp1252 — a gate summary line containing any non-latin1 char (an arrow, em-dash) would crash `print` with
+# UnicodeEncodeError, kill the regression mid-run, and read as a spurious FAIL (which rolled back a green build).
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 QA = os.path.dirname(os.path.abspath(__file__))
 CHECKS = [("tree_no_stale_dups", os.path.join(QA, "stale_gate.py")),
           ("no_duplicate_resources", os.path.join(QA, "resource_dups_gate.py")),  # one canonical DB/resource, not several
@@ -32,12 +41,24 @@ def main():
             print("%-22s FAIL :: gate file missing: %s" % (name, os.path.basename(path)))
             failed.append(name + "(missing)")
             continue
-        r = subprocess.run([sys.executable, path], capture_output=True, text=True)
-        tag = "PASS" if r.returncode == 0 else "FAIL"
-        last = (r.stdout.strip().splitlines() or [""])[-1]
-        print("%-22s %s :: %s" % (name, tag, last))
+        try:
+            r = subprocess.run([sys.executable, path], capture_output=True, text=True,
+                               encoding="utf-8", errors="replace", timeout=int(os.environ.get("GATE_TIMEOUT", "300")))
+        except Exception as e:
+            # #12 U1: a gate whose PROCESS could not run (timeout, spawn error) is INOPERATIVE — the standing
+            # regression always fails closed (a gate that can't run is never a silent pass).
+            print("%-22s INOPERATIVE :: gate could not run: %s" % (name, e))
+            failed.append(name + "(inoperative)")
+            continue
+        # returncode 0 -> PASS; nonzero -> FAIL/INOPERATIVE. A crashed gate (traceback, no clean summary line)
+        # is labelled INOPERATIVE for the operator; either way it fails the regression closed.
+        _out_lines = (r.stdout or "").strip().splitlines()
+        _crashed = r.returncode != 0 and not _out_lines and ("Traceback" in (r.stderr or ""))
+        tag = "PASS" if r.returncode == 0 else ("INOPERATIVE" if _crashed else "FAIL")
+        last = _out_lines[-1] if _out_lines else ((r.stderr or "").strip().splitlines() or [""])[-1]
+        print("%-22s %s :: %s" % (name, tag, last[:200]))
         if r.returncode != 0:
-            failed.append(name)
+            failed.append(name + ("(inoperative)" if _crashed else ""))
     if failed:
         print("REGRESSION: " + ", ".join(failed)); sys.exit(1)
     print("regression clean (%d checks)" % len(CHECKS)); sys.exit(0)

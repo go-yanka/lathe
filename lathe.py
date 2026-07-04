@@ -1759,7 +1759,9 @@ def run_spine(cmd, rest, argv):
                 os.environ.setdefault(k, v)                  # env > profile > config > default: fill only unset
             if mf:
                 mf.record_gate("intake", "pass", False, "thinking=%s contract=%s" % (think, contract or "TRIVIAL"))
-        os.environ[_SPINE_GUARD] = mf._d["run_id"] if mf else "1"   # from here, inner main() calls run RAW
+        _tok = mf._d["run_id"] if mf else "1"
+        os.environ[_SPINE_GUARD] = _tok                      # from here, inner main() calls run RAW
+        os.environ["LATHE_SPINE_TOKEN"] = _tok               # #12 U3: proves engine subprocesses ran via the spine
         # phase 3 work — #12 P2 PROMOTION: a contracted command runs its per-invocation WORKFLOW (primitive
         # step + gates in order, halt on blocked). --json stays primitive-only (compat guarantee: the stable
         # metrics object is the ONLY stdout). No workflow / unknown name -> the primitive, exactly as today.

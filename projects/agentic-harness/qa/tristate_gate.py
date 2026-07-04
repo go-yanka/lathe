@@ -7,6 +7,14 @@ V4 spec_lint integration: a BROKEN sandbox makes lint_function return verdict='i
    fail-open the reviewer named (`except: return False`-as-pass) is closed; under STRICT it would block.
 Fast + deterministic; no model calls.
 """
+
+# UTF-8 stdout: this gate is captured via a cp1252 pipe by the engine; a unicode print would
+# crash it mid-run and read as a spurious failure. (#12 U1 hardening.)
+for _s in (__import__("sys").stdout, __import__("sys").stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 import os
 import sys
 
