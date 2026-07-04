@@ -1,5 +1,11 @@
 # Persona System — Design Proposal (redesign target)
 
+> **✅ STATUS — IMPLEMENTED (PR #13 / issue #9).** The redesign shipped: `usage_ledger.py`, `persona_grade.py`,
+> `persona_select.py` (UCB1 explore/exploit), `persona_orchestrator.py`, `persona_manifest.py`. Reachability
+> independently verified — **143/143 personas reachable** over time (was 99/143 unreachable). It is
+> **feature-flagged opt-in** (`LATHE_PERSONA_UCB=1` / `personas.explore_exploit=true`), default OFF "until
+> validated"; the validation evidence is on issue #9. Retained as the design record.
+
 *Status: proposal from the independent review, at the owner's direction. Documents the honest current state
 of the persona subsystem and the target design it should move to. The reviewer authored this; the engine
 changes are the maintainer's to implement. Current-state facts are traceable to `agent_router.py`,
