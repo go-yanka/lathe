@@ -250,6 +250,17 @@ def _atomic_write(path, content):
     os.replace(tmp, path)
 
 tok = {"p": 0, "e": 0, "claude_calls": 0}
+
+
+def _accrue_usage(d):
+    """PR#7 #10: sum a response's reported token usage into `tok` (OpenAI-style prompt/completion, or ollama's
+    eval_count). No-op when the endpoint reports nothing (a CLI proxy / human analyst returns no usage)."""
+    try:
+        u = d.get("usage") or {}
+        tok["p"] += int(u.get("prompt_tokens", 0) or 0)
+        tok["e"] += int(u.get("completion_tokens", u.get("eval_count", 0)) or 0)
+    except Exception:
+        pass
 _MAX_RESP = int(os.environ.get("LATHE_MAX_RESP", str(16 * 1024 * 1024)))   # cap model responses (OOM guard)
 CLAUDE_URL = os.environ.get("HARNESS_CLAUDE_URL", "http://127.0.0.1:8787/v1/chat/completions")  # analyst = Claude CLI proxy ($0 sub); env-overridable
 # Model LEVELS: the PLAN picks the model/level per function; the engine STICKS with it.
@@ -285,6 +296,7 @@ def _call_model_impl(prompt, temperature, model):
         with urllib.request.urlopen(req, timeout=int(os.environ.get("CLAUDE_TIMEOUT", "600"))) as r:
             d = json.loads(r.read(_MAX_RESP))
         tok["claude_calls"] += 1
+        _accrue_usage(d)                       # PR#7 #10: count analyst/claude tokens when the endpoint reports them
         return d["choices"][0]["message"]["content"]
     if model.startswith("openai:"):
         # FAITHFUL: sampling is governed entirely by the llama-server launch flags (the recipe under
@@ -1142,9 +1154,15 @@ rep = ["# RUN REPORT", "",
        "", "## Token accounting (System A = this harness)",
        f"- PROGRAMMER tier-1 (local, local/free): prompt={tok['p']}  eval={tok['e']}  total={tok['p']+tok['e']}",
        f"- PROGRAMMER tier-2 (claude fallback, $0 subscription): {tok['claude_calls']} calls -> {by_claude} functions local couldn't do",
-       "- ANALYST (spec authoring + refinement): NOT INSTRUMENTED this run "
-       "(analyst was human-Claude). To measure true savings, automate the analyst as an "
-       "LLM call and sum its tokens here.",
+       # PR#7 #10: honest analyst accounting. Engine model calls (implementer + any claude-tier calls) ARE now
+       # tokened when the endpoint reports usage (above). The spec-authoring analyst runs UPSTREAM (lathe do/sdlc);
+       # it is tokened only when routed through a metered endpoint — a human or a subscription CLI that returns no
+       # usage is labeled untokened, so the tier totals count the implementer and true cost is understated then.
+       (f"- ANALYST (spec authoring + refinement): tokened via endpoint (usage reported)."
+        if (tok['p'] + tok['e']) > 0 else
+        "- ANALYST (spec authoring + refinement): UNTOKENED this run (human or subscription CLI reported no "
+        "usage) — the tier totals above count the IMPLEMENTER only, so true cost is understated. Route the "
+        "analyst through a metered endpoint (HARNESS_CLAUDE_URL) to instrument it."),
        "- ENGINE (deterministic): 0 tokens",
        "", "## Per-function", "| function | result | tries |", "|---|---|---|"]
 for nm, ok, tries, src in report:

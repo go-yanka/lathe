@@ -2,6 +2,17 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.9.1 — 2026-07-03
+
+**Build report — honest analyst-token accounting** (PR #7 issue #10). The report's token line always said the
+analyst was "NOT INSTRUMENTED," making the savings figure look complete when it counted only the implementer
+tier. Now: (1) engine model calls (implementer + any claude-tier calls) **sum reported `usage` tokens** when
+the endpoint returns them (new `_accrue_usage`, applied to the claude path; the openai path already did); (2)
+the analyst line is **honest and conditional** — when the analyst is a human or a subscription CLI that
+returns no usage, it reads *"UNTOKENED this run … the tier totals count the IMPLEMENTER only, so true cost is
+understated"* rather than implying completeness. (Full spec-authoring instrumentation — threading upstream
+`lathe do`/`sdlc` analyst usage into the report — and a `$`-cost column are noted as follow-ups.)
+
 ## v2.9.0 — 2026-07-03
 
 **PR #7 gate stress-test — 4 fail-open gate bypasses closed** (independent reviewer, executed against the real
