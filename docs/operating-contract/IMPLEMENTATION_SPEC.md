@@ -1,5 +1,13 @@
 # Operating Contract — Implementation Spec (for the maintainer/implementer)
 
+> **✅ STATUS — IMPLEMENTED & VERIFIED (v2.10.0–v2.13.1).** Phase 0 (per-invocation manifest, v2.10.0),
+> Phase 1 (enforcement spine, v2.11.0), Phase 2a (19 workflows + promotion + U2 STRICT clamp, v2.12.0),
+> the 2a follow-up (manifest names its resolved workflow, v2.13.1), and #11 (adversarial-synth gate, v2.13.0)
+> all shipped and were independently re-probed (guard-forge defeated, manifest un-skippable, `spine_gate` /
+> `manifest_contract_gate` 5/5). The persona `selection` backing (#9) merged via PR #13 (UCB1 reachability
+> verified 143/143, feature-flagged `LATHE_PERSONA_UCB`). This doc is retained as the build record; it reads
+> in the future tense but describes shipped, verified behavior.
+
 *The build spec for the enforced, uniform, recorded operating contract. Design source: a 40-agent harness
 brainstorm (manifest schema + enforcement spine designed from the real code; all 19 invocation workflows
 adversarially hardened). Grounded designs live beside this file — read them; this is the sequencing,

@@ -330,12 +330,13 @@ the tree dirty cannot ship. Each is also runnable by hand (`python qa/<gate>.py`
   seven build-time rigor gates are opt-in.
 - **STRICT is the switch.** `LATHE_STRICT=1` composes all seven (§1.1–1.8) with sane defaults and requires
   `CRITERIA`. This is the intended production posture.
-- **Explicit vars win.** If you set, say, `LATHE_MUTATION_SCORE=0.8` yourself, STRICT will *not* override it
-  down to 0.5 — `strict_defaults` only fills toggles you left unset (`strict_mode.py:24`). Use this to run
-  STRICT-but-stricter, or STRICT-minus-one. **Opt a gate out with a non-empty disabling value**, e.g.
-  `LATHE_STRICT=1 LATHE_TEST_ACK=0` — note that an **empty string is treated as *unset*** (`current != ''`),
-  so STRICT will fill it; only a non-empty value (`0`, a lower threshold, `off`, …) survives as an override.
-  (Verified by executed probe — see `GATES_STRESS_TEST.md`.)
+- **Stricter yes, weaker no (v2.12 U2 clamp).** You can go *stricter* than STRICT — set
+  `LATHE_MUTATION_SCORE=0.8` and it's kept (a stronger value wins). But as of v2.12 STRICT **clamps a weaker
+  or disabling pre-set back up to the floor**: `LATHE_TEST_ACK=0 → 1`, `LATHE_MUTATION_SCORE=0.1 → 0.5`,
+  `LATHE_LINT_SPEC=warn → block` (`strict_mode.strict_clamp`, verified by executed probe). So under STRICT you
+  **cannot** opt a gate out or dial it down — STRICT means STRICT. To run without a given gate, don't compose
+  STRICT; arm the gates you want **individually** (§Part 4) instead. (An empty string is still treated as
+  *unset* and filled to the STRICT default.)
 - **Config file mirror.** Several gates also read from `lathe.config.json` (e.g. `assumptions.scrutiny` →
   `LATHE_ASSUMPTION_POLICY`). Env always overrides config.
 - **Run a gate standalone.** `lathe lint-spec <plan>`, `lathe gate`, and each `python qa/<gate>.py [--list]`

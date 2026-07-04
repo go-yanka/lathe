@@ -1,5 +1,8 @@
 # Lathe — Operating Contract & Per-Invocation Workflow Design
 
+> **✅ STATUS — IMPLEMENTED (v2.10.0–v2.13.1).** This design was built and verified; see
+> `operating-contract/IMPLEMENTATION_SPEC.md` for the shipped-version map. Retained as the design record.
+
 *Design proposal (owner-directed). The problem: Lathe exposes ~35 commands but only 6 have a designed
 workflow, none are enforced, and none emit a uniform record — so how the harness operates per invocation is
 inconsistent and unauditable. This doc (1) defines a single **operating contract** every invocation runs
