@@ -194,5 +194,7 @@ companies with nine-figure war chests, and Lathe's differentiators are invisible
 | Reproducibility | build systems | none | content-hash pins |
 | Discipline enforced by | managers and process | nobody | the machine |
 
-That last row is the pitch. The industry threw away its methodology when AI arrived because the methodology
-was priced in human hours. Lathe reprices it at zero. **"Discipline used to be expensive. Now it compiles."**
+That last row is the pitch. The disciplines in the left column are the ones working engineers already
+believe in — test-first, never-merge-red, locked builds, don't-hand-patch-the-compiler; the risk with AI
+codegen is that they get *skipped* under deadline, not that they were ever wrong. Lathe makes them
+unskippable by moving them into the build. **"The discipline you already believe in — enforced."**
