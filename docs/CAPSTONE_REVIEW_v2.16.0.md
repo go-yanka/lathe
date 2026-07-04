@@ -1,5 +1,12 @@
 # Capstone Review — Lathe v2.16.0
 
+> **✅ ALL FINDINGS RESOLVED in v2.17.0–v2.18.0 (independently re-verified).** The maintainer fixed the full
+> set (issues #17–#21). Re-probed against v2.18.0: **#17** — `review auto` / `review <lens>` / `trace <stem>`
+> all run cleanly (the CLI-regression class is closed); **#18 H2** — `grade_update`/`finding_score` are now
+> called (`persona_orchestrator.py:177-203`), grades no longer dead; **#18 H3** — the orchestrator is wired
+> into the review path (`lathe.py:317`); **#19 M1** — `set_selection` now called (`lathe.py:311`); M2 / #20 /
+> #21 per the changelog. The findings below are retained as the v2.16.0 point-in-time record, not open defects.
+
 *Independent capstone review of the state after the operating-contract + persona-redesign work landed.
 Same method as prior rounds: **WITHOUT-harness executable probes** (re-ran every prior stress test + the qa
 gates), **WITHOUT-harness analytical** (four parallel adversarial review streams, each self-verified; all
