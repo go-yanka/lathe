@@ -26,6 +26,10 @@ try:
 except Exception:
     def spec_static_gaps(t):
         return []
+try:
+    import gate_tristate as _TRISTATE                        # #12 U1: pinned tri-state decision core
+except Exception:
+    _TRISTATE = None
 
 # trivial implementations a GOOD test suite must kill. (label, body)
 _STUBS = [
@@ -43,31 +47,62 @@ _STUBS = [
 _IDENT = re.compile(r"[A-Za-z_]\w*\Z")
 
 
-def _stub_survives(fname, body, tests):
-    """True if the trivial stub passes EVERY test — i.e. the tests failed to kill it. SECURITY: the probe runs
-    plan-authored test strings, so it goes through the harness SANDBOX (isolated process + timeout + scrubbed
-    env, and docker/docker-ssh if configured) — NOT a bare subprocess. fname is validated to a bare identifier
-    so it can't smuggle code into the `def` line."""
+def _stub_result(fname, body, tests):
+    """Tri-state (#12 U1): 'survived' (stub passed ALL tests — tests too weak), 'killed' (a test failed it —
+    good), or 'inoperative' (the probe itself could not run — sandbox import/timeout/OOM). The old code did
+    `except: return False`, i.e. an unrunnable probe read as 'killed' -> the gate PASSED a spec it never
+    actually checked. INOPERATIVE is now surfaced so a STRICT build refuses instead of shipping blind."""
     if not fname or not _IDENT.match(fname):
-        return False
+        return 'inoperative'
     stub = "def %s(*a, **k):\n    %s\n" % (fname, body)
     try:
         from sandbox import run_unit
         ok, _ = run_unit("", stub, list(tests or []))
-        return bool(ok)
+        return 'survived' if ok else 'killed'
+    except Exception:
+        return 'inoperative'
+
+
+def _sandbox_canary():
+    """U1 canary pair: prove the probe MECHANISM works before trusting any 'killed' result. A trivially true
+    assert MUST pass (positive control) and a trivially false assert MUST be caught (negative control). If the
+    sandbox is broken, both come back wrong and the whole lint is declared inoperative rather than green."""
+    if _TRISTATE is None:
+        return True                       # decision module absent -> legacy behavior (don't newly block)
+    try:
+        from sandbox import run_unit
+        pos, _ = run_unit("", "def _c():\n    return 1\n", ["assert True"])
+        neg, _ = run_unit("", "def _c():\n    return 1\n", ["assert False"])
+        return _TRISTATE.canary_trustworthy(bool(pos), bool(neg))
     except Exception:
         return False
 
 
 def lint_function(fname, tests):
-    """Return a verdict dict: static gaps + which trivial stubs survived + overall ok."""
+    """Return a verdict dict: static gaps + which trivial stubs survived + tri-state verdict + overall ok.
+    verdict (#12 U1): 'fail' (a stub survived), 'inoperative' (probe couldn't run / canary miscalibrated),
+    else 'pass'. The engine maps verdict->block via gate_tristate.gate_blocks (INOPERATIVE blocks under
+    STRICT only — owner's STRICT-first rollout)."""
     tests = [t for t in (tests or []) if isinstance(t, str)]
     gaps = spec_static_gaps("\n".join(tests))
-    survivors = [label for label, body in _STUBS if _stub_survives(fname, body, tests)]
-    # BLOCKING = a trivial stub passed ALL tests (definitive: the tests don't pin behavior). static gaps are
-    # ADVISORY heuristics that don't apply to every function (a dict-only fn has no meaningful 'zero case').
+    trustworthy = _sandbox_canary()
+    survivors, inoperative = [], (not trustworthy)
+    for label, body in _STUBS:
+        r = _stub_result(fname, body, tests)
+        if r == 'survived':
+            survivors.append(label)
+        elif r == 'inoperative':
+            inoperative = True
+    # verdict: a surviving stub is a definitive FAIL; a probe that couldn't run is INOPERATIVE (not a pass);
+    # static gaps stay ADVISORY (not every function has a meaningful zero/None case).
+    verdict = 'fail' if survivors else ('inoperative' if inoperative else 'pass')
     return {"function": fname, "static_gaps": gaps, "mutation_survivors": survivors,
-            "blocking": bool(survivors), "ok": (not survivors and not gaps)}
+            "verdict": verdict, "inoperative": inoperative,
+            "blocking": bool(survivors), "ok": (verdict == 'pass' and not gaps)}
+
+
+def _stub_survives(fname, body, tests):        # back-compat shim: old bool API (True == survived)
+    return _stub_result(fname, body, tests) == 'survived'
 
 
 def _extract_functions(plan_src):

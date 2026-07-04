@@ -546,17 +546,32 @@ _lint_mode = os.environ.get("LATHE_LINT_SPEC", "").lower()
 if _lint_mode in ("warn", "block"):
     try:
         from spec_lint import lint_plan as _lint_plan
+        try:
+            import gate_tristate as _gts                     # #12 U1: tri-state blocking policy (pinned)
+        except Exception:
+            _gts = None
+        _strict_on = os.environ.get("LATHE_STRICT", "").strip().lower() in ("1", "true", "yes", "on")
         _lv = _lint_plan(PLAN_PATH)
         _weak = []
         for _v in _lv:
-            if _v.get("blocking"):
+            # #12 U1: a spec-lint that COULD NOT RUN its probe (sandbox broken / canary miscalibrated) is
+            # INOPERATIVE, not a silent pass. Under STRICT that blocks (owner: STRICT-first); non-strict warns.
+            _verdict = _v.get("verdict") or ("fail" if _v.get("blocking") else "pass")
+            _blocks = _gts.gate_blocks(_verdict, _strict_on) if _gts else bool(_v.get("blocking"))
+            if _verdict == "fail":
                 _weak.append(_v)
                 print("  [spec-lint BLOCK] %s: a trivial impl (%s) passes ALL its tests" % (_v["function"], ", ".join(_v["mutation_survivors"])))
                 run_logger.log(_RUN_ID, "spec_lint", function=_v["function"], blocking=True, survivors=_v["mutation_survivors"])
+            elif _verdict == "inoperative":
+                if _blocks:
+                    _weak.append(_v)
+                print("  [spec-lint %s] %s: probe INOPERATIVE (sandbox/canary could not verify the tests)"
+                      % ("BLOCK" if _blocks else "warn", _v["function"]))
+                run_logger.log(_RUN_ID, "spec_lint", function=_v["function"], inoperative=True, blocking=_blocks)
             elif _v.get("static_gaps"):
                 print("  [spec-lint warn] %s: %s" % (_v["function"], "; ".join(_v["static_gaps"])))
         if _weak and _lint_mode == "block":
-            sys.exit("engine: REFUSING to build — %d function(s) have inadequate tests (LATHE_LINT_SPEC=block); strengthen the spec." % len(_weak))
+            sys.exit("engine: REFUSING to build — %d function(s) have inadequate/unverifiable tests (LATHE_LINT_SPEC=block); strengthen the spec or fix the probe." % len(_weak))
     except SystemExit:
         raise
     except Exception as _le:

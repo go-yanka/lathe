@@ -2,6 +2,34 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.14.0 — 2026-07-04
+
+**#12 Phase 2b / U1 — gates fail CLOSED, not open** (reviewer's headline structural finding). A gate whose
+probe couldn't run (sandbox import fail, timeout, OOM) used to `except: return False`-as-pass — a gate that
+*cannot run* reported green. Gates now carry a tri-state verdict; an internal error is INOPERATIVE, never a
+silent pass. Owner-decided rollout: **STRICT-first** (INOPERATIVE blocks only under `LATHE_STRICT`; non-strict
+keeps today's behavior).
+
+- **Pinned decision core** `gate_tristate.py` (harness-built under STRICT, 3/3 first-pass incl. mutation):
+  - `classify_gate(raw, errored)` → `pass`/`fail`/`inoperative` — an error or indeterminate result maps to
+    INOPERATIVE, not pass.
+  - `canary_trustworthy(pos_passed, neg_passed)` — a probe is trusted only if a known-good control passes AND
+    a known-bad control is caught; a miscalibrated probe (either canary wrong) → untrusted → inoperative.
+  - `gate_blocks(verdict, strict)` — FAIL always blocks; INOPERATIVE blocks under STRICT only; an unknown
+    verdict fails closed under STRICT.
+- **First fail-open closed: `spec_lint`** (the exact one the reviewer named). `_stub_survives` was refactored
+  to a tri-state `_stub_result` (`survived`/`killed`/`inoperative`) and `lint_function` now runs a **sandbox
+  canary** (a trivially-true assert must pass, a trivially-false assert must be caught) before trusting any
+  result — if the sandbox is broken the whole lint is `inoperative`. The engine's `LATHE_LINT_SPEC` gate maps
+  the verdict through `gate_blocks`, so under STRICT an unverifiable spec-lint refuses the build instead of
+  shipping blind. Old bool `_stub_survives` kept as a back-compat shim.
+- **Acceptance gate** `qa/tristate_gate.py` (standing regression, now 10 checks): V1 error→INOPERATIVE, V2
+  canary gating, V3 blocking policy, V4 **the real fail-open closed** — a monkeypatched broken sandbox makes
+  `lint_function` return `inoperative` (was a silent pass) and blocks under STRICT, V4b operative path
+  unchanged.
+- Verified: a healthy STRICT build still passes (canary green, no false INOPERATIVE). Rollout to the remaining
+  gates (run_gates subprocess errors, mutation/assumption/glue) follows the same primitive incrementally.
+
 ## v2.13.1 — 2026-07-04
 
 **#12 Phase 2a follow-up — the manifest names its resolved workflow** (reviewer's minor gap on v2.12.0). A
