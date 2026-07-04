@@ -131,8 +131,22 @@ def main():
     finally:
         lathe.cmd_do = real_do
 
+    # T7 — a workflow-backed command records the RESOLVED workflow in the intake header (MANIFEST_DESIGN §1;
+    # reviewer's Phase-2a gap). `review` is contracted to code-review; stub its steps to stay network-free.
+    real_review, real_gate = lathe.cmd_review, lathe.cmd_gate
+    try:
+        lathe.cmd_review = lambda rest: 0
+        lathe.cmd_gate = lambda rest: 0
+        rc, m = _invoke(["review", "somefile.py"])
+        assert m["intake"]["skill"] == "code-review", "T7 intake.skill not recorded: %r" % m["intake"]["skill"]
+        assert isinstance(m["intake"]["workflow_steps"], list) and m["intake"]["workflow_steps"], \
+            "T7 intake.workflow_steps not recorded"
+        emitted.append("T7 resolved workflow named in intake header")
+    finally:
+        lathe.cmd_review, lathe.cmd_gate = real_review, real_gate
+
     print("; ".join(emitted))
-    print("manifest contract: %d/5 probes pass" % len(emitted))
+    print("manifest contract: %d/6 probes pass" % len(emitted))
 
 
 if __name__ == "__main__":

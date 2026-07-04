@@ -2,6 +2,16 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.13.1 — 2026-07-04
+
+**#12 Phase 2a follow-up — the manifest names its resolved workflow** (reviewer's minor gap on v2.12.0). A
+workflow-backed command ran its steps (they landed in `work.steps`) but the intake header left `intake.skill`
+and `intake.workflow_steps` `null`, contradicting `MANIFEST_DESIGN.md §1`. Now `run_spine` records the
+resolved workflow name + its ordered step labels in the intake header the moment promotion engages
+(`manifest.set_workflow`). New acceptance probe **T7** (manifest_contract_gate, now 6/6): a promoted `review`
+manifest carries `intake.skill == "code-review"` and a non-empty `intake.workflow_steps`. Verified in-process
+and by the gate. Trunk-only change (`lathe.py` promotion site, `manifest.py` skeleton + setter); no plan rebuilt.
+
 ## v2.13.0 — 2026-07-04
 
 **Issue #11 — adversarial test synthesis as a GATE.** The harness now finds its OWN coverage gaps: before a

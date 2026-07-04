@@ -1773,6 +1773,8 @@ def run_spine(cmd, rest, argv):
         if wf:
             if mf:
                 mf.record_gate("promotion", "pass", False, "workflow=%s" % contract["workflow"])
+                mf.set_workflow(contract["workflow"],                    # #12 MANIFEST_DESIGN §1: name the
+                                [lbl for _k, lbl, _a in wf.get("steps", [])])   # resolved workflow in intake
             rc = _run_workflow(wf, " ".join(rest if routed == "table" else argv), mf)
         else:
             rc = _dispatch(cmd, rest, argv)

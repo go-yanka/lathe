@@ -51,8 +51,8 @@ def _skeleton(run_id, argv, command, routed_via):
             "env_snapshot": {k: os.environ[k] for k in
                              ("LATHE_STRICT", "LATHE_MODEL", "LATHE_TRIES", "LATHE_THINK") if k in os.environ},
         },
-        "intake": {"invocation_type": command, "goal": None, "run_started_at":
-                   time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
+        "intake": {"invocation_type": command, "skill": None, "workflow_steps": None, "goal": None,
+                   "run_started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
         "front_end": {"ran": False, "clarify": None, "assumptions": []},
         "selection": {"selector": None, "personas": [], "lenses": []},
         "contributors": [],
@@ -117,6 +117,15 @@ class Manifest:
         try:
             if isinstance(row, dict):
                 self._d["contributors"].append(row)
+        except Exception:
+            pass
+
+    def set_workflow(self, skill, steps):
+        """#12 P2 (MANIFEST_DESIGN §1): record the RESOLVED workflow in the intake header — which skill was
+        promoted and its ordered step labels — so the manifest names the contract, not just its execution."""
+        try:
+            self._d["intake"]["skill"] = str(skill) if skill is not None else None
+            self._d["intake"]["workflow_steps"] = [str(s) for s in steps] if isinstance(steps, (list, tuple)) else None
         except Exception:
             pass
 
