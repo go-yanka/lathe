@@ -165,17 +165,36 @@ async def chat_completions(request: Request):
 
     if not stream:
         # Synchronous run (Windows .cmd needs subprocess.run, not asyncio exec).
+        # Operating contract #12 L1: run with --output-format json so the CLI's own token usage is
+        # surfaced instead of the hardcoded zeros that made every analyst call invisible in reports.
         def _run():
             return subprocess.run(
-                _base_cmd(model, with_read),
+                _base_cmd(model, with_read) + ["--output-format", "json"],
                 input=prompt,
                 capture_output=True, text=True,
                 encoding="utf-8", errors="replace",
                 timeout=TIMEOUT, shell=False,
             )
+        usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0,
+                 "token_source": "unmeasured"}          # never SILENTLY zero: unmeasured is tagged
         try:
             r = await asyncio.get_event_loop().run_in_executor(None, _run)
             content = (r.stdout or "").strip()
+            try:                                        # CLI result envelope: {"result": ..., "usage": {...}}
+                obj = json.loads(content)
+                if isinstance(obj, dict) and "result" in obj:
+                    content = str(obj.get("result") or "")
+                    u = obj.get("usage") or (obj.get("message") or {}).get("usage") or {}
+                    pin = int(u.get("input_tokens", 0) or 0)
+                    pout = int(u.get("output_tokens", 0) or 0)
+                    if pin or pout:
+                        usage = {"prompt_tokens": pin, "completion_tokens": pout,
+                                 "total_tokens": pin + pout,
+                                 "cache_read_input_tokens": int(u.get("cache_read_input_tokens", 0) or 0),
+                                 "cache_creation_input_tokens": int(u.get("cache_creation_input_tokens", 0) or 0),
+                                 "token_source": "measured"}
+            except (ValueError, TypeError):
+                pass                                    # older CLI / plain text -> keep stdout as content
             if r.returncode != 0 and not content:
                 content = f"[claude_cli error rc={r.returncode}: {(r.stderr or '')[:400]}]"
         except Exception as e:
@@ -186,7 +205,7 @@ async def chat_completions(request: Request):
             "model": model,
             "choices": [{"index": 0, "message": {"role": "assistant", "content": content},
                          "finish_reason": "stop"}],
-            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+            "usage": usage,
         })
 
     # Streaming via native stream-json (proven approach from old router).

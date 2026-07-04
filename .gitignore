@@ -25,6 +25,10 @@ lathe.config.json
 **/agents/licenses/
 **/agents/ratings.json
 
+# per-invocation run manifests (#12 operating contract) — runtime evidence, per-user, not shipped
+docs/ce/*.manifest.json
+docs/ce/*.manifest.md
+
 # per-environment test-ack approval state (keyed to test digest; human-in-loop, not shipped)
 **/.test_ack.json
 

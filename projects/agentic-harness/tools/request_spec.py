@@ -12,6 +12,10 @@ import sys
 import time
 import urllib.request
 
+# #12 L2: optional usage reporter. lathe.py main() binds this to the run manifest so every analyst call's
+# measured tokens are attributed. Never required, never raises into the caller.
+USAGE_HOOK = None
+
 
 def request_spec(prompt, url=None, timeout=None, retries=None):
     """POST `prompt` to the Claude CLI proxy, return the response text (the next plan).
@@ -66,6 +70,11 @@ def request_spec(prompt, url=None, timeout=None, retries=None):
                 _sock.getaddrinfo = lambda *a, **k: _gai_pin
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 d = json.loads(r.read(16 * 1024 * 1024))    # cap: a hostile endpoint can't OOM us
+            if USAGE_HOOK:                               # #12 L2: report the analyst's measured usage upward
+                try:
+                    USAGE_HOOK("analyst", d.get("usage") or {})
+                except Exception:
+                    pass
             c = d["choices"][0]["message"]["content"]
             if isinstance(c, list):                      # Anthropic-style structured content -> flatten to text
                 c = "".join(b.get("text", "") for b in c if isinstance(b, dict))

@@ -18,12 +18,17 @@ CHECKS = [("tree_no_stale_dups", os.path.join(QA, "stale_gate.py")),
           ("pristine_tree", os.path.join(QA, "pristine_gate.py")),                 # no corrupt/half-written files linger
           ("lint_no_real_bugs", os.path.join(QA, "lint_gate.py")),                 # ruff: no undefined-name/syntax/format defects in generated code
           ("docs_not_drifted", os.path.join(QA, "docs_drift_gate.py")),            # every CLI command documented with an example in LATHE_COMMANDS.md
-          ("env_not_drifted", os.path.join(QA, "env_drift_gate.py"))]               # every env var the code reads is documented in env_catalog.py (lathe env)
+          ("env_not_drifted", os.path.join(QA, "env_drift_gate.py")),               # every env var the code reads is documented in env_catalog.py (lathe env)
+          ("manifest_contract", os.path.join(QA, "manifest_contract_gate.py"))]     # #12: every invocation emits a complete, un-skippable manifest (T2-T6)
 
 def main():
     failed = []
     for name, path in CHECKS:
         if not os.path.exists(path):
+            # #12 (PR#7 round-3 finding): a MISSING gate file used to be silently skipped while the run
+            # still printed "regression clean" — a vacuous green. A registered gate that is absent is a FAIL.
+            print("%-22s FAIL :: gate file missing: %s" % (name, os.path.basename(path)))
+            failed.append(name + "(missing)")
             continue
         r = subprocess.run([sys.executable, path], capture_output=True, text=True)
         tag = "PASS" if r.returncode == 0 else "FAIL"

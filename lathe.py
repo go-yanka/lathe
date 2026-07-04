@@ -1701,10 +1701,100 @@ def main(argv):
         "report": cmd_report, "issues": cmd_issues, "logs": cmd_logs, "lint-spec": cmd_lint_spec,
         "flow": cmd_flow, "map": cmd_map, "env": cmd_env, "serve": cmd_serve, "checkin": cmd_checkin, "agent": cmd_agent, "ack": cmd_ack, "trace": cmd_trace, "sdlc": cmd_sdlc, "clarify": cmd_clarify, "assume": cmd_assume,
     }
+    # Operating contract #12 Phase 0 (hand-edited CORE_INFRA — the dispatcher chokepoint): EVERY invocation
+    # emits a manifest. begin() writes a partial stub NOW; finalize() runs in `finally`, so no return, raise,
+    # SystemExit, gate abort or Ctrl-C inside a handler can skip the record. Skills only append content.
     if cmd in table:
-        return table[cmd](rest)
-    # bare `lathe "<goal>"` -> treat the whole argv as a goal
-    return cmd_do(argv)
+        handler, routed = (lambda: table[cmd](rest)), "table"
+    else:
+        handler, routed = (lambda: cmd_do(argv)), "bare-goal"   # bare `lathe "<goal>"` runs THROUGH the contract
+    mf = _manifest_begin(argv, cmd if routed == "table" else "do", routed)
+    _mm0 = _metrics_offset()
+    try:
+        rc = handler()
+        if mf:
+            mf.set_outcome(status=("pass" if not rc else "refuse"), exit_code=rc or 0)
+        return rc
+    except SystemExit as e:                                     # a handler called sys.exit()
+        if mf:
+            mf.set_outcome(status=("refuse" if e.code else "pass"), exit_code=e.code or 0)
+        raise
+    except BaseException as e:                                  # crash / KeyboardInterrupt / gate abort
+        if mf:
+            mf.set_outcome(status="error", exit_code=1, error=repr(e))
+        raise
+    finally:
+        if mf:
+            _manifest_merge_metrics(mf, _mm0)
+            mf.finalize()
+
+
+def _manifest_begin(argv, command, routed):
+    """Open the per-invocation record (#12). Degrades VISIBLY (stderr) if the module is unavailable —
+    a broken install must not also lose the CLI."""
+    try:
+        if TOOLS not in sys.path:
+            sys.path.insert(0, TOOLS)
+        import manifest as _mfmod
+        m = _mfmod.Manifest.begin(argv=list(argv), command=command, routed_via=routed)
+        try:                                       # bind the analyst usage reporter (#12 L2)
+            import request_spec as _rs
+            import pricebook as _pb
+            _amodel = os.environ.get("HARNESS_ANALYST_MODEL", "sonnet")
+            _rs.USAGE_HOOK = lambda role, u: m.record_usage(
+                role, u.get("prompt_tokens", 0), u.get("completion_tokens", 0), 1,
+                u.get("token_source", "measured" if u.get("total_tokens") else "n/a"),
+                _pb.price_for(_amodel))
+        except Exception:
+            pass
+        return m
+    except Exception as e:
+        sys.stderr.write("manifest unavailable (record NOT emitted this run): %r\n" % (e,))
+        return None
+
+
+def _metrics_offset():
+    try:
+        return os.path.getsize(os.path.join(ROOT, "metrics", "runs.jsonl"))
+    except OSError:
+        return 0
+
+
+def _manifest_merge_metrics(mf, offset):
+    """Engine builds run as subprocesses; their runs.jsonl rows appended during THIS invocation are merged
+    into the manifest (contributors, per-role usage, gate verdicts). Best-effort."""
+    try:
+        import json as _json
+        import pricebook as _pb
+        path = os.path.join(ROOT, "metrics", "runs.jsonl")
+        with open(path, encoding="utf-8") as f:
+            f.seek(offset)
+            new = f.read()
+        _rp = {"implementer": _pb.price_for("local"), "judge": _pb.price_for("sonnet"),
+               "analyst": _pb.price_for(os.environ.get("HARNESS_ANALYST_MODEL", "sonnet"))}
+        for line in new.strip().splitlines():
+            try:
+                row = _json.loads(line)
+            except ValueError:
+                continue
+            mf.append_contributor({
+                "id": "engine-build", "role": "build", "kind": "engine",
+                "action": "%s on %s: %s/%s fns" % (row.get("plan"), row.get("model"),
+                                                   row.get("functions_passed"), row.get("functions_total")),
+                "status": "ok" if row.get("build_ok") else "failed"})
+            for role, b in (row.get("tok_by_role") or {}).items():
+                if isinstance(b, dict):
+                    mf.record_usage(role, b.get("p", 0), b.get("e", 0), b.get("calls", 0),
+                                    b.get("src"), _rp.get(role))
+            reg = str(row.get("regression") or "")
+            if reg:
+                mf.record_gate("standing-regression", "pass" if reg.startswith("PASS") else "fail",
+                               True, reg[:120])
+            mf.record_gate("build", "pass" if row.get("build_ok") else "fail", True,
+                           "%s: %s/%s fns" % (row.get("plan"), row.get("functions_passed"),
+                                              row.get("functions_total")))
+    except Exception:
+        pass
 
 
 def _cli():                                    # console-script entry point (see pyproject.toml)

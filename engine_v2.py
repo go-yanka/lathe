@@ -251,14 +251,26 @@ def _atomic_write(path, content):
 
 tok = {"p": 0, "e": 0, "claude_calls": 0}
 
+# Operating contract #12 L3: per-ROLE buckets (implementer/judge here; the analyst runs in lathe.py /
+# request_spec and reports separately). The manifest's completeness invariant flags any role with
+# calls>0 but tokens==0 — an uninstrumented endpoint is VISIBLE, never a silent zero.
+tok_roles = {"implementer": {"p": 0, "e": 0, "calls": 0, "src": "n/a"},
+             "judge":       {"p": 0, "e": 0, "calls": 0, "src": "n/a"}}
 
-def _accrue_usage(d):
-    """PR#7 #10: sum a response's reported token usage into `tok` (OpenAI-style prompt/completion, or ollama's
-    eval_count). No-op when the endpoint reports nothing (a CLI proxy / human analyst returns no usage)."""
+
+def _accrue_usage(d, role="implementer"):
+    """PR#7 #10 + #12 L2/L3: sum a response's reported token usage into `tok` AND the caller's role bucket.
+    src records whether the endpoint measured its usage (the proxy tags token_source) or reported nothing."""
     try:
         u = d.get("usage") or {}
-        tok["p"] += int(u.get("prompt_tokens", 0) or 0)
-        tok["e"] += int(u.get("completion_tokens", u.get("eval_count", 0)) or 0)
+        p = int(u.get("prompt_tokens", 0) or 0)
+        e = int(u.get("completion_tokens", u.get("eval_count", 0)) or 0)
+        tok["p"] += p
+        tok["e"] += e
+        b = tok_roles.setdefault(role, {"p": 0, "e": 0, "calls": 0, "src": "n/a"})
+        b["p"] += p; b["e"] += e; b["calls"] += 1
+        if p or e:
+            b["src"] = str(u.get("token_source", "measured"))
     except Exception:
         pass
 _MAX_RESP = int(os.environ.get("LATHE_MAX_RESP", str(16 * 1024 * 1024)))   # cap model responses (OOM guard)
@@ -268,13 +280,14 @@ CLAUDE_URL = os.environ.get("HARNESS_CLAUDE_URL", "http://127.0.0.1:8787/v1/chat
 # improves the spec so the assigned model can implement it. (Owner directive.)
 LEVELS = {1: MODEL, 2: "claude"}   # 1 = local local (default); 2 = claude via proxy (assigned deliberately)
 
-def call_model(prompt, temperature, model):
+def call_model(prompt, temperature, model, role="implementer"):
     """Timed+logged wrapper over the router: every model call is traced (model, sizes, latency, tokens) into the
-    run log, so a slow/failed/degraded call is visible after the fact. Logging is best-effort."""
+    run log, so a slow/failed/degraded call is visible after the fact. Logging is best-effort.
+    role (#12 L2): which bucket this call's usage is attributed to — implementer (default) or judge."""
     _t0 = time.time()
     _p0, _e0 = tok["p"], tok["e"]
     try:
-        resp = _call_model_impl(prompt, temperature, model)
+        resp = _call_model_impl(prompt, temperature, model, role)
     except Exception as _me:
         run_logger.log(_RUN_ID, "model_call", model=model, prompt_chars=len(prompt or ""),
                        error=str(_me), elapsed_s=round(time.time() - _t0, 2))
@@ -285,7 +298,7 @@ def call_model(prompt, temperature, model):
     return resp
 
 
-def _call_model_impl(prompt, temperature, model):
+def _call_model_impl(prompt, temperature, model, role="implementer"):
     """Implementer router. model=='claude' -> proxy; 'openai:<name>' -> any OpenAI-compatible local
     server (env LOCAL_OPENAI_URL, default llama-server :8089); otherwise an ollama model name."""
     if model == "claude":
@@ -296,7 +309,7 @@ def _call_model_impl(prompt, temperature, model):
         with urllib.request.urlopen(req, timeout=int(os.environ.get("CLAUDE_TIMEOUT", "600"))) as r:
             d = json.loads(r.read(_MAX_RESP))
         tok["claude_calls"] += 1
-        _accrue_usage(d)                       # PR#7 #10: count analyst/claude tokens when the endpoint reports them
+        _accrue_usage(d, role)                 # PR#7 #10 + #12 L2: attribute the proxy's measured usage by role
         return d["choices"][0]["message"]["content"]
     if model.startswith("openai:"):
         # FAITHFUL: sampling is governed entirely by the llama-server launch flags (the recipe under
@@ -310,8 +323,7 @@ def _call_model_impl(prompt, temperature, model):
                                      data=body, headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(req, timeout=int(os.environ.get("LOCAL_GEN_TIMEOUT", "900"))) as r:
             d = json.loads(r.read(_MAX_RESP))
-        u = d.get("usage") or {}
-        tok["p"] += u.get("prompt_tokens", 0); tok["e"] += u.get("completion_tokens", 0)
+        _accrue_usage(d, role)                 # #12 L2: one accrual path for every branch (role-attributed)
         return d["choices"][0]["message"]["content"]
     body = json.dumps({"model": model, "messages": [{"role": "user", "content": prompt}],
                        "stream": False, "options": {"temperature": temperature}}).encode()
@@ -319,7 +331,8 @@ def _call_model_impl(prompt, temperature, model):
                                  headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=int(os.environ.get("LOCAL_GEN_TIMEOUT", "300"))) as r:
         d = json.loads(r.read(_MAX_RESP))
-    tok["p"] += d.get("prompt_eval_count", 0); tok["e"] += d.get("eval_count", 0)
+    _accrue_usage({"usage": {"prompt_tokens": d.get("prompt_eval_count", 0),
+                             "completion_tokens": d.get("eval_count", 0)}}, role)   # #12 L2: role-attributed
     return d["message"]["content"]
 
 def extract_func(text, name):
@@ -431,7 +444,7 @@ def _judge_best(candidates, name, prompt):
         jp = (f"Below are {len(candidates)} CORRECT implementations of `{name}` (all pass the same tests). "
               f"Choose the single CLEANEST and most EFFICIENT one. Reply with ONLY the 0-based integer index.\n\n"
               f"Spec:\n{prompt[:600]}\n\n{listing}")
-        resp = call_model(jp, 0.0, "claude")
+        resp = call_model(jp, 0.0, "claude", role="judge")
         m = re.search(r'\d+', resp or "")
         if m and 0 <= int(m.group(0)) < len(candidates):
             return candidates[int(m.group(0))]
@@ -1075,8 +1088,11 @@ _RG = os.environ.get("RUN_GATES_PATH") or os.path.join(_proj_root, "qa", "run_ga
 if module_ok and os.environ.get("SKIP_REGRESSION") != "1" and os.path.exists(_RG):
     try:
         _rg = subprocess.run([sys.executable, _RG], cwd=os.path.dirname(_RG),
-                             capture_output=True, text=True, timeout=int(os.environ.get("REGRESSION_TIMEOUT", "300")))
-        _last = (_rg.stdout.strip().splitlines() or [""])[-1]
+                             capture_output=True, text=True, encoding="utf-8", errors="replace",
+                             timeout=int(os.environ.get("REGRESSION_TIMEOUT", "300")))
+        # encoding pinned (#12): Windows' default cp1252 choked on UTF-8 gate output, killing the reader
+        # thread -> stdout None -> the regression check crashed instead of reporting. Guard stays anyway.
+        _last = ((_rg.stdout or "").strip().splitlines() or [""])[-1]
         regression = ("PASS :: " + _last) if _rg.returncode == 0 else ("REGRESSION :: " + _last)
         if _rg.returncode != 0:
             module_ok = False     # a regressed standing gate fails the build
@@ -1186,6 +1202,7 @@ _metrics = {
     "avg_tries": round(sum(r[2] for r in report) / len(report), 2) if report else 0,
     "tok_prompt": tok["p"], "tok_eval": tok["e"], "tok_total": tok["p"] + tok["e"],
     "claude_calls": tok["claude_calls"], "judge_failures": tok.get("judge_failures", 0),   # >0 => degraded judge (proxy down): build still valid but picks were heuristic
+    "tok_by_role": tok_roles,   # #12 L3: per-role attribution (implementer/judge); analyst reports from lathe.py
     "elapsed_s": round(elapsed, 1),
     "tok_per_s": round(tok["e"] / elapsed, 1) if (elapsed > 0 and tok["e"]) else 0,
     "integration": (integration.splitlines()[0] if integration else ""),

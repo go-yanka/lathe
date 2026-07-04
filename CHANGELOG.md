@@ -2,6 +2,41 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.10.0 — 2026-07-03
+
+**Operating contract Phase 0 — the per-invocation MANIFEST** (issue #12, owner-set priority; design:
+`docs/operating-contract/MANIFEST_DESIGN.md` on PR #7). Every CLI invocation now emits a complete, un-skippable
+run record to `docs/ce/<run_id>.manifest.{json,md}` — the evaluation instrument the rest of the contract builds on.
+
+- **Un-skippable emission (structural).** `lathe.py main()` wraps the single dispatcher chokepoint:
+  `Manifest.begin()` writes a `partial:true` stub atomically before any work; `finalize()` runs in a `finally`,
+  so return codes, raises, `SystemExit`, gate aborts and Ctrl-C all still emit. Bare `lathe "<goal>"` is stamped
+  `routed_via:"bare-goal"` — through the contract, provably. Skills/workflows can only append content.
+- **Analyst-token gap closed, all three layers** (v2.9.1 closed part of L2):
+  - *L1* `claude_proxy.py` non-stream path runs the CLI with `--output-format json` and returns **real measured
+    usage** (incl. cache tokens, `token_source:"measured"`) instead of hardcoded zeros; an unparseable/legacy
+    reply is tagged `"unmeasured"`, never silently zero.
+  - *L2/L3* engine: per-ROLE buckets (`tok_by_role`: implementer/judge; analyst reports via `request_spec`'s new
+    `USAGE_HOOK`), one accrual path for every branch, role threaded through `call_model`. Metrics row + manifest
+    carry the split.
+  - **Completeness invariant** (pinned `manifest_core.role_usage`): a role with calls>0 but tokens==0 makes the
+    manifest read `attribution: INCOMPLETE (n uninstrumented)` — the gap can never silently regress (gate asserts
+    the string "NOT INSTRUMENTED" never reappears).
+- **Dollar cost**: versioned `pricebook.py` (list prices) + pinned `manifest_core.imputed_cost` — real `$0`
+  subscription/local spend is distinguished from *imputed* list-price cost, per role, 6dp.
+- **Integrity**: pinned `manifest_core.manifest_hash` — deterministic self-hash with the hash field blanked;
+  `partial` flag marks crash-time records.
+- **Acceptance gate** `qa/manifest_contract_gate.py` (standing regression, runs on every build): T2 un-skippable
+  (return/raise/SystemExit), T3 structural completeness + self-hash verify, T4 analyst-instrumented + gap-visible,
+  T5 role-split imputed cost exact, T6 bare-goal routed through the contract. T1-full/T7/T8 remain external
+  reviewer probes.
+- **Fail-open fixed in passing** (named in #12): `qa/run_gates.py` silently `continue`d past a **missing gate
+  file** and still printed "regression clean" — a registered-but-absent gate is now a FAIL. Also fixed: the
+  engine's regression runner decoded gate output as cp1252 and crashed on UTF-8 (now pinned utf-8 + guarded).
+- Harness-built under LATHE_STRICT (3/3 first-pass incl. mutation gate): `manifest_core.py`. Hand-edited
+  CORE_INFRA (called out per owner standard): `lathe.py` dispatcher wrap, `engine_v2.py` role accounting,
+  `claude_proxy.py` L1, `qa/run_gates.py`, spine `tools/manifest.py` + data `tools/pricebook.py`.
+
 ## v2.9.1 — 2026-07-03
 
 **Build report — honest analyst-token accounting** (PR #7 issue #10). The report's token line always said the
