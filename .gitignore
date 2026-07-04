@@ -24,6 +24,9 @@ lathe.config.json
 **/agents/_fetched/
 **/agents/licenses/
 **/agents/ratings.json
+**/agents/usage_ledger.jsonl
+**/agents/grades.json
+**/agents/manifests/
 
 # per-invocation run manifests (#12 operating contract) — runtime evidence, per-user, not shipped
 docs/ce/*.manifest.json
