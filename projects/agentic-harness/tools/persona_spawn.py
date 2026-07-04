@@ -114,17 +114,21 @@ def auto_spawn_for_goal(goal_text, k=2):
             import persona_orchestrator as _orch                # issue #9: explore/exploit selection (opt-in)
         except Exception:
             _orch = None
+        _picked_via_ucb = False
         if _orch is not None and _orch.is_enabled():
             # redesigned decider: relevance pre-filter -> UCB1 explore/exploit over the usage ledger + verified
             # grades, then honour the always-on mandatory set. Records the run (ledger + per-run manifest).
             from persona_modes import apply_selection_overrides
             _selected, _considered = _orch.select_live(goal_text, ents, k)
-            picked = apply_selection_overrides(_selected, [], [], _mand_present)
-            try:
-                _orch.record_run(goal_text, _considered, picked, {}, os.environ.get("LATHE_RUN_ID", "adhoc"))
-            except Exception:
-                pass
-        else:
+            if _selected:                                     # #18: only trust UCB when it produced picks —
+                picked = apply_selection_overrides(_selected, [], [], _mand_present)
+                _picked_via_ucb = True
+                try:
+                    _orch.record_run(goal_text, _considered, picked, {}, os.environ.get("LATHE_RUN_ID", "adhoc"))
+                except Exception:
+                    pass
+        if not _picked_via_ucb:                               # #18: a down/empty ledger falls back to the scored
+            # word-match path instead of silently yielding zero auto-spawned experts.
             scored = [[e["name"], score_match(goal_text, e["name"].replace("-", " ") + " " + e.get("capability", ""))
                        + score_match(goal_text, e["name"].replace("-", " "))]
                       for e in ents]                      # name overlap counted AGAIN: a specialist's NAME is signal

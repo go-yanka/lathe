@@ -503,7 +503,7 @@ def _adv_synth_gate(name, winner, tests, kinds, plan_name, gen_model, base_ns, s
     except Exception as _e:
         return False, "INOPERATIVE: synthesis call failed (%r)" % (_e,)
     synth = [ln.strip() for ln in (raw or "").splitlines() if ln.strip().lstrip().startswith("assert")]
-    kept, why = _m.admit_cases(synth, list(tests), min_cases)
+    kept, why = _m.admit_cases(synth, list(tests), min_cases, name)   # #20: name -> reject probes that never call it
     if why:                                                    # zero/lazy/copied/prose synthesis -> REFUSE
         return False, why
     ran = failures = 0

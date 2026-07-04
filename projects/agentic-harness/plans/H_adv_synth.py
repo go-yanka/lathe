@@ -30,10 +30,10 @@ FUNCTIONS = [
      ]},
     {"name": "admit_cases",
      "kinds": ["edge"],
-     "prompt": ("Write admit_cases(cases, example_tests, min_cases) -> a tuple (kept, reason). Follow these "
-                "steps EXACTLY, in order.\n"
+     "prompt": ("Write admit_cases(cases, example_tests, min_cases, fname) -> a tuple (kept, reason). Follow "
+                "these steps EXACTLY, in order.\n"
                 "STEP 1: if cases is not a list, set cases = []. If example_tests is not a list, set "
-                "example_tests = [].\n"
+                "example_tests = []. Coerce fname = str(fname) if isinstance(fname, str) else ''.\n"
                 "STEP 2: try n = int(min_cases); on ANY exception, or if isinstance(min_cases, bool), or if "
                 "n < 1: n = 1.\n"
                 "STEP 3: def norm(s): return ''.join(s.split()). Build seen = set(norm(t) for t in "
@@ -41,19 +41,24 @@ FUNCTIONS = [
                 "STEP 4: kept = []. For each c in cases, in order: skip unless isinstance(c, str); skip "
                 "unless c.strip() (non-empty); skip unless c.lstrip() starts with 'assert'; skip if norm(c) "
                 "in seen (a copy of an example test, or a duplicate of an earlier kept case, is NOT a new "
-                "probe). Otherwise append c to kept AND add norm(c) to seen.\n"
+                "probe); AND (the DISCRIMINATION check #20) if fname is non-empty, skip unless (fname + '(') "
+                "is in c — a probe that never CALLS the function under test (e.g. 'assert True', 'assert "
+                "1==1') cannot discriminate a broken impl and is REJECTED. Otherwise append c to kept AND "
+                "add norm(c) to seen.\n"
                 "STEP 5: if len(kept) >= n: return (kept, ''). Otherwise return ([], 'REFUSED: %d admissible "
                 "adversarial case(s), need %d' % (len(kept), n)). Never raise." + "\n" + _ONLY),
      "tests": [
-        "k, r = admit_cases(['assert f(1)==1', 'assert f(-1) is None'], ['assert f(0)==0'], 2)",
+        "k, r = admit_cases(['assert f(1)==1', 'assert f(-1) is None'], ['assert f(0)==0'], 2, 'f')",
         "assert k == ['assert f(1)==1', 'assert f(-1) is None'] and r == ''",
-        "k, r = admit_cases([], ['assert f(0)==0'], 1); assert k == [] and 'REFUSED' in r  # zero cases = REFUSE",
-        "k, r = admit_cases(['assert  f(0)==0'], ['assert f(0)==0'], 1); assert k == [] and 'REFUSED' in r  # copy of an example test does not count",
-        "assert admit_cases(['looks fine to me', 'assert f(2)==2'], [], 1) == (['assert f(2)==2'], '')  # prose dropped, real probe survives",
-        "k, r = admit_cases(['looks fine', 'assert f(2)==2'], [], 2); assert k == [] and 'REFUSED' in r  # only 1 real probe, need 2 -> refuse returns []",
-        "assert admit_cases(['assert f(3)==3', 'assert f(3) == 3'], [], 1) == (['assert f(3)==3'], '')  # dupes collapse to one",
-        "k, r = admit_cases(None, None, 'x'); assert k == [] and 'REFUSED' in r",
-        "k, r = admit_cases(['assert g(9)==9'], ['assert f(0)==0'], -5); assert k == ['assert g(9)==9'] and r == ''  # bad min -> 1",
+        "k, r = admit_cases([], ['assert f(0)==0'], 1, 'f'); assert k == [] and 'REFUSED' in r  # zero cases = REFUSE",
+        "k, r = admit_cases(['assert  f(0)==0'], ['assert f(0)==0'], 1, 'f'); assert k == [] and 'REFUSED' in r  # copy of an example test does not count",
+        "assert admit_cases(['looks fine to me', 'assert f(2)==2'], [], 1, 'f') == (['assert f(2)==2'], '')  # prose dropped, real probe survives",
+        "k, r = admit_cases(['assert True', 'assert 1==1', 'assert f(2)==2'], [], 1, 'f'); assert k == ['assert f(2)==2']  # #20: vacuous asserts that never call f are rejected",
+        "k, r = admit_cases(['assert True  # not a real test'], [], 1, 'f'); assert k == [] and 'REFUSED' in r  # #20 kill-shot: the known-bad vacuous case is refused",
+        "assert admit_cases(['assert f(3)==3', 'assert f(3) == 3'], [], 1, 'f') == (['assert f(3)==3'], '')  # dupes collapse to one",
+        "assert admit_cases(['assert g(1)==1', 'assert f(1)==1'], [], 1, '') == (['assert g(1)==1', 'assert f(1)==1'], '')  # empty fname -> no discrimination filter (back-compat)",
+        "k, r = admit_cases(None, None, 'x', None); assert k == [] and 'REFUSED' in r",
+        "k, r = admit_cases(['assert g(9)==9'], ['assert f(0)==0'], -5, 'g'); assert k == ['assert g(9)==9'] and r == ''  # bad min -> 1",
      ]},
     {"name": "adv_verdict",
      "kinds": ["edge"],

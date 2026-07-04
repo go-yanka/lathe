@@ -167,6 +167,45 @@ def record_run(goal, considered, selected, contributions, run_id):
                 render_manifest(manifest))
         except Exception:
             pass
+        update_grades()                       # #18 H2: recompute verified grades from the ledger after each run
     except Exception:
         pass
     return manifest
+
+
+def update_grades(prior=0.5, prior_weight=2.0, min_conf=0.5):
+    """#18 H2 — turn the usage ledger into work-based grades so grade_update/finding_score are LIVE (not dead
+    code) and grades.json is written. A persona's grade is the smoothed mean of its VERIFIED findings: for
+    each run it fired, confidence = confirmed/raised (a proxy for 'how many surfaced findings survived
+    verification'); finding_score gates it by min_conf; grade_update applies the cold-start prior. Best-effort:
+    a persona with no confirmed work keeps the prior. Returns the grades dict written (or {} on failure)."""
+    try:
+        _tools_on_path()
+        from usage_ledger import parse_usage
+        from persona_grade import finding_score, grade_update
+        records = parse_usage(_read_text(ledger_path()))
+        by_persona = {}
+        for r in records:
+            if not isinstance(r, dict):
+                continue
+            nm = r.get("persona")
+            if not nm or not r.get("fired"):
+                continue
+            raised = r.get("raised") or 0
+            confirmed = r.get("confirmed") or 0
+            if raised and raised > 0:                         # only runs that produced verifiable findings score
+                conf = min(1.0, float(confirmed) / float(raised))
+                s = finding_score({"pass": confirmed > 0, "confidence": conf}, min_conf)
+                if s is not None:
+                    by_persona.setdefault(nm, []).append(s)
+        grades = {}
+        for nm, scores in by_persona.items():
+            grades[nm] = round(grade_update(prior, prior_weight, scores), 4)
+        if grades:
+            os.makedirs(os.path.dirname(grades_path()), exist_ok=True)
+            _tmp = grades_path() + ".tmp"
+            open(_tmp, "w", encoding="utf-8").write(json.dumps(grades, indent=1))
+            os.replace(_tmp, grades_path())
+        return grades
+    except Exception:
+        return {}

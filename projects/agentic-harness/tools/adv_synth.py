@@ -13,16 +13,20 @@ def needs_adversarial(kinds, plan_name, policy):
     name = plan_name.lower()
     return 'gate' in kinds or any(k in name for k in ('gate', 'valid', 'strict', 'guard'))
 
-def admit_cases(cases, example_tests, min_cases):
+def admit_cases(cases, example_tests, min_cases, fname):
     if not isinstance(cases, list):
         cases = []
     if not isinstance(example_tests, list):
         example_tests = []
-    try:
-        n = int(min_cases)
-        if isinstance(min_cases, bool) or n < 1:
+    fname = fname if isinstance(fname, str) else ''
+    if isinstance(min_cases, bool):
+        n = 1
+    else:
+        try:
+            n = int(min_cases)
+        except Exception:
             n = 1
-    except Exception:
+    if n < 1:
         n = 1
     def norm(s):
         return ''.join(s.split())
@@ -36,6 +40,8 @@ def admit_cases(cases, example_tests, min_cases):
         if not c.lstrip().startswith('assert'):
             continue
         if norm(c) in seen:
+            continue
+        if fname and (fname + '(') not in c:
             continue
         kept.append(c)
         seen.add(norm(c))

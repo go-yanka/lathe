@@ -135,7 +135,7 @@ so it's model- and host-agnostic and drops into several setups:
   forces both.)
 - **Isolated execution** — tests run in a sandbox with an unforgeable verdict; fully-untrusted plans run in a
   network-less, read-only container (locally or on a remote host over SSH). See `SECURITY.md`.
-- **Six standing gates** — no stale/duplicate files, one canonical implementation per capability, no corrupt
+- **Ten standing gates** — no stale/duplicate files, one canonical implementation per capability, no corrupt
   files, no real-bug lint, docs can't drift. The tree stays pristine *intrinsically*, not via git.
 - **Structured logging** — every run writes `runs/<id>.jsonl` (with secrets redacted); a bug report is
   self-diagnosing.
@@ -166,7 +166,7 @@ so it's model- and host-agnostic and drops into several setups:
 - [SECURITY.md](SECURITY.md) — the threat model and isolation tiers
 - [DATA_QUALITY.md](DATA_QUALITY.md) — gating "unit-green but wrong on real data"
 - [VENDORING.md](VENDORING.md) — one canonical copy; projects vendor, don't fork
-- [CHANGELOG.md](CHANGELOG.md) — release notes (current: v2.2.4)
+- [CHANGELOG.md](CHANGELOG.md) — release notes (current: v2.16.0)
 - [PERSONAS.md](PERSONAS.md) — the expert market: sources, the decider pipeline, ratings, your controls
 - [REPRODUCIBILITY.md](REPRODUCIBILITY.md) — what's guaranteed (pinned rebuilds) vs what isn't (regeneration), measured
 - [BENCHMARK.md](BENCHMARK.md) — an honest (warts-included) benchmark vs Aider/raw-Claude

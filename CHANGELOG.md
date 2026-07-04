@@ -2,6 +2,39 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.17.0 — 2026-07-04
+
+**Capstone-review fixes (PR #16 / issues #17, #19, #20, #21).**
+
+- **#17 (HIGH) — CLI regressions from Phase-2a promotion, fixed.** Bare-command promotion bound every
+  placeholder to the same joined arg string, so `lathe review auto <file>` became `review auto auto <file>`
+  → BLOCKED, and `build <stem>`'s `trace {plan}` step mis-resolved the stem → BLOCKED on a green build.
+  `_run_workflow` now: (a) runs the PRIMITIVE-FIRST step as the operator's **original argv verbatim**
+  (identity — no re-template, no double-bind), and (b) binds `{plan}` to the first positional arg for
+  enforcement steps. `cmd_trace` now resolves a bare stem via `_resolve_plan` like `cmd_build`. Verified live:
+  `review auto <file>` and `build <stem>` (build→trace→checkpoint) both run clean.
+- **#20 — adversarial-synth admitted vacuous asserts, fixed (through the harness).** `admit_cases` gained a
+  DISCRIMINATION check: a probe must actually CALL the function under test (`fname(` in the assert), so
+  `assert True` / `assert 1==1` / `assert True # not a real test` are rejected instead of counted as
+  coverage. Rebuilt under STRICT incl. mutation. (The `needs_adversarial` broadening + default-on-under-STRICT
+  the review also suggests are owner-decision enhancements, tracked on #20.)
+- **#19 M2 — manifest self-hash integrity bug, fixed.** If the JSON write succeeded but the `.md` render
+  raised, `finalize` rewrote the JSON as `partial:true` **without recomputing the hash**, invalidating the
+  self-hash. Now the already-written valid JSON is left intact (only the `.md` failed); a partial stub is
+  written **only** when the JSON itself failed, and then the hash is recomputed over the partial state.
+  Verified: an `.md`-write failure leaves `partial:false` + a valid self-hash.
+- **#21 docs — stale counts.** `README` version `v2.2.4 → v2.16.0`, "Six standing gates → Ten". The
+  `review auto <files>` form documented as primary is correct again now that #17 is fixed.
+
+**#18 (HIGH) — work-based grades wired + fallback.** `persona_orchestrator.update_grades()` (new) turns the
+usage ledger into verified grades via `finding_score`+`grade_update` (previously DEAD code — no live callers)
+and writes `grades.json` after each run; a confirmed-work persona now grades above the cold-start prior
+(verified: 0.8). `select_live` returning empty now FALLS BACK to the scored word-match path instead of
+yielding zero auto-spawned experts. Remaining #18 piece (tracked): routing the live *lens* decider
+(`lathe.py`) through `select_live` so normal `review` runs record who-fired/confirmed — that feeds the grade
+loop end to end and changes the primary review path, so it lands as its own careful pass. **#19 M1**
+(`set_selection`/`set_goal`/`add_model` from the deciders) also tracked.
+
 ## v2.16.0 — 2026-07-04
 
 **Review close-out punch list (PR #15): persona default-on + property-based sampling.**

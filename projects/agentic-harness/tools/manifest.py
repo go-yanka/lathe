@@ -185,6 +185,7 @@ class Manifest:
         if self._finalized:
             return
         self._finalized = True
+        _json_written = False                             # #19 M2: did the authoritative JSON write succeed?
         try:
             core = _core()
             usage = core.role_usage(self._roles)
@@ -208,15 +209,21 @@ class Manifest:
             self._d["integrity"]["manifest_sha256"] = core.manifest_hash(self._d)
             os.makedirs(out_dir(), exist_ok=True)
             _atomic_write(self.json_path(), json.dumps(self._d, indent=1, default=str))
+            _json_written = True                          # #19 M2: the authoritative record is now on disk
             _atomic_write(self.md_path(), render(self._d))
         except Exception as e:
-            # last-resort partial record — an invisible failure to record is the one unacceptable outcome
+            # last-resort partial record — an invisible failure to record is the one unacceptable outcome.
+            # #19 M2: if the JSON already wrote cleanly (only the .md render failed), DO NOT rewrite the JSON —
+            # the on-disk record is valid and its self-hash still verifies. Only when the JSON itself failed do
+            # we write a partial stub, and then we RECOMPUTE the hash over the partial state so it stays valid.
             try:
                 import sys
                 sys.stderr.write("manifest finalize degraded: %r\n" % (e,))
-                self._d["integrity"]["partial"] = True
-                os.makedirs(out_dir(), exist_ok=True)
-                _atomic_write(self.json_path(), json.dumps(self._d, indent=1, default=str))
+                if not _json_written:
+                    self._d["integrity"]["partial"] = True
+                    self._d["integrity"]["manifest_sha256"] = core.manifest_hash(self._d)
+                    os.makedirs(out_dir(), exist_ok=True)
+                    _atomic_write(self.json_path(), json.dumps(self._d, indent=1, default=str))
             except Exception:
                 pass
 

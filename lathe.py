@@ -1565,9 +1565,9 @@ def cmd_trace(args):
     paths = [a for a in args if not a.startswith("--")]
     if not paths:
         print("usage: lathe trace <plan.py> [model]   (matrix for the plan's declared CRITERIA)"); return 2
-    plan_path = os.path.abspath(paths[0])
+    plan_path = _resolve_plan(paths[0])      # #17: resolve a bare stem (H_x) like cmd_build, not os.path.abspath
     if not os.path.exists(plan_path):
-        print("trace: no such plan: %s" % plan_path); return 2
+        print("trace: no such plan: %s" % paths[0]); return 2
     spec = importlib.util.spec_from_file_location("plan", plan_path)
     plan = importlib.util.module_from_spec(spec)
     try:
@@ -1777,7 +1777,7 @@ def run_spine(cmd, rest, argv):
                 mf.record_gate("promotion", "pass", False, "workflow=%s" % contract["workflow"])
                 mf.set_workflow(contract["workflow"],                    # #12 MANIFEST_DESIGN §1: name the
                                 [lbl for _k, lbl, _a in wf.get("steps", [])])   # resolved workflow in intake
-            rc = _run_workflow(wf, " ".join(rest if routed == "table" else argv), mf)
+            rc = _run_workflow(wf, cmd, rest, argv, mf)
         else:
             rc = _dispatch(cmd, rest, argv)
         if contract.get("gate") and rc == 0:                 # phase 4: standing gates after a green write
@@ -1800,27 +1800,45 @@ def run_spine(cmd, rest, argv):
             mf.finalize()                                    # phase 5: ALWAYS
 
 
-def _run_workflow(wf, tgt, mf=None):
+def _run_workflow(wf, cmd, rest, argv, mf=None):
     """#12 P2: run a per-invocation workflow's steps IN ORDER, halting on the first blocked step. Verdicts
     come from rc via the pinned classifier (flow_report), never from model text. Steps re-enter main() and
-    run RAW under the spine's guard — the outer manifest records every step; no nested manifests."""
+    run RAW under the spine's guard — the outer manifest records every step; no nested manifests.
+
+    #17 fix — binding is no longer a blind global replace (which double-bound `review auto {files}` into
+    `review auto auto <file>` and mis-resolved `trace {stem}`). Instead: the PRIMITIVE-FIRST step (the first
+    auto step whose action's command == the invoked command) re-runs the operator's ORIGINAL argv verbatim
+    (identity — never a re-template); ENFORCEMENT steps bind `{plan}` to the first positional arg (a
+    resolvable stem) and `{files}`/`{args}`/`{goal}` to the full arg string."""
     import shlex
     if TOOLS not in sys.path:
         sys.path.insert(0, TOOLS)
     from flow_report import classify_step, workflow_verdict
+    _positional = [a for a in rest if not a.startswith("--")]
+    _plan_arg = _positional[0] if _positional else ""       # {plan} -> first positional (build/trace/verify)
+    _joined = " ".join(rest)                                 # {files}/{args}/{goal} -> the full arg string
+    _primitive_done = False
     rows = []
     for kind, label, action in wf.get("steps", []):
-        act = ((action or "").replace("{args}", tgt).replace("{files}", tgt)
-               .replace("{plan}", tgt).replace("{goal}", tgt))
+        action = action or ""
         if kind == "you":
             print("  [YOU checkpoint] %s" % label)
             rows.append("todo")
             if mf:
                 mf.append_step(label, "todo", "you")
             continue
-        if kind != "gate" and "{" not in (action or "") and not act.strip():
-            continue                                        # malformed empty step: skip, never a silent pass
-        rc = cmd_gate([]) if kind == "gate" else main(shlex.split(act))
+        if kind == "gate":
+            rc = cmd_gate([])
+        elif (not _primitive_done) and action.split(" ", 1)[0] == cmd:
+            # the primitive-first step IS what the operator invoked — run their ORIGINAL argv, don't re-template
+            _primitive_done = True
+            rc = _dispatch(cmd, rest, argv)
+        else:
+            act = (action.replace("{plan}", _plan_arg).replace("{args}", _joined)
+                         .replace("{files}", _joined).replace("{goal}", _joined))
+            if "{" in action and not act.replace(action.split(" ", 1)[0], "").strip():
+                continue                                    # placeholder bound to nothing -> skip, never a silent pass
+            rc = main(shlex.split(act))
         status = classify_step(kind, rc, "")
         rows.append(status)
         if mf:
