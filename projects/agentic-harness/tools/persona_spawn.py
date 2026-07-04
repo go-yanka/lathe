@@ -109,12 +109,28 @@ def auto_spawn_for_goal(goal_text, k=2):
         ents = cat.get("agents", [])
         _names = {e["name"] for e in ents}
         prio, mand = persona_overrides()                      # #43: user priority weights + always-on personas
-        scored = [[e["name"], score_match(goal_text, e["name"].replace("-", " ") + " " + e.get("capability", ""))
-                   + score_match(goal_text, e["name"].replace("-", " "))]
-                  for e in ents]                          # name overlap counted AGAIN: a specialist's NAME is signal
-        _r = {n: v.get("rating") for n, v in load_ratings().items() if isinstance(v, dict)}
-        scored = apply_ratings(scored, _r)                    # #39: measured performance reweights the market
-        picked = apply_overrides(scored, prio, [m for m in mand if m in _names], k)
+        _mand_present = [m for m in mand if m in _names]
+        try:
+            import persona_orchestrator as _orch                # issue #9: explore/exploit selection (opt-in)
+        except Exception:
+            _orch = None
+        if _orch is not None and _orch.is_enabled():
+            # redesigned decider: relevance pre-filter -> UCB1 explore/exploit over the usage ledger + verified
+            # grades, then honour the always-on mandatory set. Records the run (ledger + per-run manifest).
+            from persona_modes import apply_selection_overrides
+            _selected, _considered = _orch.select_live(goal_text, ents, k)
+            picked = apply_selection_overrides(_selected, [], [], _mand_present)
+            try:
+                _orch.record_run(goal_text, _considered, picked, {}, os.environ.get("LATHE_RUN_ID", "adhoc"))
+            except Exception:
+                pass
+        else:
+            scored = [[e["name"], score_match(goal_text, e["name"].replace("-", " ") + " " + e.get("capability", ""))
+                       + score_match(goal_text, e["name"].replace("-", " "))]
+                      for e in ents]                      # name overlap counted AGAIN: a specialist's NAME is signal
+            _r = {n: v.get("rating") for n, v in load_ratings().items() if isinstance(v, dict)}
+            scored = apply_ratings(scored, _r)                # #39: measured performance reweights the market
+            picked = apply_overrides(scored, prio, _mand_present, k)
         todo = spawn_candidates(picked, [[e["name"], bool(e.get("vendored")), e.get("license")] for e in ents])
         by = {e["name"]: e for e in ents}
         out = []
