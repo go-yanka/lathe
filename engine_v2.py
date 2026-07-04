@@ -1230,3 +1230,8 @@ try:
     print(f"metrics -> {_ledger}")
 except Exception as _me:
     print(f"[metrics ledger write skipped: {_me}]")
+
+# Operating contract #12 P1 finding (fail-open, fixed in passing): the script used to FALL OFF THE END here,
+# so a build that failed gates / got rolled back still exited 0 — callers (lathe build, CI) read green.
+# A RED build must exit RED. (The --json wrapper already keyed off build_ok; the plain path now agrees.)
+sys.exit(0 if _metrics.get("build_ok") else 1)

@@ -2,6 +2,43 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.11.0 — 2026-07-04
+
+**Operating contract Phase 1 — the ENFORCEMENT SPINE** (issue #12; design:
+`docs/operating-contract/ENFORCEMENT_SPINE_DESIGN.md` on PR #7). Bare commands now run *through* their
+contract — there is no data/skill path around it.
+
+- **`main()` split into spine + raw dispatch.** Top-level calls enter `run_spine` (the six-phase contract in
+  deterministic code); the raw `_dispatch` is underscore-private and reachable only via `main`. A re-entrancy
+  guard (`_LATHE_SPINE_RUN`, set by code for the dynamic extent of a run) makes inner re-entrant steps (e.g.
+  `lathe flow`'s AUTO steps) run RAW under the outer spine — **exactly one manifest per top-level invocation**.
+- **Guard-forge defense:** both process entries FORCE-clear the guard (same rationale as the forced
+  `LATHE_VALIDATE_PLAN`), so a hostile pre-set env var cannot make the top level skip its contract. A skill
+  that shells out to `lathe` gets a fresh process → cleared guard → its own full spine + manifest.
+- **Thinking dial** `LATHE_THINK ∈ {casual, medium, high}` (or `--think=`, or config `thinking.level`) —
+  resolved at intake by pinned `spine_core.resolve_thinking` (flag > env > config), expanded by pinned
+  `depth_env` into `LATHE_TRIES` / `LATHE_SELECT_N` / `LATHE_ASSUMPTION_POLICY` stamps applied with
+  `setdefault` (an operator's explicit env always wins). Recorded in the manifest's intake row.
+- **`CONTRACT_FOR`** (data, `workflows.py`): command → contract (workflow / front_end / select / gate /
+  writes / argmap). Read-only commands are TRIVIAL — spine runs, phases no-op, byte-identical behavior.
+  Phase-4 standing gates run after green writes where the contract says so. Workflow *promotion* (bare
+  command → its multi-step workflow) lands in Phase 2 with the 19 hardened workflows; today's 6 guided
+  workflows don't arg-bind safely as contracts (verified: code-review's `build {plan}` step mis-binds a
+  bare review's file target).
+- **Operator bypass on the record:** `LATHE_SPINE=off` (pre-process env only) runs raw but still emits a
+  manifest recording `disabled-by-operator`.
+- **Stress gate** `qa/spine_gate.py` (standing regression, now 10 checks): P1 guard-forge defeated, P2
+  exactly-one-manifest under re-entry, P3 skill-subprocess gets its own spine, P4 bypass recorded, P5
+  single-raw-path static invariant.
+- **Fail-open found & fixed by the new gates during validation:** the engine fell off the end of the script,
+  so a build that FAILED gates / got rolled back still **exited 0** — `lathe build` (plain path) read green
+  on red. The engine now exits `0 iff build_ok`. (Caught because the spine's manifest showed
+  `outcome: pass` beside `gates.all_pass: false` — the record contradicting the exit code.)
+- Harness-built under LATHE_STRICT (3/3 first-pass incl. mutation): `spine_core.py` (resolve_thinking,
+  depth_env, contract_of). Hand-edited CORE_INFRA (called out): `lathe.py` (spine/dispatch/guard),
+  `engine_v2.py` (exit code), `workflows.py` (CONTRACT_FOR data), `env_catalog.py` (LATHE_THINK/LATHE_SPINE),
+  both acceptance gates (guard-clear at library entry).
+
 ## v2.10.0 — 2026-07-03
 
 **Operating contract Phase 0 — the per-invocation MANIFEST** (issue #12, owner-set priority; design:

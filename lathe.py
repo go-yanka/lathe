@@ -1684,13 +1684,22 @@ def _apply_config_env(cfg):
             os.environ.setdefault(env, str(v))
 
 
-def main(argv):
-    os.environ["LATHE_VALIDATE_PLAN"] = "1"    # FORCE (not setdefault): a stale/hostile env var must not disable plan-as-data validation — same reason the validator path below is forced
-    os.environ["LATHE_VALIDATOR_PY"] = os.path.join(TOOLS, "plan_validator.py")   # FORCE the trusted validator (a stale/hostile env var must not redirect it)
-    _apply_config_env(_lathe_config())         # config file -> env defaults (an explicit env var still overrides)
-    if not argv or argv[0] in ("help", "-h", "--help"):
-        print(__doc__); return 0
-    cmd, rest = argv[0], argv[1:]
+# Operating contract #12 Phase 1 — the ENFORCEMENT SPINE (hand-edited CORE_INFRA, the dispatcher chokepoint).
+# main() is the ONLY way any command runs AND the only in-process re-entry point (cmd_flow re-enters main per
+# AUTO step). The guard makes the split: a TOP-LEVEL call runs the full spine (contract -> thinking depth ->
+# work -> gates -> manifest, phases in CODE around the data); a re-entrant inner step runs RAW because the
+# outer spine already owns the contract — exactly one manifest per top-level invocation. The process entry
+# FORCE-clears the guard (same rationale as the forced LATHE_VALIDATE_PLAN below): a stale/hostile pre-set
+# env var can never trick the top level into skipping its contract. A skill that shells out to `lathe` gets a
+# FRESH process -> cleared guard -> its own full spine + manifest. There is no data/skill escape valve; the
+# only honored bypass is LATHE_SPINE=off set by the operator before process start — and even that still emits
+# a manifest recording the bypass.
+_SPINE_GUARD = "_LATHE_SPINE_RUN"
+
+
+def _dispatch(cmd, rest, argv):
+    """RAW dispatch — underscore-private; reached only via main() (top-level through run_spine, or re-entrant
+    under the guard). No manifest here: the record belongs to the spine."""
     table = {
         "build": cmd_build, "do": cmd_do, "chat": cmd_chat, "auto": cmd_auto,
         "gate": cmd_gate, "review": cmd_review, "status": cmd_status,
@@ -1701,32 +1710,116 @@ def main(argv):
         "report": cmd_report, "issues": cmd_issues, "logs": cmd_logs, "lint-spec": cmd_lint_spec,
         "flow": cmd_flow, "map": cmd_map, "env": cmd_env, "serve": cmd_serve, "checkin": cmd_checkin, "agent": cmd_agent, "ack": cmd_ack, "trace": cmd_trace, "sdlc": cmd_sdlc, "clarify": cmd_clarify, "assume": cmd_assume,
     }
-    # Operating contract #12 Phase 0 (hand-edited CORE_INFRA — the dispatcher chokepoint): EVERY invocation
-    # emits a manifest. begin() writes a partial stub NOW; finalize() runs in `finally`, so no return, raise,
-    # SystemExit, gate abort or Ctrl-C inside a handler can skip the record. Skills only append content.
     if cmd in table:
-        handler, routed = (lambda: table[cmd](rest)), "table"
-    else:
-        handler, routed = (lambda: cmd_do(argv)), "bare-goal"   # bare `lathe "<goal>"` runs THROUGH the contract
+        return table[cmd](rest)
+    return cmd_do(argv)                        # bare `lathe "<goal>"`
+
+
+def main(argv):
+    os.environ["LATHE_VALIDATE_PLAN"] = "1"    # FORCE (not setdefault): a stale/hostile env var must not disable plan-as-data validation — same reason the validator path below is forced
+    os.environ["LATHE_VALIDATOR_PY"] = os.path.join(TOOLS, "plan_validator.py")   # FORCE the trusted validator (a stale/hostile env var must not redirect it)
+    _apply_config_env(_lathe_config())         # config file -> env defaults (an explicit env var still overrides)
+    if not argv or argv[0] in ("help", "-h", "--help"):
+        print(__doc__); return 0
+    cmd, rest = argv[0], argv[1:]
+    if os.environ.get(_SPINE_GUARD):           # RE-ENTRANT inner step: the outer spine owns the contract
+        return _dispatch(cmd, rest, argv)
+    return run_spine(cmd, rest, argv)          # TOP-LEVEL: the enforced contract
+
+
+def run_spine(cmd, rest, argv):
+    """The six-phase operating contract, in deterministic code around the data (#12 Phase 1). A workflow can
+    define bad steps but cannot delete a phase — phases are not in the data. Emission is unconditional."""
+    routed = "table" if cmd not in ("",) and not _is_bare(cmd) else "bare-goal"
     mf = _manifest_begin(argv, cmd if routed == "table" else "do", routed)
     _mm0 = _metrics_offset()
     try:
-        rc = handler()
+        if TOOLS not in sys.path:
+            sys.path.insert(0, TOOLS)
+        try:
+            from spine_core import resolve_thinking, depth_env, contract_of   # pinned pure decisions
+            from workflows import CONTRACT_FOR
+        except Exception:
+            resolve_thinking = depth_env = None
+            CONTRACT_FOR = {}
+            contract_of = lambda c, t: {}
+        if os.environ.get("LATHE_SPINE") == "off":           # operator bypass — honored, but ON THE RECORD
+            if mf:
+                mf.record_gate("spine", "disabled-by-operator", False, "LATHE_SPINE=off (pre-process env)")
+            rc = _dispatch(cmd, rest, argv)
+            if mf:
+                mf.set_outcome(status=("pass" if not rc else "refuse"), exit_code=rc or 0)
+            return rc
+        contract = contract_of(cmd if routed == "table" else "do", CONTRACT_FOR)
+        if resolve_thinking:                                  # phase 0 intake: thinking dial -> depth stamps
+            think = resolve_thinking(_flag_of(rest, "--think"), os.environ.get("LATHE_THINK"),
+                                     ((_lathe_config().get("thinking") or {}).get("level")
+                                      if isinstance(_lathe_config().get("thinking"), dict) else None))
+            for k, v in depth_env(think).items():
+                os.environ.setdefault(k, v)                  # env > profile > config > default: fill only unset
+            if mf:
+                mf.record_gate("intake", "pass", False, "thinking=%s contract=%s" % (think, contract or "TRIVIAL"))
+        os.environ[_SPINE_GUARD] = mf._d["run_id"] if mf else "1"   # from here, inner main() calls run RAW
+        rc = _dispatch(cmd, rest, argv)                      # phase 3 work (workflow promotion lands Phase 2)
+        if contract.get("gate") and rc == 0:                 # phase 4: standing gates after a green write
+            rc = _phase_gates(mf) or rc
         if mf:
             mf.set_outcome(status=("pass" if not rc else "refuse"), exit_code=rc or 0)
         return rc
-    except SystemExit as e:                                     # a handler called sys.exit()
+    except SystemExit as e:                                  # a handler called sys.exit()
         if mf:
             mf.set_outcome(status=("refuse" if e.code else "pass"), exit_code=e.code or 0)
         raise
-    except BaseException as e:                                  # crash / KeyboardInterrupt / gate abort
+    except BaseException as e:                               # crash / KeyboardInterrupt / gate abort
         if mf:
             mf.set_outcome(status="error", exit_code=1, error=repr(e))
         raise
     finally:
+        os.environ.pop(_SPINE_GUARD, None)
         if mf:
             _manifest_merge_metrics(mf, _mm0)
-            mf.finalize()
+            mf.finalize()                                    # phase 5: ALWAYS
+
+
+def _is_bare(cmd):
+    return cmd not in (
+        "build", "do", "chat", "auto", "gate", "review", "status", "board", "verify", "selftest",
+        "decompose", "checkpoint", "run", "metrics", "plans", "dups", "whatis", "clean", "wait",
+        "resume", "waiting", "report", "issues", "logs", "lint-spec", "flow", "map", "env", "serve",
+        "checkin", "agent", "ack", "trace", "sdlc", "clarify", "assume")
+
+
+def _flag_of(rest, flag):
+    """--think=high style flag from argv (None if absent)."""
+    try:
+        for a in rest:
+            if isinstance(a, str) and a.startswith(flag + "="):
+                return a.split("=", 1)[1]
+    except Exception:
+        pass
+    return None
+
+
+def _phase_gates(mf):
+    """Phase 4: standing gates as a real subprocess — the rc decides, never model text. 0 = green."""
+    try:
+        import subprocess
+        rg = os.path.join(QA, "run_gates.py")
+        if not os.path.exists(rg):
+            if mf:
+                mf.record_gate("standing-gates", "fail", True, "run_gates.py missing")
+            return 1
+        r = subprocess.run([sys.executable, rg], cwd=QA, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace",
+                           timeout=int(os.environ.get("REGRESSION_TIMEOUT", "300")))
+        last = ((r.stdout or "").strip().splitlines() or [""])[-1]
+        if mf:
+            mf.record_gate("standing-gates", "pass" if r.returncode == 0 else "fail", True, last[:120])
+        return 0 if r.returncode == 0 else 1
+    except Exception as e:
+        if mf:
+            mf.record_gate("standing-gates", "fail", True, "gate runner error: %r" % (e,))
+        return 1
 
 
 def _manifest_begin(argv, command, routed):
@@ -1798,8 +1891,10 @@ def _manifest_merge_metrics(mf, offset):
 
 
 def _cli():                                    # console-script entry point (see pyproject.toml)
+    os.environ.pop(_SPINE_GUARD, None)         # #12 Phase 1: a hostile/inherited guard must not disable the spine
     sys.exit(main(sys.argv[1:]))
 
 
 if __name__ == "__main__":
+    os.environ.pop(_SPINE_GUARD, None)         # same guard-forge defense on the script entry
     sys.exit(main(sys.argv[1:]))

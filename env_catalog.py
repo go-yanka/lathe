@@ -22,6 +22,9 @@ REGISTRY = [
     ("LOCAL_GEN_TIMEOUT", "tuning", "implementer generation timeout (s)", "900 (openai) / 300 (ollama)"),
     ("LATHE_MAX_RESP", "tuning", "max response bytes accepted from an endpoint", "—"),
     ("LATHE_RUN_TIMEOUT", "tuning", "per-run wall-clock bound (s)", "—"),
+    # --- operating contract spine (#12) ---
+    ("LATHE_THINK", "spine", "thinking dial casual|medium|high -> tries/personas/assumption depth", "medium"),
+    ("LATHE_SPINE", "spine", "operator bypass: off = raw dispatch (still manifested + recorded)", "on"),
     # --- enforcement gates (STRICT umbrella arms all of these) ---
     ("LATHE_STRICT", "gates", "umbrella: arm all enforcement gates + require CRITERIA", "off"),
     ("LATHE_TEST_ACK", "gates", "require a human-acked test set (lathe ack)", "off"),

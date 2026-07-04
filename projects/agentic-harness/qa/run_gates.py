@@ -19,7 +19,8 @@ CHECKS = [("tree_no_stale_dups", os.path.join(QA, "stale_gate.py")),
           ("lint_no_real_bugs", os.path.join(QA, "lint_gate.py")),                 # ruff: no undefined-name/syntax/format defects in generated code
           ("docs_not_drifted", os.path.join(QA, "docs_drift_gate.py")),            # every CLI command documented with an example in LATHE_COMMANDS.md
           ("env_not_drifted", os.path.join(QA, "env_drift_gate.py")),               # every env var the code reads is documented in env_catalog.py (lathe env)
-          ("manifest_contract", os.path.join(QA, "manifest_contract_gate.py"))]     # #12: every invocation emits a complete, un-skippable manifest (T2-T6)
+          ("manifest_contract", os.path.join(QA, "manifest_contract_gate.py")),     # #12: every invocation emits a complete, un-skippable manifest (T2-T6)
+          ("spine_enforced", os.path.join(QA, "spine_gate.py"))]                     # #12 P1: guard-forge/skill-subprocess/bypass attacks all defeated (P1-P5)
 
 def main():
     failed = []

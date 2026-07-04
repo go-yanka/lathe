@@ -131,6 +131,30 @@ CONTRACTS = {
 }
 
 
+# --- Operating contract #12 Phase 1: command -> CONTRACT (data — auditable; the spine's PHASES are code) ---
+# Keys: workflow (Phase-2 promotion target; run when it exists AND binds cleanly), front_end (clarify/assume),
+# select (personas), gate (phase-4 standing gates after a green write), writes (mutates the tree), argmap
+# (how bare argv binds the workflow's placeholder). A command absent here (or {}) is TRIVIAL: the spine still
+# runs (run_id + thinking + manifest) but phases 1/2/4 no-op — byte-identical behavior for read-only commands.
+# NOTE Phase 1: build/do gate:0 because the ENGINE already runs the standing regression inside the build
+# (gating twice doubles cost for zero coverage); their workflow promotion + phase-4 wiring lands in Phase 2.
+CONTRACT_FOR = {
+    "do":       {"workflow": "build-from-goal", "front_end": 1, "select": 1, "gate": 0, "writes": 1, "argmap": "goal"},
+    "build":    {"workflow": "build-from-plan", "front_end": 0, "select": 0, "gate": 0, "writes": 1, "argmap": "plan"},
+    "review":   {"workflow": "code-review",     "front_end": 0, "select": 1, "gate": 1, "writes": 0, "argmap": "files"},
+    "sdlc":     {"workflow": "sdlc",            "front_end": 1, "select": 1, "gate": 1, "writes": 1, "argmap": "goal"},
+    "assume":   {"gate": 1, "writes": 1, "argmap": "plan"},
+    "clarify":  {"front_end": 1, "writes": 1, "argmap": "goal"},
+    "verify":   {"gate": 1, "writes": 0, "argmap": "plan"},
+    "gate":     {"writes": 0},                 # cmd_gate IS the gate run — phase-4 repeating it adds nothing
+    "clean":    {"writes": 1},
+    "checkin":  {"writes": 1},
+    # read-only -> TRIVIAL (spine runs; phases no-op):
+    "status": {}, "logs": {}, "metrics": {}, "board": {}, "plans": {}, "whatis": {}, "trace": {},
+    "map": {}, "env": {}, "dups": {}, "flow": {}, "issues": {}, "report": {}, "waiting": {},
+}
+
+
 def get_contract(name):
     """The up-front contract (when/entry/deliverable/done) for a workflow, or {} if none."""
     return CONTRACTS.get(name, {})

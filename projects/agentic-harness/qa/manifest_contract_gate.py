@@ -43,6 +43,10 @@ def _invoke(argv):
 
 
 def main():
+    # Runs as a subprocess of the engine's standing regression, possibly under an outer spine — the guard
+    # env is inherited. This gate calls lathe.main() as a LIBRARY, so emulate the process-entry clear
+    # (a real child `lathe` process does this at its own entry) before the in-process top-level probes.
+    os.environ.pop("_LATHE_SPINE_RUN", None)
     emitted = []
 
     # T2 — un-skippable under every terminal path (stub handlers injected into the REAL table via cmd names)
