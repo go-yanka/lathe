@@ -2,6 +2,27 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.19.0 — 2026-07-07
+
+**`lathe status` rewritten to show reality + practical use; new `lathe board --reset`.**
+
+- **`status` diagnoses instead of dumps.** Output is grouped into *engine* (analyst + implementer, each with
+  its effective model, host:port, and live reachability) and *project* (the plan⇄pin relationship + the
+  commands that use it). A `READY to build` / `NOT ready` verdict now drives the exit code (0/1) for scripting.
+- **Endpoint-override diagnosis.** When the implementer is down and `lathe.config.json` asked for a different
+  endpoint, status calls out that an env var (`LOCAL_OPENAI_URL`) is overriding the config and prints the
+  one-line fix — the most common "why is it down" cause.
+- **Actionable hints, not dead ends.** A down analyst prints how to start the proxy; the STRICT hint is a
+  runnable command (`$env:LATHE_STRICT=1`); the board line is labelled as `lathe auto`'s self-generated
+  practice queue (not the user's tasks), with its last-active date.
+- **Pins explained in place.** Status states the relationship (a plan IS the spec; a pin is its accepted build,
+  keyed by spec+tests+model) and gives the two commands that make pins practical: `build` to regenerate at 0
+  model calls, `trace` to see which model built each function.
+- **New `lathe board --reset`.** Requeues orphaned `in_progress`/`blocked` tasks from an interrupted
+  `lathe auto` run back to `pending` — non-destructive (`done`/`escalated` untouched).
+- **Config `model` key → `LATHE_MODEL`.** `_apply_config_env` now maps a top-level `"model"` in
+  `lathe.config.json` to the implementer default, so one config file can drive both roles.
+
 ## v2.18.0 — 2026-07-04
 
 **Capstone tail — the four tracked items from v2.17.0, finished.**

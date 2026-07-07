@@ -371,29 +371,87 @@ def cmd_status(_args):
                 pins += len(json.load(_pf))
         except Exception:
             pass
-    last = ""
-    _lfs = sorted(glob.glob(os.path.join(_LEDGER_DIR, "OVERNIGHT_LEDGER_*.md")))
-    if _lfs:                                              # newest per-day ledger (date-sortable names)
-        lines = [l for l in open(_lfs[-1], encoding="utf-8").read().splitlines() if l.strip()]
-        last = lines[-1] if lines else ""
-    print("Lathe status")
-    print("  board:   %s" % counts)
-    print("  pins:    %d approved impls" % pins)
-    print("  ledger:  %s" % (last[:120] or "(none)"))
-    # labels derived from the ACTUAL configured endpoints — hardcoded "rig 35B (:8090)" lied when a user pointed
-    # LOCAL_OPENAI_URL at a different model/port.
-    _impl = os.environ.get("LOCAL_OPENAI_URL", "http://127.0.0.1:8089/v1/chat/completions")
-    _anl = os.environ.get("HARNESS_CLAUDE_URL", "http://127.0.0.1:8787/v1/chat/completions")
+    # last time the autonomy board did anything (max updated across tasks) — so we can flag a stale/idle queue
+    # instead of implying work is live right now.
+    _last_active = ""
+    try:
+        _stamps = [t.get("updated") or t.get("created") or "" for t in ts]
+        _last_active = max([s for s in _stamps if s], default="")[:10]
+    except Exception:
+        pass
+    _project = os.environ.get("LATHE_PROJECT", "agentic-harness")
+    _plans = len(glob.glob(os.path.join(INNER, "plans", "*.py")))
+
+    # Endpoints derived from the ACTUAL configured env (config file already applied at process start).
+    _impl_url = os.environ.get("LOCAL_OPENAI_URL", "http://127.0.0.1:8089/v1/chat/completions")
+    _anl_url = os.environ.get("HARNESS_CLAUDE_URL", "http://127.0.0.1:8787/v1/chat/completions")
     _hostport = lambda u: u.split("//", 1)[-1].split("/", 1)[0]
-    print("  implementer (%s): %s" % (_hostport(_impl), _probe(_impl.replace("/chat/completions", "") + "/models")))
-    print("  analyst (%s): %s" % (_hostport(_anl), _probe(_anl.replace("/v1/chat/completions", "") + "/health")))
-    return 0
+    _impl_model = os.environ.get("LATHE_MODEL", "openai:local")
+    _anl_model = os.environ.get("HARNESS_ANALYST_MODEL", "sonnet")
+    # what the config FILE asked for (before env setdefault could win) — lets us diagnose an env override.
+    _cfg_impl = ""
+    try:
+        _cfgp = os.environ.get("LATHE_CONFIG") or os.path.join(ROOT, "lathe.config.json")
+        if os.path.exists(_cfgp):
+            _cfg = json.load(open(_cfgp, encoding="utf-8"))
+            _cfg_impl = ((_cfg.get("implementer") or {}).get("url") or "")
+    except Exception:
+        pass
+
+    def _up(url, path):                                  # returns (bool_up, human)
+        r = _probe(url + path)
+        return ("up" in str(r).lower(), str(r))
+    _anl_up, _anl_h = _up(_anl_url.replace("/v1/chat/completions", ""), "/health")
+    # the implementer speaks the OpenAI shape; /v1/models is the cheap liveness check (the claude proxy has it too)
+    _impl_up, _impl_h = _up(_impl_url.replace("/chat/completions", ""), "/models")
+    _same = _hostport(_impl_url) == _hostport(_anl_url)   # fable-as-both: one endpoint doing both roles
+
+    _ready = _anl_up and _impl_up
+    print("Lathe - %s" % ("READY to build" if _ready else "NOT ready (see below)"))
+    print()
+    print("  engine   (who writes your code)")
+    print("    analyst      %-13s %-18s %s" % (_anl_model, _hostport(_anl_url),
+          "up   thinker: specs + review" if _anl_up else "DOWN - start:  python claude_proxy.py --port 8787"))
+    print("    implementer  %-13s %-18s %s" % (_impl_model, _hostport(_impl_url),
+          ("up   (= analyst; one endpoint, both roles)" if _same else "up   coder: writes functions") if _impl_up else "DOWN"))
+    if not _impl_up:
+        # the #1 real cause: a persistent env var overriding the config's endpoint.
+        if _cfg_impl and _hostport(_cfg_impl) != _hostport(_impl_url) and "LOCAL_OPENAI_URL" in os.environ:
+            print("        ^ config wants %s but env LOCAL_OPENAI_URL forces this one." % _hostport(_cfg_impl))
+            print("          clear it:  setx LOCAL_OPENAI_URL \"\"   then open a NEW shell")
+        else:
+            print("        ^ start the implementer endpoint, or point LOCAL_OPENAI_URL at a live one")
+    _strict = os.environ.get("LATHE_STRICT", "").strip().lower() in ("1", "true", "yes", "on")
+    print("    gates        %s" % ("STRICT - every enforcement gate armed" if _strict
+          else "default - arm all:  $env:LATHE_STRICT=1   (PowerShell, this shell)"))
+    print()
+    print("  project  %s" % _project)
+    print("    specs    %d plans -> %d pinned functions" % (_plans, pins))
+    print("             a plan IS the spec; a pin is its accepted build, keyed by spec+tests+model.")
+    print("             rebuild any plan at 0 model calls:  python lathe.py build <plan>")
+    print("             see which model built each function:  python lathe.py trace <plan>")
+    _q = counts.get("pending", 0) + counts.get("escalated", 0)
+    _ip, _bl = counts.get("in_progress", 0), counts.get("blocked", 0)
+    if _ip or _bl or _q:
+        print("    board    %d in progress, %d blocked  (+%d queued)%s" % (_ip, _bl, _q,
+              ("   last active %s" % _last_active) if _last_active else ""))
+        print("             this is `lathe auto`'s self-generated practice queue, not your tasks.")
+        print("             view:  python lathe.py board       clear the stale run:  python lathe.py board --reset")
+    return 0 if _ready else 1
 
 
 def cmd_board(args):
     b = _board()
     ts = b.list_tasks(b.DEFAULT_DB)
-    flt = args[0] if args else None
+    if "--reset" in args:
+        # Requeue orphaned work from an interrupted `lathe auto` run: in_progress/blocked -> pending.
+        # Non-destructive (nothing deleted; `done`/`escalated` untouched) so `status` stops implying live work.
+        _stuck = [t for t in ts if t["status"] in ("in_progress", "blocked")]
+        for t in _stuck:
+            b.set_status(t.get("id") or t.get("name"), "pending", reason="requeued by board --reset", db_path=b.DEFAULT_DB)
+        print("requeued %d task(s) (in_progress/blocked -> pending). done/escalated left as-is." % len(_stuck))
+        return 0
+    flt = args[0] if args and not args[0].startswith("--") else None
     for t in ts:
         if flt and t["status"] != flt:
             continue
@@ -1698,6 +1756,7 @@ def _apply_config_env(cfg):
     Secrets (e.g. a push token) are NEVER read from the file — use env / the git credential helper."""
     _m = {("analyst", "url"): "HARNESS_CLAUDE_URL", ("analyst", "model"): "HARNESS_ANALYST_MODEL",
           ("implementer", "url"): "LOCAL_OPENAI_URL", ("implementer", "model"): "HARNESS_MODEL",
+          ("model", None): "LATHE_MODEL",                          # default implementer the CLI picks (e.g. openai:fable)
           ("tries", None): "LATHE_TRIES",
           ("assumptions", "scrutiny"): "LATHE_ASSUMPTION_POLICY"}   # user-governed assumption-gate level (high|high+med|all|off)
     for (sec, key), env in _m.items():
