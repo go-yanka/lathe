@@ -177,7 +177,12 @@ def _profile_block(impl_model, focus):
                       '(shell + wiring + run loop) with exactly ONE __FILL__ marker for a bounded data/'
                       'config region the implementer completes. The skeleton value must be ONE '
                       'triple-quoted Python string LITERAL (r"""...""") - no concatenation with +, no '
-                      'f-strings, no variables (a data-only validator rejects anything else).')
+                      'f-strings, no variables (a data-only validator rejects anything else). '
+                      'CRITICAL - when you provide a skeleton, the "prompt" field must describe ONLY what '
+                      'goes in the __FILL__ region and must end with "Output ONLY the region content - no '
+                      'HTML tags, no <!DOCTYPE, no prose, no markdown." NEVER tell the implementer to '
+                      'output the whole file or to start the reply with <!DOCTYPE (the engine splices the '
+                      'region into YOUR scaffold - a whole-file reply lands mid-script and breaks the page).')
     return block
 
 

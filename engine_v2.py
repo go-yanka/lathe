@@ -1262,9 +1262,20 @@ for art in getattr(plan, "ARTIFACTS", []):
                 # Owner finding (variance experiment): the #1 fresh-attempt dud was FORMAT, not capability —
                 # the model narrating instead of emitting. The engine wraps EVERY artifact call in its own
                 # fixed output contract (never trusts the drafted prompt's phrasing alone).
-                _EMIT = ("OUTPUT CONTRACT (hard rule): your ENTIRE reply is the raw file content and NOTHING "
-                         "else. The FIRST character of your reply is the first character of the file. No "
-                         "preamble, no plan, no explanation, no markdown fences, no commentary after.\n\n")
+                # SKELETON plans get the FILL contract: the v2.26 whole-file contract told fill models to
+                # emit an entire page, which the splice then buried mid-JS ("Unexpected token '<'") — the
+                # model was OBEYING, not failing. The engine contract must match what the splice expects,
+                # and it OVERRIDES any whole-file wording in the drafted prompt.
+                if askel:
+                    _EMIT = ("OUTPUT CONTRACT (hard rule, overrides anything below): you are completing ONE "
+                             "bounded region inside an EXISTING file. Your ENTIRE reply is ONLY that region's "
+                             "content - raw code/data. NEVER output <!DOCTYPE, <html>, <script> tags, the "
+                             "__FILL__ marker, markdown fences, or any code that already surrounds the region. "
+                             "If the task text below asks for the whole file, IGNORE that - region only.\n\n")
+                else:
+                    _EMIT = ("OUTPUT CONTRACT (hard rule): your ENTIRE reply is the raw file content and NOTHING "
+                             "else. The FIRST character of your reply is the first character of the file. No "
+                             "preamble, no plan, no explanation, no markdown fences, no commentary after.\n\n")
                 raw = call_model(_EMIT + aprompt, min(0.2 + 0.1 * k, 1.0), use_model)
             except Exception as e:
                 print(f"    [gen ERROR attempt {k+1} ({use_model})] {e}")

@@ -2,6 +2,24 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.27.1 — 2026-07-08
+
+**RETRACTION + fix: the 9B never failed Game of Life — the harness gave it contradictory contracts.**
+
+- v2.27.0 claimed the 9B's 9 failed fill attempts showed a model limitation ("emits HTML inside the JS
+  fill"). WRONG. Investigation (owner-driven: "it is not supposed to fail"): the drafted prompt ordered
+  "output the whole completed file... FIRST characters must be <!DOCTYPE html" while the splice expects
+  ONLY the region — and the v2.26 engine contract reinforced the whole-file order. The 9B OBEYED both and
+  was punished for it. Timeline proof: every skeleton success predates v2.26, every failure postdates it.
+- Fix (both sides of the contract): skeleton builds now get an engine-owned FILL contract ("you are
+  completing ONE region; never <!DOCTYPE/tags/marker; ignore any whole-file wording below") that overrides
+  the drafted prompt; the drafter's skeleton directive now requires region-only prompts (never
+  <!DOCTYPE-first) when a skeleton is provided.
+- Verified: fresh draft under aligned contracts -> the 9B one-shotted Game of Life. GREEN attempt 1,
+  550 fill tokens, 6.0s; glider rule-check passed (26 generations, correct diagonal travel).
+- Lesson recorded: when a small model "fails", check FIRST whether the harness fed it contradictory
+  instructions — obedience can look exactly like incapacity.
+
 ## v2.27.0 — 2026-07-08
 
 **Report: per-attempt trail. Engine: fill marker-echo fix. Game-of-Life documentation experiment recorded.**
