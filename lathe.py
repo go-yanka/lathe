@@ -165,6 +165,22 @@ def _goal_board():
     return path
 
 
+def _goal_workspace(goal):
+    """(workspace_rel, focus) for a goal — harness-built goal_router decides both. The workspace is a
+    per-goal folder (projects/<project>/goals/<slug>_<stamp>/) so a goal's plan, module, artifacts and
+    fail bank accumulate in ONE clean place instead of scattering into tools/. Falls back to (None,
+    'helper') = legacy behavior if the router is unavailable."""
+    try:
+        gr = _tool("goal_router")
+        import datetime
+        stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        ws = "projects/agentic-harness/" + gr.workspace_rel(gr.slugify_goal(goal), stamp)
+        return ws, gr.pick_focus(goal)
+    except Exception as e:
+        print("  (goal_router unavailable - building in tools/: %s)" % e)
+        return None, "helper"
+
+
 def cmd_do(args):
     goal = " ".join(args).strip()
     if not goal:
@@ -173,17 +189,56 @@ def cmd_do(args):
     if _mf:
         _mf.set_goal(goal)
     live = _load_autonomy()
-    print("> drafting + building toward: %s\n" % goal)
+    # #59: the drafter loads its OWN request_spec instance (importlib), so the hook _manifest_begin bound to
+    # the `import request_spec` module never saw draft calls -> analyst usage was silently uncounted and the
+    # manifest claimed COMPLETE. Bind the hook on the instance the drafter actually calls.
+    _draft_calls = {"n": 0}
+    if _mf is not None:
+        try:
+            import pricebook as _pb
+            _am = os.environ.get("HARNESS_ANALYST_MODEL", "sonnet")
+            def _do_hook(role, u, _mf=_mf, _pb=_pb, _am=_am, _dc=_draft_calls):
+                _dc["n"] += 1
+                _mf.record_usage("analyst", u.get("prompt_tokens", 0), u.get("completion_tokens", 0), 1,
+                                 "measured" if u.get("total_tokens") else "unmetered", _pb.price_for(_am))
+            live._reqspec.USAGE_HOOK = _do_hook
+        except Exception:
+            pass
+    ws, focus = _goal_workspace(goal)
+    if ws:
+        os.makedirs(os.path.join(ROOT, ws.replace("/", os.sep)), exist_ok=True)
+        print("> drafting + building toward: %s" % goal)
+        print("  workspace: %s   (focus: %s)\n" % (ws, focus))
+    else:
+        print("> drafting + building toward: %s\n" % goal)
     _gdb = _goal_board()
     try:
-        tr = live.run(goal, max_plans=1, max_steps=4, build_one=True, max_repairs=2, db_path=_gdb)
+        tr = live.run(goal, max_plans=1, max_steps=4, build_one=True, max_repairs=2, db_path=_gdb,
+                      focus=focus, out_dir=ws)
     finally:
         try: os.remove(_gdb)
         except OSError: pass
+    if _mf is not None and _draft_calls["n"]:
+        try:
+            _mf.append_contributor({"id": "analyst-draft", "role": "analyst", "kind": "model",
+                                    "action": "%d spec draft/repair call(s) via %s (focus=%s)" % (
+                                        _draft_calls["n"],
+                                        os.environ.get("HARNESS_ANALYST_MODEL", "analyst endpoint"), focus),
+                                    "status": "ok"})
+            _mf.add_model({"role": "analyst",
+                           "model": os.environ.get("HARNESS_ANALYST_MODEL", "?"),
+                           "endpoint": os.environ.get("HARNESS_CLAUDE_URL", "?")})
+        except Exception:
+            pass
     greens = sum(1 for r in tr if r["step"] == "ran_ok")
     for i, r in enumerate(tr, 1):
         print("  %2d. %s %s" % (i, r["step"], r.get("reason", "")))
+    if _mf and ws:
+        try: _mf.set_workspace(ws)                       # report: where this goal's outputs live
+        except Exception: pass
     print("\n%s - %d module(s) built gated-green." % ("DONE" if greens else "no green build this run", greens))
+    if greens and ws:
+        print("everything for this goal is in: %s" % ws)
     return 0 if greens else 1
 
 
@@ -1805,9 +1860,20 @@ def _dispatch(cmd, rest, argv):
 
 
 def main(argv):
+    # Windows-safe stdout: the CLI prints unicode (→, box chars) in several commands (trace, review). The
+    # default Windows console codec is cp1252, which raises UnicodeEncodeError on those and crashes mid-command
+    # (e.g. a build workflow's trailing trace step). Force UTF-8 on our own streams; harmless on POSIX.
+    for _s in (sys.stdout, sys.stderr):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     os.environ["LATHE_VALIDATE_PLAN"] = "1"    # FORCE (not setdefault): a stale/hostile env var must not disable plan-as-data validation — same reason the validator path below is forced
     os.environ["LATHE_VALIDATOR_PY"] = os.path.join(TOOLS, "plan_validator.py")   # FORCE the trusted validator (a stale/hostile env var must not redirect it)
     _apply_config_env(_lathe_config())         # config file -> env defaults (an explicit env var still overrides)
+    global MODEL, TRIES                        # #59: these were read at IMPORT time, before the config applied —
+    MODEL = os.environ.get("LATHE_MODEL", "openai:local")   # so a config "model" was silently ignored by
+    TRIES = os.environ.get("LATHE_TRIES", "3")              # cmd_build/verify. Re-read after config.
     if not argv or argv[0] in ("help", "-h", "--help"):
         print(__doc__); return 0
     cmd, rest = argv[0], argv[1:]
@@ -1850,6 +1916,8 @@ def run_spine(cmd, rest, argv):
                 os.environ.setdefault(k, v)                  # env > profile > config > default: fill only unset
             if mf:
                 mf.record_gate("intake", "pass", False, "thinking=%s contract=%s" % (think, contract or "TRIVIAL"))
+                try: mf.set_thinking(think)                  # #59: first-class field, not buried in a gate detail
+                except Exception: pass
         _tok = mf._d["run_id"] if mf else "1"
         os.environ[_SPINE_GUARD] = _tok                      # from here, inner main() calls run RAW
         os.environ["LATHE_SPINE_TOKEN"] = _tok               # #12 U3: proves engine subprocesses ran via the spine
@@ -2030,22 +2098,39 @@ def _manifest_merge_metrics(mf, offset):
                 row = _json.loads(line)
             except ValueError:
                 continue
+            _nfn, _nart = row.get("functions_total", 0), row.get("artifacts_total", 0)
             mf.append_contributor({
                 "id": "engine-build", "role": "build", "kind": "engine",
-                "action": "%s on %s: %s/%s fns" % (row.get("plan"), row.get("model"),
-                                                   row.get("functions_passed"), row.get("functions_total")),
+                "action": "%s on %s: %s/%s fns, %s/%s artifacts" % (
+                    row.get("plan"), row.get("resolved_model") or row.get("model"),
+                    row.get("functions_passed"), _nfn, row.get("artifacts_passed"), _nart),
                 "status": "ok" if row.get("build_ok") else "failed"})
             for role, b in (row.get("tok_by_role") or {}).items():
                 if isinstance(b, dict):
                     mf.record_usage(role, b.get("p", 0), b.get("e", 0), b.get("calls", 0),
                                     b.get("src"), _rp.get(role))
             reg = str(row.get("regression") or "")
-            if reg:
+            if reg and not reg.upper().startswith("SKIP"):   # #59: a SKIPPED regression is "not armed", not a FAIL
                 mf.record_gate("standing-regression", "pass" if reg.startswith("PASS") else "fail",
                                True, reg[:120])
             mf.record_gate("build", "pass" if row.get("build_ok") else "fail", True,
                            "%s: %s/%s fns" % (row.get("plan"), row.get("functions_passed"),
                                               row.get("functions_total")))
+            # #59: the full build record — per-function/per-artifact results, pins, resolved model, out dir.
+            try:
+                mf.append_build({k: row.get(k) for k in
+                                 ("plan", "model", "resolved_model", "endpoint", "elapsed_s", "out_dir",
+                                  "pins_added", "per_function", "per_artifact", "build_ok")})
+                mf.add_model({"role": "implementer", "model": row.get("resolved_model") or row.get("model"),
+                              "endpoint": row.get("endpoint")})
+                _arts = ["%s/%s" % (row.get("out_dir") or "?", (a.get("path") or "").lstrip("/"))
+                         for a in (row.get("per_artifact") or []) if a.get("ok")]
+                _npins = int(row.get("pins_added") or 0)
+                mf.merge_outputs(artifacts=_arts,
+                                 pins=(["%d new pin(s) in %s/.pins.json" % (_npins, row.get("out_dir") or "?")]
+                                       if _npins else []))
+            except Exception:
+                pass
     except Exception:
         pass
 

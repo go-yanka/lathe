@@ -2,6 +2,37 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.20.0 — 2026-07-07
+
+**Per-goal workspaces, web goals build real browser apps, polyglot (JS) function lane, full-clarity run report.**
+
+- **Per-goal workspaces.** `lathe do "<goal>"` now creates `goals/<slug>_<stamp>/` and everything the goal
+  produces — the drafted plan, module, artifacts, pins, fail bank, run report — accumulates there. The
+  tree stays clean; a goal is one folder. Routing (slug + focus) is harness-built (`tools/goal_router.py`).
+- **Web goals produce actual pages/apps.** The `do` drafter routes browser-shaped goals (html/page/ui/
+  game/dashboard/…) to a new `webapp` focus that drafts an ARTIFACTS plan: the model writes ONE complete
+  HTML file, gated by structural asserts AND a real-Chromium behavioural gate (Playwright). Proven live:
+  `lathe do "html snake game"` → a playable, browser-verified game in its workspace.
+- **Trusted functional-gate registry (`tools/func_gates.py`).** Model-drafted plans cannot carry raw gate
+  code (the validator refuses it — plans are data). Instead a plan names a gate (`"functional_ref":
+  "web_canvas_game"`) and the engine resolves it from this hand-authored, CORE_INFRA-protected registry.
+  Unknown ref = build refused, fail closed. Gates: `web_page`, `web_canvas_game`.
+- **Polyglot: JavaScript function lane (#60).** A plan function may declare `"lang": "js"`: the implementer
+  writes JS, its tests EXECUTE under `node` (subprocess, secret-scrubbed env) and must pass, and the
+  function pins (lang-suffixed key; the python pin corpus is untouched) into `MODULE_NAME.js`.
+  Python-AST gates (mutation/adversarial/regression-proof) are declared N/A per JS function — loudly,
+  never silently skipped. Validator holds JS tests to a deny-list (no require/import/process/eval/…).
+- **Run report states everything (#59).** The manifest now records and renders: workspace, workflow,
+  thinking dial, analyst-as-contributor with MEASURED draft tokens (the drafter's request_spec instance
+  was never hooked — analyst usage was silently uncounted while the report claimed COMPLETE), per-build
+  detail (plan, model → resolved model @ endpoint, per-function tries/source, per-artifact gates, pins
+  added, out dir), usage split by role, timing split (engine vs drafting/gates), and outcome artifact
+  paths + pin counts. Emitter 1.1.0.
+- **Fixes.** Config `model` was read before the config file applied (builds silently ignored it);
+  `engine_build` hardcoded `openai:local` (mislabeling every do/auto build's model); a SKIPPED standing
+  regression was recorded as FAIL in the manifest; CLI stdout forced to UTF-8 (a `→` in any command
+  crashed under Windows cp1252 mid-workflow).
+
 ## v2.19.0 — 2026-07-07
 
 **`lathe status` rewritten to show reality + practical use; new `lathe board --reset`.**

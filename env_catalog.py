@@ -93,6 +93,7 @@ REGISTRY = [
 IGNORE = {
     "LATHE_VALIDATE_PLAN", "LATHE_VALIDATOR_PY",   # forced on by main(); not user-settable in practice
     "LATHE_SANDBOX_PAYLOAD", "LATHE_SANDBOX_PY",   # internal sandbox IPC (parent<->child)
+    "ARTIFACT_FILE",                               # internal engine->functional-gate IPC (func_gates.py scripts)
 }
 
 

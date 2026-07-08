@@ -51,8 +51,11 @@ def _git(args):
     return subprocess.run(["git", "-C", _INNER] + args, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
 
 
-def engine_build(plan_rel, model="openai:local", tries="3", timeout=420):
-    """Run the engine on a plan; return {'ok':bool,'reason':str}. ok iff every function gated green."""
+def engine_build(plan_rel, model=None, tries="3", timeout=420):
+    """Run the engine on a plan; return {'ok':bool,'reason':str}. ok iff every function gated green.
+    model: None -> the configured implementer (LATHE_MODEL, set by lathe.config.json/env) — the old
+    hardcoded 'openai:local' mislabeled every do/auto build's model in metrics + the manifest."""
+    model = model or os.environ.get("LATHE_MODEL", "openai:local")
     env = dict(os.environ)
     # FORCE the security knobs (not setdefault): autonomy plans are untrusted, so a hostile parent env must
     # not be able to downgrade them. Only an UPGRADE to docker is honored; never 0/off, never validate-off.
@@ -93,10 +96,11 @@ def engine_build(plan_rel, model="openai:local", tries="3", timeout=420):
 # simple pure functions: 'helper' (default, unchanged), 'judged' (adds select-K quality judging on
 # non-trivial functions), 'artifact' (build a whole gated file/UI instead of functions). self_feed
 # rotates the focus per cycle; default stays 'helper' so the proven path is preserved.
-_FORMAT_HEAD = (
+_FORMAT_HEAD_T = (
     "\n\nFORMAT (strict): output ONLY the raw Python plan-file contents - no markdown fences, no prose.\n"
     'Set OUT_DIR = r"%s" and define MODULE_NAME, HEADER="", GLUE="". '
-) % _TOOLS
+)
+_FORMAT_HEAD = _FORMAT_HEAD_T % _TOOLS      # legacy default (self-feed / no-workspace callers)
 
 _SCOPE = {
     "helper": (
@@ -123,12 +127,33 @@ _SCOPE = {
         "check the file text via the variable `content` (>=4, e.g. `assert '<title>' in content`). Keep it "
         "small and static (no server needed)."
     ),
+    # webapp: the goal's deliverable IS a browser page/app. One whole-file HTML artifact, structurally
+    # asserted AND behaviourally gated in real Chromium via a TRUSTED registry gate (functional_ref —
+    # the plan names the gate; the engine resolves it from tools/func_gates.py; raw gate code in a
+    # model-drafted plan is refused by the validator).
+    "webapp": (
+        "The deliverable is a BROWSER page/app. Set FUNCTIONS = [] and define ARTIFACTS = [{\"path\", "
+        "\"prompt\", \"tests\", \"functional_ref\", \"model\"}] with EXACTLY ONE artifact:\n"
+        '- "path": "_artifacts/<short-name>.html" (relative, under OUT_DIR).\n'
+        '- "model": "claude" (whole-file generation needs the capable model).\n'
+        '- "prompt": describe the COMPLETE single-file page: starts with <!DOCTYPE html>, ALL CSS/JS inline, '
+        "no external URLs, works opened from disk. State the concrete features the goal asks for and end "
+        'with "Output ONLY the file contents - no prose, no markdown."\n'
+        '- "tests": >=6 assert strings on the file text via `content` (lowercase match), e.g. '
+        "`assert '<canvas' in content.lower()` - assert the structural things the goal needs "
+        "(doctype, canvas/elements, script, event handlers, key nouns like score).\n"
+        '- "functional_ref": EXACTLY "web_canvas_game" if the goal is a game/canvas/animation, else '
+        '"web_page". This is a trusted-registry NAME - NEVER write a "functional" field with code.\n'
+    ),
 }
 
 
-def _strict_suffix(focus="helper"):
-    """The format+scope block appended to a planner ask, varying by capability focus."""
-    return _FORMAT_HEAD + _SCOPE.get(focus, _SCOPE["helper"])
+def _strict_suffix(focus="helper", out_dir=None):
+    """The format+scope block appended to a planner ask, varying by capability focus.
+    out_dir: per-goal workspace (relative, forward slashes) — the drafted plan's OUT_DIR, so every
+    generated module/artifact for a goal lands in the goal's own folder instead of tools/."""
+    head = (_FORMAT_HEAD_T % out_dir) if out_dir else _FORMAT_HEAD
+    return head + _SCOPE.get(focus, _SCOPE["helper"])
 
 
 def clean_plan_text(text):
@@ -249,24 +274,35 @@ def make_real_deps(state, db_path):
     def request_spec(prompt):
         if state["plans"] >= state["max_plans"]:
             return ""                                   # over budget -> is_valid_plan rejects -> loop stops
-        out = clean_plan_text(_reqspec.request_spec(prompt + _strict_suffix(state.get("focus", "helper"))))
+        out = clean_plan_text(_reqspec.request_spec(
+            prompt + _strict_suffix(state.get("focus", "helper"), state.get("out_dir"))))
         if out.strip():                                 # only spend budget on a real response; clean BEFORE
             state["plans"] += 1                         # the conductor validates (else fenced ```python fails)
         return out
 
     def save_plan(text):
         body = clean_plan_text(text)
+        # Per-goal workspace: the goal's plan lives WITH its outputs (goals/<slug>/plan_auto_NNN.py), so
+        # everything a goal produced — spec, module, artifacts, fail bank — is one clean folder.
+        _ws = state.get("out_dir")
+        if _ws:
+            _pdir = os.path.join(_ROOT, _ws.replace("/", os.sep))
+            os.makedirs(_pdir, exist_ok=True)
+            _stem = "plan_auto_%03d"
+        else:
+            _pdir, _stem = _PLANS, "auto_%03d"
         while True:                                           # ATOMIC name allocation: O_EXCL create fails if the
             state["seq"] += 1                                 # name is taken (a racing writer or a stale seq), so two
-            name = "auto_%03d" % state["seq"]                 # concurrent cycles can never clobber each other's plan.
+            name = _stem % state["seq"]                       # concurrent cycles can never clobber each other's plan.
             try:
-                fd = os.open(os.path.join(_PLANS, name + ".py"), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+                fd = os.open(os.path.join(_pdir, name + ".py"), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
             except FileExistsError:
                 continue
             with os.fdopen(fd, "w", encoding="utf-8") as f:
                 f.write(body)
             break
-        rel = os.path.join("projects", "agentic-harness", "plans", name + ".py")
+        rel = (os.path.join(_ws.replace("/", os.sep), name + ".py") if _ws
+               else os.path.join("projects", "agentic-harness", "plans", name + ".py"))
         _board.add_task(name, name, plan_path=rel, status="pending", db_path=db_path)
         return _board.get_task(name, db_path=db_path)
 
@@ -307,7 +343,8 @@ def make_real_deps(state, db_path):
         if state.get("repairs", 0) >= state.get("max_repairs", 0):
             return ""
         state["repairs"] = state.get("repairs", 0) + 1
-        return _reqspec.request_spec(_REPAIR_PREAMBLE % (plan_text, feedback) + _strict_suffix(state.get("focus", "helper")))
+        return _reqspec.request_spec(_REPAIR_PREAMBLE % (plan_text, feedback)
+                                     + _strict_suffix(state.get("focus", "helper"), state.get("out_dir")))
 
     return {"request_spec": request_spec, "save_plan": save_plan, "run_task": run_task,
             "commit": commit, "repair_spec": repair_spec}
@@ -315,7 +352,7 @@ def make_real_deps(state, db_path):
 
 # ---- the outer loop ------------------------------------------------------------------
 
-def run(objective, max_steps=24, max_plans=6, build_one=False, db_path=None, deps=None, max_repairs=2, focus="helper"):
+def run(objective, max_steps=24, max_plans=6, build_one=False, db_path=None, deps=None, max_repairs=2, focus="helper", out_dir=None):
     """Drive the harness toward `objective`. Returns a transcript (list of per-step dicts).
 
     Stops on: objective demoed (build_one + first green), step budget, planner budget exhausted,
@@ -325,7 +362,8 @@ def run(objective, max_steps=24, max_plans=6, build_one=False, db_path=None, dep
     db_path = db_path or _board.DEFAULT_DB
     _board.init_board(db_path)
     state = {"plans": 0, "max_plans": max_plans, "seq": _next_seq(db_path),
-             "repairs": 0, "max_repairs": max_repairs, "focus": focus}
+             "repairs": 0, "max_repairs": max_repairs, "focus": focus,
+             "out_dir": out_dir}   # per-goal workspace (ROOT-relative, fwd slashes) or None = legacy tools/
     deps = deps or make_real_deps(state, db_path)
 
     # seed done_list with the FUNCTION NAMES already built, so the planner stops re-proposing them

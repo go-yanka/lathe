@@ -12,7 +12,7 @@ _TOOLS = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(_TOOLS)))       # repo root
 
 SCHEMA_VERSION = "1.0.0"
-EMITTER_VERSION = "1.0.0"
+EMITTER_VERSION = "1.1.0"   # #59: workspace/thinking fields, work.builds records, BUILD/USAGE-by-role render
 
 
 def _core():
@@ -119,6 +119,43 @@ class Manifest:
         try:
             if isinstance(row, dict):
                 self._d["contributors"].append(row)
+        except Exception:
+            pass
+
+    def set_workspace(self, ws):
+        """#59: per-goal workspace — where every output of this run lives. Rendered as its own line."""
+        try:
+            self._d["intake"]["workspace"] = str(ws)
+        except Exception:
+            pass
+
+    def set_thinking(self, level):
+        """#59: the thinking dial the intake resolved (casual|medium|high) — was buried in a gate detail."""
+        try:
+            self._d["intake"]["thinking"] = str(level)
+        except Exception:
+            pass
+
+    def append_build(self, row):
+        """#59: one row per engine build this run — plan, models, per-function/per-artifact results, pins.
+        This is the cross-subprocess plumbing: the engine emits these facts in its metrics row and the
+        dispatcher merges them here, so the manifest finally SEES what the build actually did."""
+        try:
+            if isinstance(row, dict):
+                self._d.setdefault("work", {}).setdefault("builds", []).append(row)
+        except Exception:
+            pass
+
+    def merge_outputs(self, artifacts=None, pins=None):
+        """#59: union build outputs into the outcome (set_outcome ran earlier with empty lists)."""
+        try:
+            o = self._d.setdefault("outcome", {})
+            for k, vals in (("artifacts", artifacts), ("pins", pins)):
+                cur = list(o.get(k) or [])
+                for v in (vals or []):
+                    if v not in cur:
+                        cur.append(v)
+                o[k] = cur
         except Exception:
             pass
 
@@ -233,15 +270,21 @@ def render(d):
     try:
         out = d.get("outcome", {}) or {}
         status = (out.get("status") or "partial").upper()
+        inv = d.get("invocation", {}) or {}
+        it = d.get("intake") or {}
         L = ["LATHE RUN MANIFEST - %s%s%s" % (d.get("run_id", "?"), " " * 8, status),
              "-" * 72,
-             "INTAKE     %s %s" % (d.get("invocation", {}).get("command", "?"),
-                                   json.dumps((d.get("invocation", {}).get("argv") or [])[1:])[:80]),
-             "           routed=%s  strict=%s  lathe %s" % (
-                 d.get("invocation", {}).get("routed_via"), d.get("invocation", {}).get("strict"),
-                 d.get("invocation", {}).get("lathe_version"))]
-        goal = (d.get("intake") or {}).get("goal")
+             "INTAKE     %s %s" % (inv.get("command", "?"), json.dumps((inv.get("argv") or [])[1:])[:80]),
+             "           routed=%s  strict=%s  thinking=%s  lathe %s" % (
+                 inv.get("routed_via"), inv.get("strict"), it.get("thinking") or "?",
+                 inv.get("lathe_version"))]
+        goal = it.get("goal")
         L.append("GOAL       %s" % (goal if goal else "- not recorded -"))
+        if it.get("workspace"):
+            L.append("WORKSPACE  %s   (every output of this goal lives here)" % it["workspace"])
+        wf = it.get("skill")
+        if wf:
+            L.append("WORKFLOW   %s  (%d steps)" % (wf, len(it.get("workflow_steps") or [])))
         pers = (d.get("selection") or {}).get("personas") or []
         L.append("SELECTION  %s" % (", ".join(str(p.get("id", p)) if isinstance(p, dict) else str(p)
                                               for p in pers) if pers else "- not reached -"))
@@ -249,9 +292,27 @@ def render(d):
         L.append("CONTRIBUTORS")
         if cons:
             for c in cons:
-                L.append("  %-12s %s" % (c.get("id", "?"), c.get("action", "")))
+                L.append("  %-14s %s" % (c.get("id", "?"), c.get("action", "")))
         else:
             L.append("  - none recorded -")
+        # #59 BUILD section: what each engine build actually did — spec, models, per-unit results, pins.
+        builds = ((d.get("work") or {}).get("builds")) or []
+        if builds:
+            L.append("BUILD")
+            for b in builds:
+                L.append("  plan         %s   (model %s -> %s @ %s)" % (
+                    b.get("plan"), b.get("model"), b.get("resolved_model") or "?",
+                    (b.get("endpoint") or "?").replace("http://", "").split("/")[0]))
+                for fr in (b.get("per_function") or []):
+                    L.append("    fn         %-18s %-6s %s tries  (%s)" % (
+                        fr.get("name"), "PASS" if fr.get("ok") else "FAIL", fr.get("tries"),
+                        fr.get("src") or "no source"))
+                for ar in (b.get("per_artifact") or []):
+                    L.append("    artifact   %-24s %-6s gates: %s  [%s]" % (
+                        ar.get("path"), "PASS" if ar.get("ok") else "FAIL",
+                        ar.get("gate") or "?", ar.get("src") or "fail"))
+                L.append("    pins       +%s new   out: %s   (%ss)" % (
+                    b.get("pins_added", 0), b.get("out_dir") or "?", b.get("elapsed_s", "?")))
         gv = (d.get("gates") or {}).get("verdicts") or []
         L.append("GATES      " + ("  ".join("%s %s" % (g.get("gate"), "PASS" if g.get("verdict") == "pass"
                                                        else str(g.get("verdict")).upper()) for g in gv)
@@ -259,13 +320,27 @@ def render(d):
         u = d.get("usage") or {}
         t = (u.get("tokens") or {})
         comp = (t.get("completeness") or {})
-        L.append("USAGE      tokens %s  attribution: %s  imputed $%s  (pricebook %s)" % (
-            t.get("total", 0), "COMPLETE" if comp.get("all_calls_attributed") else
+        by = t.get("by_role") or {}
+        _role_bits = ", ".join("%s %s%s" % (r, v.get("total", 0),
+                                            "" if v.get("source") == "measured" else " (" + str(v.get("source")) + ")")
+                               for r, v in by.items() if v.get("calls", 0) or v.get("total", 0))
+        L.append("USAGE      tokens %s%s  attribution: %s  imputed $%s  (pricebook %s)" % (
+            t.get("total", 0), ("  [" + _role_bits + "]") if _role_bits else "",
+            "COMPLETE" if comp.get("all_calls_attributed") else
             "INCOMPLETE (%s uninstrumented)" % comp.get("uninstrumented_calls", "?"),
             (u.get("cost_usd") or {}).get("imputed_total", 0.0), u.get("pricebook_version", "?")))
-        L.append("TIMING     %ss" % ((d.get("timing") or {}).get("elapsed_s"),))
+        _eng = sum(float(b.get("elapsed_s") or 0) for b in builds)
+        _tot = (d.get("timing") or {}).get("elapsed_s")
+        L.append("TIMING     %ss total%s" % (_tot,
+                 ("  (engine builds %.1fs, drafting/gates %.1fs)" % (_eng, max(0.0, float(_tot or 0) - _eng)))
+                 if builds and _tot is not None else ""))
         L.append("OUTCOME    %s - %s (exit %s)" % (status, out.get("reason") or out.get("error") or "",
                                                    out.get("exit_code")))
+        for a in (out.get("artifacts") or []):
+            L.append("  artifact   %s" % a)
+        if out.get("pins"):
+            L.append("  pins       %s" % (", ".join(str(p)[:12] for p in out["pins"][:8])
+                                          + (" +%d more" % (len(out["pins"]) - 8) if len(out["pins"]) > 8 else "")))
         L.append("-" * 72)
         L.append("manifest %s - emitter %s" % ((d.get("integrity") or {}).get("manifest_sha256", "")[:23],
                                                (d.get("integrity") or {}).get("emitter_version")))

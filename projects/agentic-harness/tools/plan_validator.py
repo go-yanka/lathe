@@ -177,7 +177,9 @@ def is_valid_plan(text):
     # The EXEC'd fields must be pure literals so the scanned string IS the exec'd string. prompt/name/path
     # are sent to the model / used as identifiers (containment-checked elsewhere), never exec'd, so they may
     # be computed (e.g. a shared "_ONLY" suffix concatenated onto a prompt).
-    _EXEC_FIELDS = ('tests', 'functional', 'skeleton', 'glue', 'header', 'integration')
+    # functional_ref is NOT exec'd (a lookup key into the TRUSTED tools/func_gates.py registry) but is held
+    # to the same literal rule so the scanned value IS the resolved value (no computed-key indirection).
+    _EXEC_FIELDS = ('tests', 'functional', 'skeleton', 'glue', 'header', 'integration', 'functional_ref')
 
     def _str_const(n):
         return isinstance(n, ast.Constant) and isinstance(n.value, str)
@@ -240,13 +242,49 @@ def is_valid_plan(text):
     if 'FUNCTIONS' in names and names['FUNCTIONS'] is not None and not _names_are_identifiers(names['FUNCTIONS']):
         return {'ok': False, 'reason': "every FUNCTION 'name' must be a simple identifier (it becomes a def name / file key)"}
 
-    for lst in (names.get('FUNCTIONS'), names.get('ARTIFACTS')):  # 4) exec'd strings (now guaranteed literal) must be safe
+    # #60 polyglot: a FUNCTIONS dict may declare lang="js" — its tests are JavaScript, not Python, so they
+    # are held to a JS deny-list (no require/import/process/eval/fs/...) instead of the Python AST scan.
+    _JS_DENY = ('require', 'import', 'process.', 'child_process', 'fs.', 'eval(', 'Function(',
+                'fetch(', 'XMLHttpRequest', 'globalThis', '__proto__', 'constructor[', '`')
+
+    def _dict_lang(el):
+        ln = next((v for k, v in zip(el.keys, el.values)
+                   if isinstance(k, ast.Constant) and k.value == 'lang'), None)
+        return ln.value if (isinstance(ln, ast.Constant) and isinstance(ln.value, str)) else 'py'
+
+    def _dict_tests(el):
+        tn = next((v for k, v in zip(el.keys, el.values)
+                   if isinstance(k, ast.Constant) and k.value == 'tests'), None)
+        if isinstance(tn, (ast.List, ast.Tuple, ast.Set)):
+            return [e.value for e in tn.elts if isinstance(e, ast.Constant) and isinstance(e.value, str)]
+        return []
+
+    if isinstance(names.get('FUNCTIONS'), ast.List):
+        for el in names['FUNCTIONS'].elts:
+            if not isinstance(el, ast.Dict):
+                continue
+            _lg = _dict_lang(el)
+            if _lg not in ('py', 'js', 'javascript'):
+                return {'ok': False, 'reason': "FUNCTION lang must be 'py' or 'js'"}
+            if _lg in ('js', 'javascript'):
+                for ts in _dict_tests(el):
+                    if any(d in ts for d in _JS_DENY):
+                        return {'ok': False, 'reason': 'unsafe JS test expression (require/import/process/eval/...)'}
+            else:
+                for ts in _dict_tests(el):
+                    if not _expr_safe(ts):
+                        return {'ok': False, 'reason': 'unsafe test expression (dunder/import/danger)'}
+    for lst in (names.get('ARTIFACTS'),):                         # 4) artifact tests stay python (`content` asserts)
         for ts in _collect_strs(lst, 'tests'):
             if not _expr_safe(ts):
                 return {'ok': False, 'reason': 'unsafe test expression (dunder/import/danger)'}
+    for lst in (names.get('FUNCTIONS'), names.get('ARTIFACTS')):  # shared exec'd-field checks (both lists)
         for fn in _collect_strs(lst, 'functional') + _collect_strs(lst, 'skeleton') + _collect_strs(lst, 'glue'):
             if _code_danger(fn):
                 return {'ok': False, 'reason': 'unsafe functional/skeleton/glue (runs as code)'}
+        for fr in _collect_strs(lst, 'functional_ref'):           # a registry KEY, not code — pin to identifier form
+            if not re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', fr):
+                return {'ok': False, 'reason': "functional_ref must be a simple identifier (a tools/func_gates.py key)"}
     for key in ('HEADER', 'GLUE', 'INTEGRATION'):                 # 5) top-level exec'd code blocks: literal + safe
         if key not in names:                                      # truly absent -> fine
             continue

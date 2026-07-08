@@ -220,7 +220,8 @@ _LATHE_ARTIFACT_MARK = "# lathe-artifact — generated output, NOT a trusted pre
 _CORE_INFRA = {"engine_v2.py", "lathe.py", "hreview.py", "run_gates.py", "stale_gate.py", "plan_validator.py",
                "sandbox.py", "autonomy_live.py", "autonomy_loop.py", "self_feed_runner.py", "request_spec.py",
                "board.py", "dag.py", "__init__.py", ".pins.json", "conftest.py",
-               "planner_prompt.py"}    # authored prompt template, hand-maintained — its origin plan T4 is retired; never let a rebuild overwrite it
+               "planner_prompt.py",    # authored prompt template, hand-maintained — its origin plan T4 is retired; never let a rebuild overwrite it
+               "func_gates.py"}        # TRUSTED functional-gate registry — a plan overwriting it = forging its own gate
 _CORE_INFRA_LC = {x.lower() for x in _CORE_INFRA}               # Windows FS is case-insensitive: compare casefolded
 _STDLIB = {m.lower() for m in getattr(sys, "stdlib_module_names", frozenset())}
 
@@ -791,12 +792,88 @@ def _save_fn_fail(name, model, attempt, code, reason):
     except Exception:
         pass
 
+# --- #60 POLYGLOT: the JS function lane. A plan marks a function {"lang": "js"}; the implementer writes
+# JavaScript; the CORE gate still holds (the function's tests EXECUTE under `node` and must pass, exit 0).
+# Python-AST gates (mutation, adversarial-synth, regression-proof, forge-risk) do not apply to JS — stated
+# LOUDLY per function, never silently skipped. JS functions pin like any other (key gets a lang suffix so
+# the existing python pin corpus is untouched) and are written to MODULE_NAME.js, not the .py module.
+_jsr = None
+try:
+    _jsp = importlib.util.spec_from_file_location("js_runner", os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "js_runner.py"))
+    _jsr = importlib.util.module_from_spec(_jsp); _jsp.loader.exec_module(_jsr)
+except Exception:
+    _jsr = None
+_js_solved = {}
+
+
+def _validate_js(code, tests):
+    """Execute the JS function's tests under node in a subprocess (secret-scrubbed env). exit 0 + marker = pass."""
+    import shutil as _sh
+    _node = _sh.which("node")
+    if not _node:
+        return False
+    _tf = tempfile.NamedTemporaryFile(suffix=".js", delete=False, mode="w", encoding="utf-8")
+    _tf.write(_jsr.js_test_script(code, list(tests))); _tf.close()
+    try:
+        _hint = ("secret", "token", "key", "password", "passwd", "api", "cred")
+        _env = {k: v for k, v in os.environ.items() if not any(h in k.lower() for h in _hint)}
+        r = subprocess.run([_node, _tf.name], capture_output=True, text=True, timeout=30, env=_env)
+        return r.returncode == 0 and "JS_TESTS_OK" in (r.stdout or "")
+    except Exception:
+        return False
+    finally:
+        try: os.unlink(_tf.name)
+        except Exception: pass
+
+
 for f in plan.FUNCTIONS:
     name, tests = f["name"], f["tests"]
     prompt = f["prompt"] + (("\n\n" + f["context"]) if f.get("context") else "")
     # The PLAN assigns the model (or level) per function; the engine STICKS with it (no fall-through).
     fmodel = f.get("model") or LEVELS.get(f.get("level", 1), MODEL)
     short = "claude" if fmodel == "claude" else "local"
+    _flang = (f.get("lang") or "py").strip().lower()
+    if _flang in ("js", "javascript"):
+        # ---- JS lane (isolated from the hardened python path) ----
+        winner, tries, source = None, 0, None
+        import shutil as _sh
+        if _jsr is None or not _sh.which("node"):
+            print(f"  {name:16} JS REFUSED - node or tools/js_runner.py unavailable (install node / build H_js_runner)")
+            solved_src[name] = None; report.append((name, False, 0, None)); continue
+        _badt = [t for t in tests if _jsr.js_test_danger(t)]
+        if _badt:
+            print(f"  {name:16} JS REFUSED - dangerous test expression(s): {_badt[0][:60]!r}")
+            solved_src[name] = None; report.append((name, False, 0, None)); continue
+        pkey = hashlib.sha256((name + "\x00" + prompt + "\x00" + repr(tests) + "\x00" + fmodel
+                               + "\x00lang:js").encode()).hexdigest()
+        if pkey in pins and _validate_js(pins[pkey], tests):
+            winner, source = pins[pkey], "pinned"
+        else:
+            for k in range(N):
+                tries += 1
+                try:
+                    code = _jsr.extract_js_func(call_model(prompt, min(0.2 + 0.1 * k, 1.0), fmodel), name)
+                except Exception:
+                    continue
+                if code and _validate_js(code, tests):
+                    winner = code
+                    break
+                _save_fn_fail(name, fmodel, k + 1, code or "", "js: no function extracted or node tests failed")
+            if winner is not None:
+                source = short
+                pins[pkey] = winner
+                _pin_regime[pkey] = _cur_regime
+                _pins_added_this_run.add(pkey)
+                print(f"  {name:16} JS lane: mutation/adversarial/regression-proof gates N/A (python-AST) - "
+                      f"core node test gate only")
+        _js_solved[name] = winner
+        solved_src[name] = "" if winner is not None else None   # js code never enters the .py module
+        report.append((name, winner is not None, tries, source))
+        _jtag = {"local": "PASS (js/node)", "claude": "PASS (js/node claude)", "pinned": "REUSED (pinned js)",
+                 None: "FAIL -> analyst must refine spec"}[source]
+        print(f"  {name:16} {_jtag:22} {tries} tries  ({len(tests)} js tests)")
+        continue
     pkey = hashlib.sha256((name + "\x00" + prompt + "\x00" + repr(tests) + "\x00" + fmodel).encode()).hexdigest()
     winner, tries, source, picked = None, 0, None, 0
     # Opt-in quality selection (D28): collect K passing candidates, judge-pick the cleanest.
@@ -982,6 +1059,7 @@ def _func_test(content, func_script, suffix=".html"):
             except Exception:
                 pass
 artifact_results = []
+artifact_rows = []                 # report plumbing: {path, ok, src, gate} per artifact -> metrics -> manifest
 for art in getattr(plan, "ARTIFACTS", []):
     apath = art["path"] if os.path.isabs(art["path"]) else os.path.normpath(os.path.join(_pre_out, art["path"]))
     # SECURITY: the artifact path is analyst/model-chosen. Never let it escape OUT_DIR (an absolute path
@@ -989,9 +1067,31 @@ for art in getattr(plan, "ARTIFACTS", []):
     if os.path.isabs(art["path"]) or not _within(apath, _pre_out):   # commonpath raises across drives; _within is safe
         print(f"  [artifact REJECTED - path escapes OUT_DIR: {art['path']!r}]")
         artifact_results.append(False)
+        artifact_rows.append({"path": str(art.get("path", "?")), "ok": False, "src": None, "gate": "path-escape"})
         continue
     aprompt = art["prompt"]; amodel = art.get("model", "claude"); atests = art.get("tests", [])
     afunc = art.get("functional", "")
+    # functional_ref: a plan (esp. a MODEL-DRAFTED one, which may not carry raw gate code) names a gate
+    # from the TRUSTED registry (tools/func_gates.py, CORE_INFRA) and the engine resolves it here.
+    # Unknown ref = REFUSE the artifact (fail closed) — never silently build ungated.
+    _aref = art.get("functional_ref", "")
+    if _aref and not afunc:
+        try:
+            _fg = importlib.util.spec_from_file_location("func_gates", os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "func_gates.py"))
+            _fgm = importlib.util.module_from_spec(_fg); _fg.loader.exec_module(_fgm)
+            afunc = _fgm.resolve(_aref) or ""
+        except Exception as _fge:
+            afunc = ""
+            print(f"  [artifact REFUSED - functional_ref registry unavailable: {_fge}]")
+            artifact_results.append(False)
+            artifact_rows.append({"path": art["path"], "ok": False, "src": None, "gate": "registry-unavailable"})
+            continue
+        if not afunc:
+            print(f"  [artifact REFUSED - unknown functional_ref {_aref!r} (not in tools/func_gates.py)]")
+            artifact_results.append(False)
+            artifact_rows.append({"path": art["path"], "ok": False, "src": None, "gate": "unknown-ref:" + str(_aref)})
+            continue
     aext = os.path.splitext(apath)[1] or ".html"   # #132: temp-file ext for the func gate (.py modules importable via $ARTIFACT_FILE)
     afallback = art.get("fallback"); afb_after = int(art.get("fallback_after", 2))  # local-first: after afb_after failed gate tries on the primary, escalate to fallback (e.g. claude)
     ashort = "claude" if amodel == "claude" else "local"
@@ -1097,6 +1197,9 @@ for art in getattr(plan, "ARTIFACTS", []):
     else:
         print(f"  [artifact FAIL -> analyst refines spec/tests] {apath}  (candidates saved in {_faildir})")
     artifact_results.append(acontent is not None)
+    artifact_rows.append({"path": art["path"], "ok": acontent is not None, "src": asrc,
+                          "gate": ("structural(%d)%s" % (len(atests), "+functional:" + (_aref or "inline")
+                                                         if afunc else ""))})
 _pins_snapshot = None      # pre-build on-disk pins, so a later regression FAIL can revert a just-written bad pin
 try:
     os.makedirs(_pre_out, exist_ok=True)
@@ -1191,6 +1294,19 @@ if module_ok:
     _modpath = os.path.join(out_dir, module + ".py")
     _refuse_if_foreign(_modpath)
     _atomic_write(_modpath, game_code)
+# #60: JS functions ship as MODULE_NAME.js (never mixed into the .py module). Same provenance-marker
+# rule as .py: refuse to overwrite a file we didn't generate.
+_js_parts = [_js_solved[f["name"]] for f in plan.FUNCTIONS
+             if (f.get("lang") or "py").strip().lower() in ("js", "javascript") and _js_solved.get(f["name"])]
+if module_ok and _js_parts:
+    _LATHE_MARK_JS = "// lathe-generated module - do not edit by hand"
+    _jspath = os.path.join(out_dir, module + ".js")
+    if os.path.exists(_jspath):
+        with open(_jspath, encoding="utf-8", errors="replace") as _jf:
+            if _jf.readline().strip() != _LATHE_MARK_JS:
+                sys.exit("engine: REFUSING to overwrite %s - not a lathe-generated file" % _jspath)
+    _atomic_write(_jspath, _LATHE_MARK_JS + "\n\n" + "\n\n".join(_js_parts) + "\n")
+    print(f"  [js module] {os.path.basename(_jspath)} ({len(_js_parts)} function(s))")
 # INTEGRATION runs whenever present and the plan's functions (if any) all passed — incl. artifact-only plans.
 _intg = getattr(plan, "INTEGRATION", "")
 if _intg and (not plan.FUNCTIONS or passed == len(plan.FUNCTIONS)):
@@ -1399,6 +1515,11 @@ _metrics = {
     "artifacts_total": artifacts_total, "artifacts_passed": artifacts_passed, "build_ok": build_ok,
     "spine_bypassed": _SPINE_BYPASSED,   # #12 U3: True = ran directly around the operating contract (warn-first)
     "per_function": [{"name": nm, "ok": ok, "tries": tries, "src": src} for nm, ok, tries, src in report],
+    # --- report plumbing (#59): the facts the run manifest could not previously see across the subprocess ---
+    "resolved_model": (MODEL.split(":", 1)[1] if MODEL.startswith("openai:") else MODEL),  # name actually sent to the endpoint
+    "out_dir": getattr(plan, "OUT_DIR", "") or "",
+    "pins_added": len(_pins_added_this_run),
+    "per_artifact": artifact_rows,
 }
 print("===METRICS_JSON_BEGIN===")
 print(json.dumps(_metrics))
