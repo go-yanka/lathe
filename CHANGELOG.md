@@ -2,6 +2,27 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.36.0 — 2026-07-08 — MASTER_PLAN D2: STATE assertions — a game is never certified on motion alone
+
+Builds on D1's behavioral interpreter. Motion checks prove the controls move something; STATE checks prove the
+game keeps score and is not already over.
+
+- `tools/behavioral_gate.py` — a trial may now carry a `"state"` assertion alongside/instead of `"expect"`:
+  `{"selector":"#score","op":"increases"|"changes"|"stable"}` (a DOM element must progress — e.g. score ticks
+  up on a scoring input) or `{"text_absent":"game over"}` / `{"text_present":...}` (the game must NOT be over
+  after correct play). Read from DOM text before/after the drive; `increases` parses the leading number. Still
+  fixed-vocabulary DATA — an unknown op raises and the engine refuses the build (fail closed).
+- `tools/func_gates.py` — the DEFAULT `web_canvas_game` gate gained an instant-game-over guard: EARLY (before
+  it drives keys) and on VISIBLE text only, it rejects a build already showing "game over"/"you lose"/etc — the
+  literal helicopter symptom ("ends as soon as it starts") — without false-failing a game a later drive
+  legitimately loses. So even builds with NO analyst behavioral spec catch instant death.
+- `qa/behavioral_lane_gate.py` (+ fixtures score_good/score_bad/gameover_bad) — the standing proof now covers
+  3 cases: D1 motion, D2 score-state, and the default-lane instant-game-over guard. A frozen-score game and an
+  instant-death game each FAIL; working ones PASS. (heli_good gained a tiny perpetual wiggle so it is never
+  pixel-frozen at rest — vertical centroid, which the up/down proof uses, is unchanged.)
+- `tools/autonomy_live.py` — the drafter now offers state assertions when authoring a game's behavioral spec.
+- `tools/failure_modes.py` — new guarded class `state-progression-unchecked` -> `behavioral_lane`.
+
 ## v2.35.0 — 2026-07-08 — MASTER_PLAN D1: behavioral lane — proves the controls WORK, not just that pixels move
 
 **Closes the helicopter class end-to-end.** The `web_canvas_game` gate only proved the canvas CHANGES over

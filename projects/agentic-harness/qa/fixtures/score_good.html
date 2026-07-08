@@ -1,0 +1,19 @@
+<!doctype html><html><head><meta charset="utf-8"><title>score-good</title></head>
+<body style="margin:0;background:#101418">
+<div id="score" style="color:#fff;font:16px monospace">Score: 0</div>
+<canvas id="c" width="480" height="360"></canvas>
+<script>
+// A WORKING scorer: each Space press scores a point and moves the marker. State PROGRESSES with input.
+const cv = document.getElementById('c'), ctx = cv.getContext('2d'), out = document.getElementById('score');
+let score = 0, x = 60;
+function draw() {
+  ctx.fillStyle = '#101418'; ctx.fillRect(0, 0, 480, 360);
+  ctx.fillStyle = '#57c7ff'; ctx.fillRect(x, 170, 24, 24);
+}
+addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); score++; x = Math.min(x + 24, 440);
+    out.textContent = 'Score: ' + score; draw(); }
+});
+draw();
+</script>
+</body></html>

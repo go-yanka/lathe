@@ -39,6 +39,10 @@ FAILURE_MODES = [
      "klass": "Interactive output passes 'it loads/animates' but is functionally WRONG (controls do nothing)",
      "manifests": "dead helicopter falls regardless of input — passes liveness. GATED v2.35.0: the behavioral "
                   "interpreter proves input->response (hold Space -> craft rises), not just that pixels move"},
+    {"id": "state-progression-unchecked", "gate": "behavioral_lane",
+     "klass": "Game 'works' visually but its STATE never progresses (score frozen, or it is already game-over)",
+     "manifests": "score label stuck at 0; 'game over' the instant it starts. GATED v2.36.0: state assertions "
+                  "(score increases / text_absent 'game over') + web_canvas_game instant-game-over guard"},
     {"id": "false-done-unwired-tasklist", "gate": None,
      "klass": "'DONE' recorded when the MODULE's gate is green, not when the user command works + a gate proves it",
      "manifests": "tasks #41/#42 marked done but unwired. OPEN — cultural; each wire needs its own proving gate"},

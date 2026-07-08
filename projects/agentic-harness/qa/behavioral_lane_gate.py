@@ -29,17 +29,27 @@ FIX = os.path.join(QA, "fixtures")
 sys.path.insert(0, TOOLS)
 
 import behavioral_gate as bg   # noqa: E402
+import func_gates as fg         # noqa: E402
 
-# The spec that separates a real helicopter from a dead one.
-SPEC = [
+# D1 — the motion spec that separates a real helicopter from a dead one.
+HELI_SPEC = [
     {"hold": "Space", "ms": 900, "expect": "up"},    # thrust must lift the craft
     {"idle": 900, "expect": "down"},                 # with no input, gravity must pull it down
 ]
+# D2 — the STATE spec that separates a real scorer from a frozen-score one (pressing Space must score).
+SCORE_SPEC = [
+    {"press": "Space", "ms": 200, "state": {"selector": "#score", "op": "increases"}},
+]
+
+# Each proof: (spec, good_fixture, bad_fixture). good MUST pass; bad MUST fail.
+PROOFS = [
+    ("D1 motion (helicopter)", HELI_SPEC, "heli_good.html", "heli_bad.html"),
+    ("D2 state (score)", SCORE_SPEC, "score_good.html", "score_bad.html"),
+]
 
 
-def _run(fixture):
-    """Run the compiled behavioral gate against a fixture. Return (returncode, tail_of_output)."""
-    script = bg.build_script(SPEC)
+def _run_src(script, fixture):
+    """Run a gate SCRIPT (source string) against a fixture. Return (returncode, tail_of_output)."""
     env = dict(os.environ)
     env["ARTIFACT_FILE"] = os.path.join(FIX, fixture)
     with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False, encoding="utf-8") as th:
@@ -64,21 +74,32 @@ def main():
         print("behavioral-lane gate: INOPERATIVE — Playwright unavailable: %s" % e)
         sys.exit(1)
 
-    good_rc, good_tail = _run("heli_good.html")
-    bad_rc, bad_tail = _run("heli_bad.html")
-
     problems = []
-    if good_rc != 0:
-        problems.append("heli_good MUST pass but FAILED: %s" % good_tail)
-    if bad_rc == 0:
-        problems.append("heli_bad MUST fail (dead control) but PASSED — interpreter is not discriminating")
+    # D1/D2 interpreter proofs: analyst-authored specs discriminate working builds from broken ones.
+    for name, spec, good_fx, bad_fx in PROOFS:
+        good_rc, good_tail = _run_src(bg.build_script(spec), good_fx)
+        bad_rc, bad_tail = _run_src(bg.build_script(spec), bad_fx)
+        if good_rc != 0:
+            problems.append("%s: %s MUST pass but FAILED: %s" % (name, good_fx, good_tail))
+        if bad_rc == 0:
+            problems.append("%s: %s MUST fail but PASSED — interpreter is not discriminating" % (name, bad_fx))
+
+    # D2 default-lane proof: even with NO analyst spec, web_canvas_game rejects an instant-game-over build.
+    wcg = fg.resolve("web_canvas_game")
+    g_rc, _ = _run_src(wcg, "heli_good.html")            # animating, playable -> PASS
+    b_rc, b_tail = _run_src(wcg, "gameover_bad.html")    # dies as soon as it starts -> FAIL
+    if g_rc != 0:
+        problems.append("D2 default (web_canvas_game): heli_good MUST pass but FAILED")
+    if b_rc == 0:
+        problems.append("D2 default (web_canvas_game): gameover_bad MUST fail (instant game-over) but PASSED")
 
     if problems:
         print("behavioral-lane gate: FAIL — " + " ;; ".join(problems))
         sys.exit(1)
 
-    print("behavioral-lane gate: PASS — working helicopter passes, dead-control helicopter fails "
-          "(input->response is enforced, not just liveness)")
+    print("behavioral-lane gate: PASS — %d interpreter proof(s) + web_canvas_game instant-game-over guard: "
+          "working builds pass, broken ones fail (motion + state + not-instant-death enforced, not just "
+          "liveness)" % len(PROOFS))
     sys.exit(0)
 
 

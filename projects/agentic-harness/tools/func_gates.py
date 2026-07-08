@@ -53,6 +53,14 @@ with sync_playwright() as p:
     page.mouse.click(300, 300)                # focus / dismiss any "press to start"
     size = page.eval_on_selector("canvas", "c => ({w: c.width, h: c.height})")
     assert size["w"] > 0 and size["h"] > 0, "canvas has zero size"
+    # D2 instant-game-over guard: a game must not already be OVER right after it starts (the helicopter
+    # symptom — "the game ends as soon as it starts"). Checked EARLY (before we drive keys), and only on
+    # VISIBLE text (innerText), so a hidden overlay or a working game that a later drive legitimately loses
+    # is not false-failed. Loss-only phrases only (a start screen says "press to start", not "you lose").
+    page.wait_for_timeout(700)
+    _early = (page.evaluate("() => document.body ? (document.body.innerText || '') : ''") or "").lower()
+    for _p in ("game over", "you lose", "you died", "you crashed", "try again", "game_over"):
+        assert _p not in _early, "game is already OVER right after start (found %r) - unplayable/instant-death" % _p
     for k in ("Space", "ArrowRight", "ArrowLeft", "Space"):
         page.keyboard.press(k)
         page.wait_for_timeout(120)

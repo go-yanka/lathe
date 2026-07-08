@@ -158,7 +158,10 @@ _SCOPE = {
         '(`{"hold": "<KeyboardEvent.code>", "ms": 900}` | `{"press": "<code>"}` | `{"idle": 900}` | '
         '`{"click": [x, y]}`) plus `"expect"` in up|down|left|right|move|still (how the FOREGROUND should move). '
         'Example helicopter: [{"hold":"Space","ms":900,"expect":"up"}, {"idle":900,"expect":"down"}] - holding '
-        "thrust must RISE, no input must FALL. Author 1-4 trials that encode the goal's core control->response. "
+        "thrust must RISE, no input must FALL. A trial may ALSO/instead assert STATE via "
+        '`"state"`: `{"selector":"#score","op":"increases"|"changes"|"stable"}` (a DOM element progresses, e.g. '
+        'score ticks up on a scoring input) or `{"text_absent":"game over"}` (the game must NOT be over after '
+        "correct play). Author 1-4 trials that encode the goal's core control->response and any score/end state. "
         'If you cannot state a concrete input->response, fall back to "web_canvas_game" (liveness only). '
         'These are trusted-registry NAMES / DATA - NEVER write a "functional" field with code.\n'
     ),
