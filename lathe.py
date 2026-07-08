@@ -6,8 +6,8 @@ over the harness: draft a spec, build it on the local model under gates, run qua
 review, and inspect the autonomous board - all reproducible and pinned.
 
 Usage:
-  lathe "<goal>"               draft a spec for the goal, build it, gate it, pin it (one shot)
-  lathe do "<goal>"            same as above (explicit)
+  lathe do "<goal>"            THE canonical one-shot: intake -> draft a spec -> build -> gate -> pin
+  lathe "<goal>"               labeled shorthand for `lathe do "<goal>"` (a multi-word bare goal routes to do)
   lathe chat                   interactive REPL: each line is a goal/command (works with you)
   lathe build <plan>           run the engine on an existing plan file (generate -> gate -> pin)
   lathe auto ["<objective>"]   run the autonomous self-feed loop (planner -> build -> repair -> commit)
@@ -42,8 +42,10 @@ Usage:
   lathe selftest               exercise every capability and report PASS/FAIL
   lathe help                   this help
 
-Env: LATHE_MODEL (default openai:local), LATHE_TRIES (default 3),
-     LOCAL_OPENAI_URL / HARNESS_CLAUDE_URL (implementer / analyst endpoints).
+Two roles, both PLUGGABLE (any OpenAI-compatible endpoint — the analyst need not be Claude):
+  THINKER  (analyst) drafts + repairs the spec   -> HARNESS_CLAUDE_URL
+  BUILDER  (implementer) writes the code          -> LOCAL_OPENAI_URL
+Env: LATHE_MODEL (default openai:local), LATHE_TRIES (default 3).
 """
 import os
 import sys
@@ -486,6 +488,14 @@ def cmd_do(args):
     elif _mf is not None:
         try: _mf.set_front_end(ran=False, clarify="skipped (--assume)", assumptions=[])
         except Exception: pass
+    # F1: drop a human-readable GOAL.md (intent + resolved assumptions + panel) and README.md (layout) into the
+    # workspace, so the folder says what it is at a glance. Best-effort — never blocks the build.
+    if ws:
+        try:
+            _wd = _tool("workspace_docs")
+            _wd.write_workspace_docs(os.path.join(ROOT, ws.replace("/", os.sep)), goal, _assumptions, _panel, focus)
+        except Exception:
+            pass
     _gdb = _goal_board()
     try:
         tr = live.run(_build_goal, max_plans=1, max_steps=4, build_one=True, max_repairs=2, db_path=_gdb,

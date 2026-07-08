@@ -2,6 +2,19 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.43.0 — 2026-07-08 — MASTER_PLAN F1/F2/F3: workspace intent docs + honest naming + clearer help
+
+- `tools/workspace_docs.py` (F1) — every `lathe do` workspace now gets a GOAL.md (the intent + the resolved
+  assumptions the build was made to + the interview panel) and a README.md (what each file/dir is). The folder
+  says what it is at a glance; machine state stays in dotfiles. Best-effort — never blocks a build.
+- `lathe.py` help (F2/F3) — the header now names the two PLUGGABLE roles, THINKER (analyst) + BUILDER
+  (implementer), and states the analyst need NOT be Claude (any OpenAI-compatible endpoint). `lathe do` is
+  documented as THE canonical one-shot; bare `lathe "<goal>"` as its labeled shorthand.
+- `qa/workspace_docs_gate.py` (regression now 21 checks) — proves GOAL.md carries the goal + every assumption +
+  the panel, README names the workspace + files, empty-assumptions is handled, and a bogus dir never raises.
+- F4 (project-level code/docs/scripts/config layout for multi-file PROJECTS) remains OPEN as optional polish —
+  it applies only to multi-file project mode; the common single-goal path now has GOAL.md/README.
+
 ## v2.42.0 — 2026-07-08 — MASTER_PLAN E4: persona ratings LEARN from review outcomes (E block complete)
 
 Ratings used to come only from a dedicated `lathe agent rate` run. Now a real review nudges the lens's rating
