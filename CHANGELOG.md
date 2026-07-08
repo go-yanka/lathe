@@ -2,6 +2,18 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.29.1 — 2026-07-08
+
+**Fix silent no-op: `lathe "<goal>"` (no `do`) now builds instead of just running gates.**
+
+- A bare natural-language goal used to promote the goal-STRING-as-command through do's workflow, whose
+  build step keys on the literal "do" — so it never fired, only the standing gates ran, and nothing built.
+  From the user it looked like "it didn't do a thing" (found live: owner ran a goal missing `do`).
+- Now normalized at entry: a bare MULTI-WORD arg is rewritten to an explicit `do "<goal>"` (builds
+  correctly); a bare SINGLE token is treated as a likely command typo -> clear error with a
+  difflib-suggested command, never a silently wasted build. Verified: the exact failing goal now drafts +
+  builds; `lathe stauts` -> "Did you mean `lathe status`?"; real commands unaffected.
+
 ## v2.29.0 — 2026-07-08
 
 **Workspace names say WHAT is being built and WITH WHICH model (owner design).**
