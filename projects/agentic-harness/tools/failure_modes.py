@@ -43,6 +43,11 @@ FAILURE_MODES = [
      "klass": "Game 'works' visually but its STATE never progresses (score frozen, or it is already game-over)",
      "manifests": "score label stuck at 0; 'game over' the instant it starts. GATED v2.36.0: state assertions "
                   "(score increases / text_absent 'game over') + web_canvas_game instant-game-over guard"},
+    {"id": "visual-mismatch-unchecked", "gate": "vision_lane",
+     "klass": "Page passes every structural/behavioral gate but LOOKS wrong (blank, unstyled, off-topic)",
+     "manifests": "renders as a blank/broken rectangle. GATED v2.37.0: the vision judge SHOWS the screenshot to "
+                  "a vision model (proven live: passes real renders, fails a blank page). Pipeline gated by "
+                  "vision_lane; live judging is ADVISORY + opt-in (LATHE_VISION_JUDGE), never a silent pass"},
     {"id": "false-done-unwired-tasklist", "gate": None,
      "klass": "'DONE' recorded when the MODULE's gate is green, not when the user command works + a gate proves it",
      "manifests": "tasks #41/#42 marked done but unwired. OPEN — cultural; each wire needs its own proving gate"},

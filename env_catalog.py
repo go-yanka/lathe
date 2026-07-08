@@ -63,6 +63,9 @@ REGISTRY = [
     # --- autonomy / project ---
     ("LATHE_REPAIR", "autonomy", "failed `lathe build` auto-invokes analyst spec repair + one retry (set 0 to disable)", "on"),
     ("LATHE_INTAKE", "autonomy", "`lathe do` intake: surface + record the goal's assumptions before drafting (set 0/off to skip)", "on"),
+    ("LATHE_VISION_JUDGE", "autonomy", "D3 advisory visual judge on HTML artifacts: SHOW the rendered page to a vision model, record if it looks like the goal (1/strict to enable; advisory, never fails the build)", "off"),
+    ("LATHE_VISION_MODEL", "autonomy", "model name for the D3 visual judge (vision-capable)", "sonnet"),
+    ("LATHE_VISION_TIMEOUT", "autonomy", "seconds for a D3 visual-judge call", "90"),
     ("LATHE_AUTO_COMMIT", "autonomy", "let auto/do/run git-commit green builds (opt-in)", "off"),
     ("LATHE_PROJECT", "autonomy", "active project subtree under projects/", "agentic-harness"),
     ("LATHE_REMOTE", "autonomy", "git remote for checkin --push", "origin"),

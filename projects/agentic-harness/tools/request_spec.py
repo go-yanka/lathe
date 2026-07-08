@@ -17,10 +17,15 @@ import urllib.request
 USAGE_HOOK = None
 
 
-def request_spec(prompt, url=None, timeout=None, retries=None):
+def request_spec(prompt, url=None, timeout=None, retries=None, images=None, model=None):
     """POST `prompt` to the Claude CLI proxy, return the response text (the next plan).
     Returns "" (never raises) if the proxy stays unreachable across retries, so a transient
-    proxy outage degrades gracefully instead of killing the autonomy cycle."""
+    proxy outage degrades gracefully instead of killing the autonomy cycle.
+
+    `images`: optional list of data-URI strings (e.g. "data:image/png;base64,...."). When given, the
+    message content is sent in OpenAI multimodal form (text + image_url blocks) — the proxy saves each
+    inline image and lets Claude view it. This is what the D3 vision judge uses to SEE a rendered page.
+    `model`: override the analyst model (e.g. a vision-capable one) for this call."""
     url = url or os.environ.get("HARNESS_CLAUDE_URL", "http://127.0.0.1:8787/v1/chat/completions")
     from urllib.parse import urlparse, urlunparse            # SSRF/exfil guard
     pu = urlparse(url)
@@ -56,8 +61,15 @@ def request_spec(prompt, url=None, timeout=None, retries=None):
     timeout = timeout or int(os.environ.get("CLAUDE_TIMEOUT", "180"))   # 180: covers a full plan generation (the planner prompt + inventory is large); still bounds a wedged proxy
     retries = retries if retries is not None else int(os.environ.get("CLAUDE_RETRIES", "2"))
     retries = max(1, retries)
-    body = json.dumps({"model": os.environ.get("HARNESS_ANALYST_MODEL", "sonnet"),
-                       "messages": [{"role": "user", "content": prompt}],
+    _model = model or os.environ.get("HARNESS_ANALYST_MODEL", "sonnet")
+    if images:                                               # D3: multimodal content (text + image_url blocks)
+        _content = [{"type": "text", "text": prompt}]
+        for _u in images:
+            _content.append({"type": "image_url", "image_url": {"url": _u}})
+    else:
+        _content = prompt
+    body = json.dumps({"model": _model,
+                       "messages": [{"role": "user", "content": _content}],
                        "stream": False}).encode()
     last_err = None
     for attempt in range(retries):

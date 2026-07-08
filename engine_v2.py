@@ -1236,6 +1236,7 @@ for art in getattr(plan, "ARTIFACTS", []):
     _aspec_key = hashlib.sha256(("ARTIFACT\x00" + apath + "\x00" + aprompt + "\x00" + repr(atests) + "\x00"
                                  + afunc + (("\x00SK\x00" + askel) if askel else "")).encode()).hexdigest()
     acontent, asrc = None, None
+    _vision = None                     # D3: advisory visual verdict (set only when LATHE_VISION_JUDGE opts in)
     _faildir = os.path.join(_pre_out, "_artifact_fails")
     if akey in pins and _structural(pins[akey])[0]:
         acontent, asrc = pins[akey], "pinned"   # pin reuse: structural only (functional already gated at gen)
@@ -1378,6 +1379,19 @@ for art in getattr(plan, "ARTIFACTS", []):
         _atomic_write(apath, acontent)
         _artifacts_written.append(apath)
         print(f"  [artifact {asrc:7}] {os.path.basename(apath)} ({len(acontent)} chars, {len(atests)} tests, functional={'yes' if afunc else 'no'})")
+        # D3 ADVISORY visual judge (opt-in LATHE_VISION_JUDGE=1): SHOW the rendered page to a vision model and
+        # record whether it LOOKS like the goal. Advisory by design — it NEVER changes the build verdict here;
+        # the deterministic gates decide pass/fail, this only annotates the manifest/report. Never raises.
+        if os.environ.get("LATHE_VISION_JUDGE", "") in ("1", "true", "strict") and apath.lower().endswith((".html", ".htm")):
+            try:
+                _vj = importlib.util.spec_from_file_location("vision_judge", os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "vision_judge.py"))
+                _vjm = importlib.util.module_from_spec(_vj); _vj.loader.exec_module(_vjm)
+                _vision = _vjm.judge_live(apath, aprompt)
+                print(f"  [vision {_vision.get('verdict','?'):11}] looks_right={_vision.get('looks_right')} "
+                      f"conf={_vision.get('confidence')} {('- ' + '; '.join(_vision.get('issues') or [])) if _vision.get('verdict')=='fail' else ''}")
+            except Exception as _ve:
+                _vision = {"verdict": "inoperative", "issues": ["judge hook error: %s" % str(_ve)[:100]]}
     elif _gate_broken:
         # HONEST verdict: environment problem, not a spec problem — the analyst repair loop must NOT be told
         # the spec failed (it can't fix a browser), and no candidate was banked as a failure.
@@ -1389,6 +1403,7 @@ for art in getattr(plan, "ARTIFACTS", []):
     artifact_results.append(acontent is not None)
     artifact_rows.append({"path": art["path"], "ok": acontent is not None, "src": asrc,
                           "attempts": _aattempts, "attempt_log": _attempt_log,
+                          "vision": _vision,          # D3: advisory visual verdict (None unless opted in)
                           "bytes": (len(acontent) if acontent is not None else None),
                           "fail_bank": (None if acontent is not None else
                                         os.path.relpath(_faildir, os.path.dirname(os.path.abspath(__file__)))),

@@ -2,6 +2,30 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.37.0 — 2026-07-08 — MASTER_PLAN D3: the ADVISORY visual judge — the harness can now SEE the page
+
+Deterministic gates prove a page loads/animates/responds/keeps-state (D1/D2) but cannot see that it LOOKS like
+the goal — a page can pass every check and still render blank, unstyled, or off-topic. D3 shows a screenshot to
+a vision model and records whether it looks right. PROVEN LIVE: passes real renders (heli_good 0.90,
+score_good 0.92), fails a blank page (0.97, "completely blank/white, no canvas").
+
+- `tools/vision_judge.py` — capture() screenshots a rendered HTML file (headless Chromium); judge() sends the
+  screenshot + goal to a vision model and parses a compact JSON verdict {looks_right, confidence, issues}. The
+  judge fn is INJECTABLE (stub in tests, real client in prod) and NEVER raises — a judge outage is 'inoperative'
+  (advisory), not a crash.
+- `tools/request_spec.py` — the SSRF-guarded analyst client gained an `images=` path: it sends OpenAI
+  multimodal content (text + image_url) which the loopback proxy saves and lets Claude view. Reused, not
+  reinvented — all the retry/SSRF/usage logic is shared.
+- `engine_v2.py` — opt-in `LATHE_VISION_JUDGE=1`: after an HTML artifact passes its deterministic gates, the
+  engine SHOWS the rendered page to the judge and records the verdict in the manifest/report. ADVISORY by
+  design — it never changes the build verdict (the deterministic gates decide); it annotates. Never raises.
+- `qa/vision_lane_gate.py` (regression now 15 checks) — proves the PLUMBING deterministically with a STUB
+  judge (no model call): real screenshot -> good verdict maps to pass, bad to fail, a raising judge to
+  inoperative (never propagates), parse_verdict handles JSON/prose/garbage. The wire can't silently un-wire;
+  live model judgement is inherently non-deterministic and validated on demand (like the rig).
+- `tools/failure_modes.py` — new guarded class `visual-mismatch-unchecked` -> `vision_lane`.
+- `env_catalog.py` — LATHE_VISION_JUDGE / LATHE_VISION_MODEL / LATHE_VISION_TIMEOUT documented.
+
 ## v2.36.0 — 2026-07-08 — MASTER_PLAN D2: STATE assertions — a game is never certified on motion alone
 
 Builds on D1's behavioral interpreter. Motion checks prove the controls move something; STATE checks prove the
