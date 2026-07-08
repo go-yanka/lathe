@@ -685,9 +685,24 @@ def cmd_review(args):
     if missing:
         print("review: these targets do not exist: %s" % ", ".join(missing)); return 2
     rc = 0
+    _lens_verdicts = {}
     for lens in lenses:
         print("\n========== lathe review: %s  (%d file%s) ==========" % (lens, len(files), "s" if len(files) != 1 else ""))
-        rc |= _run([PY, HREVIEW, lens] + list(files), cwd=INNER)
+        _lrc = _run([PY, HREVIEW, lens] + list(files), cwd=INNER)
+        rc |= _lrc
+        # E4: a valid review (rc 0) means the lens ENGAGED; a nonzero rc is an inoperative/non-review (D5b).
+        _lens_verdicts[lens] = "engaged" if _lrc == 0 else "inoperative"
+    # E4: feed the outcomes back into persona ratings (opt-in) so the decider LEARNS which lenses reliably
+    # deliver — not just the manual `agent rate`. EWMA-blended (one review nudges; a pattern moves it).
+    if os.environ.get("LATHE_GRADE_FEEDBACK", "") in ("1", "true"):
+        try:
+            from outcome_feedback import record_review_outcomes
+            from persona_spawn import load_ratings, save_rating
+            _upd = record_review_outcomes(_lens_verdicts, load_ratings, save_rating)
+            if _upd:
+                print("\nreview outcomes -> ratings updated: %s" % ", ".join("%s=%.2f" % (k, v) for k, v in _upd.items()))
+        except Exception as _fe:
+            sys.stderr.write("review: grade-feedback skipped (%r)\n" % (_fe,))
     return rc
 
 

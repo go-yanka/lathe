@@ -2,6 +2,23 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.42.0 — 2026-07-08 — MASTER_PLAN E4: persona ratings LEARN from review outcomes (E block complete)
+
+Ratings used to come only from a dedicated `lathe agent rate` run. Now a real review nudges the lens's rating
+automatically — the decider learns which lenses reliably deliver, closing the persona feedback loop.
+
+- `tools/outcome_feedback.py` — `record_review_outcomes(lens_verdicts, load_ratings, save_rating)` blends a
+  per-lens outcome score into its prior rating via the existing persona_grade math (persistence INJECTED, so
+  pure + testable, store format unchanged). Honest about the coarse signal: EWMA-blended with a heavy prior so
+  one review nudges and a consistent pattern moves it; a lens that engaged (valid review) scores up, an
+  inoperative/non-review (D5b) gives NO signal (skipped).
+- `lathe.py` — `cmd_review` captures each lens's exit verdict (engaged vs inoperative) and, opt-in via
+  `LATHE_GRADE_FEEDBACK=1`, feeds them to the ratings store after the review.
+- `qa/outcome_feedback_gate.py` (regression now 20 checks) — proves: engaged EWMA-nudges up (blended, not
+  overwritten), inoperative + fetched-@-path lenses are skipped, a new lens starts from prior 0.5, a broken
+  saver never propagates. The learning loop can't corrupt the store or silently regress.
+- `env_catalog.py` — LATHE_GRADE_FEEDBACK documented.
+
 ## v2.41.0 — 2026-07-08 — MASTER_PLAN E1/E3: prompt-architect in the panel + an HONEST (real) semantic decider
 
 - `tools/semantic_decider.py` (E3) — the base decider (agent_router) is synonym-expanded WORD-OVERLAP; calling

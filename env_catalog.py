@@ -72,6 +72,7 @@ REGISTRY = [
     ("LATHE_DECIDER_MODE", "autonomy", "E3 persona decider: lexical (word-overlap, free default) | semantic (analyst ranks by meaning) | auto (lexical, semantic fills gaps)", "lexical"),
     ("LATHE_DECIDER_MODEL", "autonomy", "model for the E3 semantic decider", "sonnet"),
     ("LATHE_DECIDER_TIMEOUT", "autonomy", "seconds for a semantic-decider call", "60"),
+    ("LATHE_GRADE_FEEDBACK", "autonomy", "E4: feed `lathe review` outcomes back into persona ratings (EWMA-blended); 1 to enable", "off"),
     ("LATHE_AUTO_COMMIT", "autonomy", "let auto/do/run git-commit green builds (opt-in)", "off"),
     ("LATHE_PROJECT", "autonomy", "active project subtree under projects/", "agentic-harness"),
     ("LATHE_REMOTE", "autonomy", "git remote for checkin --push", "origin"),
