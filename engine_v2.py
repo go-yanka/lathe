@@ -221,7 +221,8 @@ _CORE_INFRA = {"engine_v2.py", "lathe.py", "hreview.py", "run_gates.py", "stale_
                "sandbox.py", "autonomy_live.py", "autonomy_loop.py", "self_feed_runner.py", "request_spec.py",
                "board.py", "dag.py", "__init__.py", ".pins.json", "conftest.py",
                "planner_prompt.py",    # authored prompt template, hand-maintained — its origin plan T4 is retired; never let a rebuild overwrite it
-               "func_gates.py"}        # TRUSTED functional-gate registry — a plan overwriting it = forging its own gate
+               "func_gates.py",        # TRUSTED functional-gate registry — a plan overwriting it = forging its own gate
+               "model_profiles.py"}    # TRUSTED per-model drafting standards — a plan overwriting it = steering its own specs
 _CORE_INFRA_LC = {x.lower() for x in _CORE_INFRA}               # Windows FS is case-insensitive: compare casefolded
 _STDLIB = {m.lower() for m in getattr(sys, "stdlib_module_names", frozenset())}
 
@@ -672,6 +673,43 @@ except Exception:
     _cur_regime = {}
 
 
+# Owner design (model-aware pins): pins additionally anchored by MODEL CLASS in a SEPARATE sidecar
+# (.pins.index.json — the regime compare stays untouched). spec_key is the model-independent spec hash;
+# on an exact-key miss, a pin built by a DIFFERENT model of the SAME class for the SAME spec may be
+# ADOPTED — but only after its code re-passes the tests. Validation stays the authority, class is the anchor.
+_PIN_INDEX_FILE = os.path.join(_pre_out, ".pins.index.json")
+_pin_index = {}
+if os.path.exists(_PIN_INDEX_FILE):
+    try:
+        _pin_index = json.loads(open(_PIN_INDEX_FILE, encoding="utf-8").read())
+    except Exception:
+        _pin_index = {}
+try:
+    _mcs = importlib.util.spec_from_file_location("model_class", os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "model_class.py"))
+    _mcm = importlib.util.module_from_spec(_mcs); _mcs.loader.exec_module(_mcm)
+    _MODEL_CLASS = _mcm.model_class
+except Exception:
+    _MODEL_CLASS = None
+
+
+def _stamp_pin_index(pkey, spec_key, model):
+    if _MODEL_CLASS is not None:
+        _pin_index[pkey] = {"spec_key": spec_key, "model": model, "model_class": _MODEL_CLASS(model)}
+
+
+def _adopt_same_class(spec_key, model, checker):
+    """Code from a same-class, same-spec pin — adopted ONLY if it re-passes the tests (checker)."""
+    if _MODEL_CLASS is None:
+        return None
+    cls = _MODEL_CLASS(model)
+    for k, meta in _pin_index.items():
+        if (isinstance(meta, dict) and meta.get("spec_key") == spec_key and meta.get("model_class") == cls
+                and meta.get("model") != model and k in pins and checker(pins[k])):
+            return pins[k]
+    return None
+
+
 def _pin_regime_ok(pkey):
     """True if the pin at pkey may be TRUSTED under the current regime (its recorded regime is at least as
     strict). A pin with NO recorded regime predates H1 -> GRANDFATHER it: stamp the current regime and trust
@@ -847,8 +885,17 @@ for f in plan.FUNCTIONS:
             solved_src[name] = None; report.append((name, False, 0, None)); continue
         pkey = hashlib.sha256((name + "\x00" + prompt + "\x00" + repr(tests) + "\x00" + fmodel
                                + "\x00lang:js").encode()).hexdigest()
+        _spec_key = hashlib.sha256((name + "\x00" + prompt + "\x00" + repr(tests)
+                                    + "\x00lang:js").encode()).hexdigest()
         if pkey in pins and _validate_js(pins[pkey], tests):
             winner, source = pins[pkey], "pinned"
+        elif (_ad := _adopt_same_class(_spec_key, fmodel, lambda c: _validate_js(c, tests))) is not None:
+            winner, source = _ad, "pinned"
+            pins[pkey] = _ad
+            _pin_regime[pkey] = _cur_regime
+            _stamp_pin_index(pkey, _spec_key, fmodel)
+            _pins_added_this_run.add(pkey)
+            print(f"  {name:16} pin ADOPTED from a same-class model's build (revalidated under node)")
         else:
             for k in range(N):
                 tries += 1
@@ -864,6 +911,7 @@ for f in plan.FUNCTIONS:
                 source = short
                 pins[pkey] = winner
                 _pin_regime[pkey] = _cur_regime
+                _stamp_pin_index(pkey, _spec_key, fmodel)
                 _pins_added_this_run.add(pkey)
                 print(f"  {name:16} JS lane: mutation/adversarial/regression-proof gates N/A (python-AST) - "
                       f"core node test gate only")
@@ -875,6 +923,7 @@ for f in plan.FUNCTIONS:
         print(f"  {name:16} {_jtag:22} {tries} tries  ({len(tests)} js tests)")
         continue
     pkey = hashlib.sha256((name + "\x00" + prompt + "\x00" + repr(tests) + "\x00" + fmodel).encode()).hexdigest()
+    _spec_key = hashlib.sha256((name + "\x00" + prompt + "\x00" + repr(tests)).encode()).hexdigest()
     winner, tries, source, picked = None, 0, None, 0
     # Opt-in quality selection (D28): collect K passing candidates, judge-pick the cleanest.
     # K defaults to 1 -> classic first-pass. The analyst marks complex functions with "select": 2/3.
@@ -899,6 +948,15 @@ for f in plan.FUNCTIONS:
         _dep_stale = True                    # treat like a stale pin: fall through to regenerate + re-gate
     if not _dep_stale and pkey in pins and validate(pins[pkey], name, tests, solved_ns):
         winner, source = pins[pkey], "pinned"
+    elif (not _dep_stale and (_ad := _adopt_same_class(
+            _spec_key, fmodel, lambda c: validate(c, name, tests, solved_ns))) is not None):
+        # same spec, same MODEL CLASS, revalidated — the owner's class-anchor reuse (0 model calls)
+        winner, source = _ad, "pinned"
+        pins[pkey] = _ad
+        _pin_regime[pkey] = _cur_regime
+        _stamp_pin_index(pkey, _spec_key, fmodel)
+        _pins_added_this_run.add(pkey)
+        print(f"  {name:16} pin ADOPTED from a same-class model's build (revalidated against tests)")
     else:
         # REGRESSION-PROOF (mechanism #1, opt-in): this unit CHANGED — do the new tests actually catch a
         # bug in the OLD accepted implementation? If every new test passes on the old code, refuse before
@@ -990,6 +1048,7 @@ for f in plan.FUNCTIONS:
             source = short
             pins[pkey] = winner          # pin the SELECTED (cleanest) implementation
             _pin_regime[pkey] = _cur_regime   # #12 H1: stamp the regime this pin was verified under
+            _stamp_pin_index(pkey, _spec_key, fmodel)   # class anchor (owner design: model-aware pins)
             _pins_added_this_run.add(pkey)
             _fresh_fn_names.append(name)  # dirty seed: later pins that reference this name are invalidated
     # FAIL -> analyst improves the spec so THIS model passes (D6/D19); NO model fall-through.
@@ -1145,10 +1204,19 @@ for art in getattr(plan, "ARTIFACTS", []):
     askel = art.get("skeleton", "")   # H8: optional skeleton -> model fills ONE region, engine splices
     amark = art.get("fill_marker", "__FILL__")
     akey = hashlib.sha256(("ARTIFACT\x00" + apath + "\x00" + aprompt + "\x00" + repr(atests) + "\x00" + amodel + "\x00" + afunc + (("\x00SK\x00" + askel) if askel else "")).encode()).hexdigest()
+    _aspec_key = hashlib.sha256(("ARTIFACT\x00" + apath + "\x00" + aprompt + "\x00" + repr(atests) + "\x00"
+                                 + afunc + (("\x00SK\x00" + askel) if askel else "")).encode()).hexdigest()
     acontent, asrc = None, None
     _faildir = os.path.join(_pre_out, "_artifact_fails")
     if akey in pins and _structural(pins[akey])[0]:
         acontent, asrc = pins[akey], "pinned"   # pin reuse: structural only (functional already gated at gen)
+    elif (_ad := _adopt_same_class(_aspec_key, amodel, lambda c: _structural(c)[0])) is not None:
+        acontent, asrc = _ad, "pinned"          # same-class adoption (owner design), structurally revalidated
+        pins[akey] = _ad
+        _pin_regime[akey] = _cur_regime
+        _stamp_pin_index(akey, _aspec_key, amodel)
+        _pins_added_this_run.add(akey)
+        print(f"  [artifact ADOPTED from a same-class model's pin (structurally revalidated)] {os.path.basename(apath)}")
     elif askel and amark not in askel:
         # P0-2 SKELETON-COMPLETE: the scaffold has NO fill region, so calling the model only to splice nothing
         # (and discard its output) is wasted cost + a correctness illusion. Skip generation entirely — gate the
@@ -1167,6 +1235,7 @@ for art in getattr(plan, "ARTIFACTS", []):
                 time.sleep(2)                     # give a transient lock (AV scan) a moment to clear
         if sok and fok:
             acontent, asrc, pins[akey] = c, "skel", c
+            _stamp_pin_index(akey, _aspec_key, amodel)
             _pins_added_this_run.add(akey)
             print(f"    [skeleton-complete: no model call — gated the scaffold directly]")
         elif ftimeout or finop:
@@ -1213,6 +1282,7 @@ for art in getattr(plan, "ARTIFACTS", []):
                     break
             if sok and fok:                       # generation must pass STRUCTURAL + FUNCTIONAL
                 acontent, asrc, pins[akey] = c, ushort, c
+                _stamp_pin_index(akey, _aspec_key, use_model)
                 _pins_added_this_run.add(akey)
                 break
             if ftimeout:                          # P0-1: a gate TIMEOUT is slow/flaky, not a wrong answer — retry, do NOT bank as a spec failure
@@ -1297,6 +1367,15 @@ try:
         _rmerged = {k: v for k, v in _rmerged.items() if k in _merged}   # drop regimes for pins no longer present
         open(_REGIME_FILE + ".tmp", "w", encoding="utf-8").write(json.dumps(_rmerged))
         os.replace(_REGIME_FILE + ".tmp", _REGIME_FILE)
+        # owner design: persist the class-anchor sidecar the same way (merge; drop entries for absent pins)
+        _idisk = {}
+        if os.path.exists(_PIN_INDEX_FILE):
+            try: _idisk = json.loads(open(_PIN_INDEX_FILE, encoding="utf-8").read())
+            except Exception: _idisk = {}
+        _imerged = dict(_idisk); _imerged.update(_pin_index)
+        _imerged = {k: v for k, v in _imerged.items() if k in _merged}
+        open(_PIN_INDEX_FILE + ".tmp", "w", encoding="utf-8").write(json.dumps(_imerged))
+        os.replace(_PIN_INDEX_FILE + ".tmp", _PIN_INDEX_FILE)
     except Exception:
         pass
     if _have_lock:

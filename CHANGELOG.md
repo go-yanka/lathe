@@ -2,6 +2,29 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.24.0 — 2026-07-08
+
+**Model-aware specs (owner design): the analyst drafts FOR the implementer in use, guided by saved
+per-class standards; pins gain a model-class anchor with revalidated cross-model reuse.**
+
+- **Per-model-class drafting standards** (`tools/model_profiles.py`, trusted data + harness-built
+  classifier `tools/model_class.py`: frontier | local-large | local-small). Every draft AND repair injects
+  the standard of the CONFIGURED implementer: frontier gets whole-file latitude; local-small gets
+  decomposition rules, worked examples, explicit-import rules, and — for web artifacts — a MANDATORY
+  skeleton (the analyst writes the working scaffold; the small model fills ONE bounded region).
+- **Proven end-to-end on the real local 9B:** `lathe do "<canvas animation page>"` with the 9B configured →
+  the drafter emitted a skeleton spec targeting `openai:local` → the 9B filled the region on the GPU
+  (127.0.0.1:8089) → real-Chromium gate green, first pass. The same goal one-shot on the 9B previously
+  failed 3/3.
+- **Pins: model class as an anchor** (`.pins.index.json` sidecar — pin keys and the H1 regime compare are
+  untouched; the 500-pin corpus survives). On an exact-key miss, a pin built by a DIFFERENT model of the
+  SAME class for the SAME spec is ADOPTED — but only after its code re-passes the tests. Proven: two
+  frontier-class model strings, second build reused the first's pin at 0 generation calls.
+- **Validator: content skeletons unblocked.** `skeleton` was python-AST-scanned, auto-rejecting every HTML
+  scaffold; now .py skeletons keep the exec scan while content skeletons are held to an active/exfil
+  deny-list (eval/require/fetch/import(/WebSocket/...) — CSS `!important` unaffected.
+- Manifest SELECTION records which class standard shaped the spec (`spec-for:local-small`).
+
 ## v2.23.0 — 2026-07-08
 
 **The feedback loop is now the DEFAULT everywhere: a failed build auto-invokes the analyst to adjust the spec.**

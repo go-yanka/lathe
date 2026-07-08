@@ -157,12 +157,35 @@ _SCOPE = {
 }
 
 
-def _strict_suffix(focus="helper", out_dir=None):
+def _profile_block(impl_model, focus):
+    """Owner design: the analyst drafts specs FOR the implementer in use. Injects the saved per-class
+    standard (tools/model_profiles.py) into the drafting ask; for the webapp lane on a local implementer
+    it also overrides the artifact 'model' and (small class) demands the skeleton pattern."""
+    try:
+        _pp = importlib.util.spec_from_file_location("model_profiles", os.path.join(_TOOLS, "model_profiles.py"))
+        _pm = importlib.util.module_from_spec(_pp); _pp.loader.exec_module(_pm)
+        prof = _pm.profile_for(impl_model)
+    except Exception:
+        return ""
+    block = "\n\n" + prof.get("directives", "")
+    if focus == "webapp" and prof.get("artifact_model") != "claude":
+        block += ('\nPROFILE OVERRIDE (this implementer is NOT frontier-class): in the ARTIFACTS dict set '
+                  '"model": "openai:local" (NOT "claude").')
+        if prof.get("artifact_skeleton"):
+            block += (' You MUST also provide a "skeleton" field: the COMPLETE working file written by YOU '
+                      '(shell + wiring + run loop) with exactly ONE __FILL__ marker for a bounded data/'
+                      'config region the implementer completes.')
+    return block
+
+
+def _strict_suffix(focus="helper", out_dir=None, impl_model=None):
     """The format+scope block appended to a planner ask, varying by capability focus.
     out_dir: per-goal workspace (relative, forward slashes) — the drafted plan's OUT_DIR, so every
-    generated module/artifact for a goal lands in the goal's own folder instead of tools/."""
+    generated module/artifact for a goal lands in the goal's own folder instead of tools/.
+    impl_model: the CONFIGURED implementer — its saved class standard shapes the spec."""
     head = (_FORMAT_HEAD_T % out_dir) if out_dir else _FORMAT_HEAD
-    return head + _SCOPE.get(focus, _SCOPE["helper"])
+    return head + _SCOPE.get(focus, _SCOPE["helper"]) + _profile_block(
+        impl_model or os.environ.get("LATHE_MODEL", "openai:local"), focus)
 
 
 def clean_plan_text(text):
@@ -263,6 +286,7 @@ def repair_plan(plan_path):
     import ast as _a
     out_dir = ""
     has_artifacts = False
+    unit_model = None                                     # the model the failing plan actually targets
     try:
         for n in _a.walk(_a.parse(text)):
             if isinstance(n, _a.Assign):
@@ -271,6 +295,11 @@ def repair_plan(plan_path):
                         out_dir = str(n.value.value)
                     if isinstance(t, _a.Name) and t.id == "ARTIFACTS" and getattr(n.value, "elts", None):
                         has_artifacts = True
+            if isinstance(n, _a.Dict) and unit_model is None:
+                for k, v in zip(n.keys, n.values):
+                    if (isinstance(k, _a.Constant) and k.value == "model"
+                            and isinstance(v, _a.Constant) and isinstance(v.value, str)):
+                        unit_model = v.value
     except SyntaxError:
         pass
     out_abs = out_dir if os.path.isabs(out_dir) else os.path.join(_ROOT, out_dir.replace("/", os.sep))
@@ -287,6 +316,9 @@ def repair_plan(plan_path):
     preamble = _REPAIR_PREAMBLE % (text, feedback)
     if has_artifacts:
         preamble += _REPAIR_ARTIFACT_HINT
+    # owner design: the repaired spec is written FOR the implementer that failed (saved class standards)
+    preamble += _profile_block(unit_model or os.environ.get("LATHE_MODEL", "openai:local"),
+                               "webapp" if has_artifacts else "helper")
     return clean_plan_text(_reqspec.request_spec(preamble)), feedback
 
 

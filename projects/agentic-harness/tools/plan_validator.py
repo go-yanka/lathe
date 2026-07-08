@@ -279,9 +279,33 @@ def is_valid_plan(text):
             if not _expr_safe(ts):
                 return {'ok': False, 'reason': 'unsafe test expression (dunder/import/danger)'}
     for lst in (names.get('FUNCTIONS'), names.get('ARTIFACTS')):  # shared exec'd-field checks (both lists)
-        for fn in _collect_strs(lst, 'functional') + _collect_strs(lst, 'skeleton') + _collect_strs(lst, 'glue'):
+        for fn in _collect_strs(lst, 'functional') + _collect_strs(lst, 'glue'):
             if _code_danger(fn):
-                return {'ok': False, 'reason': 'unsafe functional/skeleton/glue (runs as code)'}
+                return {'ok': False, 'reason': 'unsafe functional/glue (runs as code)'}
+    # skeleton is EXEC'd only when the artifact is a .py (python scan). For CONTENT artifacts (html/js/...)
+    # it is spliced file text — python ast.parse would auto-reject ALL of them — so hold it to a deny-list
+    # of active/exfil primitives instead. (Backticks allowed: JS template literals are legitimate here;
+    # 'import ' with the trailing space does NOT match CSS '!important'.)
+    _SKEL_DENY = ('require(', 'child_process', 'fs.', 'eval(', 'Function(', 'fetch(', 'XMLHttpRequest',
+                  'WebSocket', 'globalThis', '__proto__', 'constructor[', 'import(', 'import ')
+    for fn in _collect_strs(names.get('FUNCTIONS'), 'skeleton'):
+        if _code_danger(fn):
+            return {'ok': False, 'reason': 'unsafe function skeleton (runs as code)'}
+    if isinstance(names.get('ARTIFACTS'), ast.List):
+        for el in names['ARTIFACTS'].elts:
+            if not isinstance(el, ast.Dict):
+                continue
+            _kv = {k.value: v for k, v in zip(el.keys, el.values) if isinstance(k, ast.Constant)}
+            _sk = _kv.get('skeleton')
+            if not (isinstance(_sk, ast.Constant) and isinstance(_sk.value, str)):
+                continue
+            _pv = _kv.get('path')
+            _p = _pv.value if (isinstance(_pv, ast.Constant) and isinstance(_pv.value, str)) else ''
+            if _p.endswith('.py'):
+                if _code_danger(_sk.value):
+                    return {'ok': False, 'reason': 'unsafe .py artifact skeleton (runs as code)'}
+            elif any(d in _sk.value for d in _SKEL_DENY):
+                return {'ok': False, 'reason': 'unsafe content skeleton (eval/require/fetch/import denied)'}
         for fr in _collect_strs(lst, 'functional_ref'):           # a registry KEY, not code — pin to identifier form
             if not re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', fr):
                 return {'ok': False, 'reason': "functional_ref must be a simple identifier (a tools/func_gates.py key)"}

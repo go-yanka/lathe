@@ -277,7 +277,12 @@ def cmd_do(args):
     if _mf is not None:
         try:
             # #59b: the goal-router's decision IS this run's selection — record it (was "- not reached -").
-            _mf.set_selection("goal-router", [], [focus] + ([ws] if ws else []))
+            # Owner design: also record WHICH model-class standard shaped the drafted spec.
+            try:
+                _cls = _tool("model_class").model_class(os.environ.get("LATHE_MODEL", "openai:local"))
+            except Exception:
+                _cls = "?"
+            _mf.set_selection("goal-router", [], [focus, "spec-for:" + _cls] + ([ws] if ws else []))
         except Exception:
             pass
     if _mf is not None and _draft_calls["n"]:
