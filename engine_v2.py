@@ -1158,6 +1158,7 @@ artifact_rows = []                 # report plumbing: {path, ok, src, gate} per 
 for art in getattr(plan, "ARTIFACTS", []):
     _gate_broken = False           # #12 U1: per-artifact — True when the functional gate's ENV failed (inoperative)
     _aattempts = 0                 # #59b: generation attempts spent on THIS artifact (0 = pinned/skeleton, no model call)
+    _attempt_log = []              # report: one entry per attempt — "N:structural(8)" / "N:functional" / "N:PASS"
     apath = art["path"] if os.path.isabs(art["path"]) else os.path.normpath(os.path.join(_pre_out, art["path"]))
     # SECURITY: the artifact path is analyst/model-chosen. Never let it escape OUT_DIR (an absolute path
     # or a ../ traversal would overwrite arbitrary files, e.g. engine_v2.py/board.py). Reject + bank as fail.
@@ -1267,6 +1268,7 @@ for art in getattr(plan, "ARTIFACTS", []):
                 raw = call_model(_EMIT + aprompt, min(0.2 + 0.1 * k, 1.0), use_model)
             except Exception as e:
                 print(f"    [gen ERROR attempt {k+1} ({use_model})] {e}")
+                _attempt_log.append("%d:gen-error" % (k + 1))
                 continue
             c = _strip_fence(raw)
             # SALVAGE (owner finding): chatter before the file start — cut to the first real file token.
@@ -1277,6 +1279,9 @@ for art in getattr(plan, "ARTIFACTS", []):
                     print(f"    [salvage: stripped {_dt} chars of preamble chatter before <!doctype]")
                     c = c[_dt:]
             if askel:   # H8 splice skeleton-fill: model returned ONLY the fill region; place it in the scaffold
+                # Small models ECHO the marker inside their fill (observed 4/4 on the 9B: "// __FILL__").
+                # A legitimate fill never contains the literal marker — strip echoes before splicing.
+                c = c.replace(amark, "")
                 c = askel.replace(amark, c, 1)
             sok, sfails = _structural(c)
             fok, fdetail, ftimeout, finop = (_func_test(c, afunc, aext) if sok
@@ -1294,10 +1299,13 @@ for art in getattr(plan, "ARTIFACTS", []):
                     _gate_broken = True           # gate env is down: no candidate can be judged this run
                     break
             if sok and fok:                       # generation must pass STRUCTURAL + FUNCTIONAL
+                _attempt_log.append("%d:PASS" % (k + 1))
                 acontent, asrc, pins[akey] = c, ushort, c
                 _stamp_pin_index(akey, _aspec_key, use_model)
                 _pins_added_this_run.add(akey)
                 break
+            _attempt_log.append("%d:%s" % (k + 1, ("structural(%d)" % len(sfails)) if not sok
+                                           else ("gate-timeout" if ftimeout else "functional")))
             if ftimeout:                          # P0-1: a gate TIMEOUT is slow/flaky, not a wrong answer — retry, do NOT bank as a spec failure
                 print(f"    [gen attempt {k + 1} functional TIMEOUT — not banked]")
                 continue
@@ -1341,7 +1349,8 @@ for art in getattr(plan, "ARTIFACTS", []):
         print(f"  [artifact FAIL -> analyst refines spec/tests] {apath}  (candidates saved in {_faildir})")
     artifact_results.append(acontent is not None)
     artifact_rows.append({"path": art["path"], "ok": acontent is not None, "src": asrc,
-                          "attempts": _aattempts, "bytes": (len(acontent) if acontent is not None else None),
+                          "attempts": _aattempts, "attempt_log": _attempt_log,
+                          "bytes": (len(acontent) if acontent is not None else None),
                           "fail_bank": (None if acontent is not None else
                                         os.path.relpath(_faildir, os.path.dirname(os.path.abspath(__file__)))),
                           "gate": ("INOPERATIVE (gate env broke - not a spec failure)" if _gate_broken

@@ -2,6 +2,23 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.27.0 — 2026-07-08
+
+**Report: per-attempt trail. Engine: fill marker-echo fix. Game-of-Life documentation experiment recorded.**
+
+- **Attempt trail in the manifest** (owner report-audit): each artifact row now shows the per-attempt story
+  (`attempt trail: 1:structural(8) -> 2:PASS`) instead of only the final result.
+- **Skeleton fill fix:** small models ECHO the `__FILL__` marker inside their completion (observed 4/4 on
+  the 9B — `// __FILL__` as a comment); a legitimate fill never contains the marker, so echoes are stripped
+  before splicing.
+- **Experiment (pre-registered, identical Conway's-Game-of-Life goal):**
+  fable/fable: GREEN attempt 1 — 3,356 paid tokens, 49.5s end-to-end; glider rule-check passed (21
+  generations, correct diagonal travel); pinned rebuild byte-identical at 0 tokens.
+  fable-spec/9B-fill: FAILED 9/9 attempts across 3 rounds — after harness bugs were fixed, the residual
+  cause is the 9B emitting HTML inside the pure-JS fill region ("Unexpected token '<'"). Honest finding:
+  for SMALL programs the frontier one-shot is cheaper AND more reliable; the two-tier split earns its keep
+  on LARGE artifacts (Tetris: 29-98k one-shot vs ~5-12k two-tier). Task-size crossover is real.
+
 ## v2.26.0 — 2026-07-08
 
 **Owner finding: fresh-attempt duds were FORMAT failures — hard output contract cuts attempts to 1.**

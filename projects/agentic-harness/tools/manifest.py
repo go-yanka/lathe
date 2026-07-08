@@ -323,6 +323,8 @@ def render(d):
                     L.append("    artifact   %-24s %-6s %-9s %-13s gates: %s  [%s]" % (
                         ar.get("path"), "PASS" if ar.get("ok") else "FAIL", _sz, _at,
                         ar.get("gate") or "?", ar.get("src") or "fail"))
+                    if ar.get("attempt_log"):
+                        L.append("               attempt trail: %s" % "  ->  ".join(ar["attempt_log"]))
                     if not ar.get("ok") and ar.get("fail_bank"):
                         L.append("               failed candidates + reasons: %s" % ar["fail_bank"])
                     # #59b: the actual assert checklist — the proof of WHAT the spec pinned down.
