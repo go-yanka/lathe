@@ -2,6 +2,17 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.24.1 — 2026-07-08
+
+**web_canvas_game gate: slow-tick games no longer false-fail (a WORKING 9B Tetris was refused).**
+
+- The animation check sampled two frames 700ms apart — but correct Tetris gravity at level 1 ticks slower
+  than that, so a working game read as "not animating" (found live: the 9B's gate-refused attempt was a
+  playable Tetris with zero JS errors). The gate now forces movement (soft drop) and observes across a
+  window longer than one tick.
+- Two-tier milestone recorded: the repaired (skeleton) Tetris spec built GREEN on the local 9B — 279
+  generated tokens, 9.7s, first attempt — vs 29k-98k frontier implementer tokens for fable one-shot.
+
 ## v2.24.0 — 2026-07-08
 
 **Model-aware specs (owner design): the analyst drafts FOR the implementer in use, guided by saved

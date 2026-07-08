@@ -57,7 +57,12 @@ with sync_playwright() as p:
         page.keyboard.press(k)
         page.wait_for_timeout(120)
     frame_a = page.eval_on_selector("canvas", "c => c.toDataURL()")
-    page.wait_for_timeout(700)
+    # A CORRECT slow-tick game (Tetris gravity ~1s at level 1) can be still for 700ms — that false-failed
+    # a WORKING 9B build. Force movement (soft drop) and observe across a window longer than one tick.
+    page.keyboard.press("ArrowDown")
+    page.wait_for_timeout(600)
+    page.keyboard.press("ArrowDown")
+    page.wait_for_timeout(900)
     frame_b = page.eval_on_selector("canvas", "c => c.toDataURL()")
     browser.close()
 assert not errors, "JS errors on the page: " + " | ".join(errors[:3])
