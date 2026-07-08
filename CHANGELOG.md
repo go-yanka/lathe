@@ -2,6 +2,18 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.20.1 — 2026-07-07
+
+**Functional gate joins the tri-state contract: a broken browser env is INOPERATIVE, never a spec failure.**
+
+- A functional (Playwright) gate whose INFRASTRUCTURE fails — browser executable missing/locked, playwright
+  absent, launch failure — is now classified INOPERATIVE by a harness-built triage module
+  (`tools/func_gate_triage.py`): the gate re-runs on the SAME candidate (transient locks clear; no wasted
+  model calls), and if it stays broken the build stops with an honest environment verdict ("the SPEC is not
+  at fault; fix the environment") instead of burning every attempt and feeding the analyst repair loop
+  misleading spec-failure feedback it cannot fix. Verified both ways: a deliberately-broken browser path
+  yields INOPERATIVE after 1 model call; a healthy env builds the same plan green.
+
 ## v2.20.0 — 2026-07-07
 
 **Per-goal workspaces, web goals build real browser apps, polyglot (JS) function lane, full-clarity run report.**

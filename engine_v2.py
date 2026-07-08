@@ -1020,16 +1020,34 @@ def _strip_fence(t):
     if j != -1:
         s = s[:j + len("</html>")]
     return s.strip()
+_GATE_TRIAGE = None
+
+
+def _gate_triage():
+    """Lazy singleton for the harness-built functional-gate triage classifier (inoperative vs candidate-fail)."""
+    global _GATE_TRIAGE
+    if _GATE_TRIAGE is None:
+        try:
+            _tp = importlib.util.spec_from_file_location("func_gate_triage", os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "func_gate_triage.py"))
+            _tm = importlib.util.module_from_spec(_tp); _tp.loader.exec_module(_tm)
+            _GATE_TRIAGE = _tm
+        except Exception:
+            _GATE_TRIAGE = False
+    return _GATE_TRIAGE or None
+
+
 def _func_test(content, func_script, suffix=".html"):
     """FUNCTIONAL gate: run the plan's functional test (e.g. Playwright) against the generated content.
     Writes content to a temp file (path in env ARTIFACT_FILE) and runs func_script as a subprocess;
     exit 0 = pass. Lets the harness reject UI that is structurally present but behaviourally broken.
     `suffix` is the temp-file extension — defaults to .html (UI), pass the artifact's real extension
     (e.g. .py) so a backend/DB module can be imported by its gate via $ARTIFACT_FILE. (#132)
-    Returns (ok, detail, timed_out). P0-1: a gate TIMEOUT is reported DISTINCTLY (slow/flaky, NOT a wrong
-    answer) so the caller can retry or skip-banking instead of treating it as a spec failure."""
+    Returns (ok, detail, timed_out, inoperative). P0-1: a gate TIMEOUT is reported DISTINCTLY (slow/flaky,
+    NOT a wrong answer). #12 U1: `inoperative` = the gate ITSELF could not run (browser/env broke) — the
+    candidate was never judged, so the caller must not bank it as a failure."""
     if not func_script:
-        return True, "", False
+        return True, "", False, False
     th = tempfile.NamedTemporaryFile(suffix=suffix, delete=False, mode="w", encoding="utf-8")
     th.write(content); th.close()
     ts = tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w", encoding="utf-8")
@@ -1044,14 +1062,32 @@ def _func_test(content, func_script, suffix=".html"):
         detail = (r.stdout + r.stderr).strip()
         if r.returncode != 0:
             print(f"    [functional FAIL] {(detail or 'nonzero exit')[:300]}")
-        return r.returncode == 0, detail, False
+        # #12 U1 (functional lane): a nonzero exit whose output shows the GATE INFRASTRUCTURE broke
+        # (browser missing/locked, playwright absent) is INOPERATIVE — the candidate was never judged.
+        # Without this, a transient browser failure burned every attempt and fed the analyst
+        # "your spec failed" feedback it could not fix.
+        _inop = False
+        if r.returncode != 0 and _gate_triage() is not None:
+            try:
+                _inop = bool(_gate_triage().gate_infra_failure(detail))
+            except Exception:
+                _inop = False
+        if _inop:
+            print(f"    [functional INOPERATIVE] gate infrastructure failed (browser/env), candidate NOT judged")
+        return r.returncode == 0, detail, False, _inop
     except subprocess.TimeoutExpired:
         _to = os.environ.get("FUNC_GATE_TIMEOUT", "360")
         print(f"    [functional TIMEOUT] gate exceeded {_to}s — flaky/slow, NOT counted as a spec failure")
-        return False, f"TIMEOUT after {_to}s", True
+        return False, f"TIMEOUT after {_to}s", True, False
     except Exception as e:
+        _inop = False
+        if _gate_triage() is not None:
+            try:
+                _inop = bool(_gate_triage().gate_infra_failure(str(e)))
+            except Exception:
+                _inop = False
         print(f"    [functional ERROR] {e}")
-        return False, str(e), False
+        return False, str(e), False, _inop
     finally:
         for f in (th.name, ts.name):
             try:
@@ -1061,6 +1097,7 @@ def _func_test(content, func_script, suffix=".html"):
 artifact_results = []
 artifact_rows = []                 # report plumbing: {path, ok, src, gate} per artifact -> metrics -> manifest
 for art in getattr(plan, "ARTIFACTS", []):
+    _gate_broken = False           # #12 U1: per-artifact — True when the functional gate's ENV failed (inoperative)
     apath = art["path"] if os.path.isabs(art["path"]) else os.path.normpath(os.path.join(_pre_out, art["path"]))
     # SECURITY: the artifact path is analyst/model-chosen. Never let it escape OUT_DIR (an absolute path
     # or a ../ traversal would overwrite arbitrary files, e.g. engine_v2.py/board.py). Reject + bank as fail.
@@ -1118,20 +1155,22 @@ for art in getattr(plan, "ARTIFACTS", []):
         # content is fixed, so re-running the gate IS the correct retry; a real fail recurs, a flake clears).
         c = askel
         sok, sfails = _structural(c)
-        fok, fdetail, ftimeout = (True, "", False)
+        fok, fdetail, ftimeout, finop = (True, "", False, False)
         if sok and afunc:
-            fok, fdetail, ftimeout = (False, "", False)
+            fok, fdetail, ftimeout, finop = (False, "", False, False)
             for _gt in range(3):
-                fok, fdetail, ftimeout = _func_test(c, afunc, aext)
-                if fok or not ftimeout:
+                fok, fdetail, ftimeout, finop = _func_test(c, afunc, aext)
+                if fok or not (ftimeout or finop):
                     break
-                print(f"    [skeleton-complete] gate flake/timeout — retry {_gt + 1}/3")
+                print(f"    [skeleton-complete] gate flake/timeout/inoperative — retry {_gt + 1}/3")
+                time.sleep(2)                     # give a transient lock (AV scan) a moment to clear
         if sok and fok:
             acontent, asrc, pins[akey] = c, "skel", c
             _pins_added_this_run.add(akey)
             print(f"    [skeleton-complete: no model call — gated the scaffold directly]")
-        elif ftimeout:
-            print(f"    [skeleton-complete TIMEOUT after retries — NOT a spec failure; left undeployed, retry later]")
+        elif ftimeout or finop:
+            print(f"    [skeleton-complete {'INOPERATIVE (gate env broke)' if finop else 'TIMEOUT'} after retries — "
+                  f"NOT a spec failure; left undeployed, retry later]")
         else:
             try:
                 os.makedirs(_faildir, exist_ok=True)
@@ -1156,7 +1195,20 @@ for art in getattr(plan, "ARTIFACTS", []):
             if askel:   # H8 splice skeleton-fill: model returned ONLY the fill region; place it in the scaffold
                 c = askel.replace(amark, c, 1)
             sok, sfails = _structural(c)
-            fok, fdetail, ftimeout = _func_test(c, afunc, aext) if sok else (False, "(skipped: structural failed first)", False)
+            fok, fdetail, ftimeout, finop = (_func_test(c, afunc, aext) if sok
+                                             else (False, "(skipped: structural failed first)", False, False))
+            if sok and finop:
+                # The GATE broke, not the candidate. Re-run the gate on the SAME content (a transient lock —
+                # e.g. an AV scan on the browser exe — clears; regenerating wastes tokens on an unjudged spec).
+                for _rt in range(2):
+                    time.sleep(3)
+                    print(f"    [functional gate inoperative — re-running gate on the same candidate ({_rt + 1}/2)]")
+                    fok, fdetail, ftimeout, finop = _func_test(c, afunc, aext)
+                    if not finop:
+                        break
+                if finop:
+                    _gate_broken = True           # gate env is down: no candidate can be judged this run
+                    break
             if sok and fok:                       # generation must pass STRUCTURAL + FUNCTIONAL
                 acontent, asrc, pins[akey] = c, ushort, c
                 _pins_added_this_run.add(akey)
@@ -1194,12 +1246,19 @@ for art in getattr(plan, "ARTIFACTS", []):
         _atomic_write(apath, acontent)
         _artifacts_written.append(apath)
         print(f"  [artifact {asrc:7}] {os.path.basename(apath)} ({len(acontent)} chars, {len(atests)} tests, functional={'yes' if afunc else 'no'})")
+    elif _gate_broken:
+        # HONEST verdict: environment problem, not a spec problem — the analyst repair loop must NOT be told
+        # the spec failed (it can't fix a browser), and no candidate was banked as a failure.
+        print(f"  [artifact GATE INOPERATIVE (environment)] {apath} — the functional gate itself could not run "
+              f"(browser/playwright env). The SPEC is not at fault; fix the environment (e.g. `playwright install`, "
+              f"check antivirus locks) and rebuild.")
     else:
         print(f"  [artifact FAIL -> analyst refines spec/tests] {apath}  (candidates saved in {_faildir})")
     artifact_results.append(acontent is not None)
     artifact_rows.append({"path": art["path"], "ok": acontent is not None, "src": asrc,
-                          "gate": ("structural(%d)%s" % (len(atests), "+functional:" + (_aref or "inline")
-                                                         if afunc else ""))})
+                          "gate": ("INOPERATIVE (gate env broke - not a spec failure)" if _gate_broken
+                                   else "structural(%d)%s" % (len(atests), "+functional:" + (_aref or "inline")
+                                                              if afunc else ""))})
 _pins_snapshot = None      # pre-build on-disk pins, so a later regression FAIL can revert a just-written bad pin
 try:
     os.makedirs(_pre_out, exist_ok=True)
