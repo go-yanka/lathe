@@ -221,6 +221,30 @@ def _goal_board():
     return path
 
 
+def _intake_panel(goal, k=3):
+    """A1: pick a goal-matched PANEL of expert lenses for the intake — REUSES the same decider the planner
+    already uses (agent_router.select_agents_for_goal over agents/catalog.json), with the CE floor. Returns
+    persona names (token-lean; no body fetch). The panel gives well-rounded questions from diverse viewpoints;
+    a single moderator pass (the intake analyst call) merges them. Best-effort -> [] on any failure."""
+    try:
+        import json as _json
+        if TOOLS not in sys.path:
+            sys.path.insert(0, TOOLS)
+        from agent_router import select_agents_for_goal
+        cat = _json.load(open(os.path.join(INNER, "agents", "catalog.json"), encoding="utf-8"))
+        ents = cat.get("agents", [])
+        names = select_agents_for_goal(goal, [[e["name"], e.get("capability", "")] for e in ents], k) or []
+        try:
+            from persona_market import ensure_ce_floor
+            _ce = [e["name"] for e in ents if e.get("source", "").startswith("EveryInc")]
+            names = ensure_ce_floor(names, _ce, "correctness-reviewer")
+        except Exception:
+            pass
+        return [n for n in names if n][:k]
+    except Exception:
+        return []
+
+
 def _goal_intake(goal, ws, live, mf, interactive=False):
     """MASTER_PLAN A: INTAKE before drafting. An analyst pass surfaces the UNSTATED assumptions a goal leaves
     open — the choices an implementer would otherwise GUESS (the helicopter-physics class). Reuses the
@@ -229,26 +253,31 @@ def _goal_intake(goal, ws, live, mf, interactive=False):
     built to them explicitly. interactive=True lets the user confirm/correct each before building.
     Returns (augmented_goal, assumptions)."""
     assumptions = []
+    panel = _intake_panel(goal)                          # A1: goal-matched expert lenses (reused decider)
+    _panel_line = ("\n\nINTERVIEW PANEL — surface the assumptions each of these experts would flag, then MERGE "
+                   "them (dedupe): %s.\n" % ", ".join(panel)) if panel else ""
     try:
         _al = _tool("assumption_logic")
         _ap = os.path.join(INNER, "ce_personas", "assumption-auditor.md")
         _persona = open(_ap, encoding="utf-8").read() if os.path.exists(_ap) else ""
-        _ask = ("%s\n\n--- GOAL TO AUDIT ---\n%s\n\nList the UNSTATED assumptions this goal leaves open — the "
+        _ask = ("%s%s\n\n--- GOAL TO AUDIT ---\n%s\n\nList the UNSTATED assumptions this goal leaves open — the "
                 "specific choices an implementer must make that the goal never pins down (behaviour, controls, "
                 "physics, edge cases, win/lose, defaults, scope). One per line, EXACTLY this format, nothing else:\n"
                 "[assumption | high|med|low | <category>] <the specific unstated choice + the default you'd take>\n"
-                "Only real ambiguities that change the result. No preamble, no trailing prose.") % (_persona, goal)
+                "Only real ambiguities that change the result. No preamble, no trailing prose.") % (_persona, _panel_line, goal)
         raw = live._reqspec.request_spec(_ask)
         assumptions = _al.parse_assumptions(raw or "")
     except Exception as e:
         sys.stderr.write("intake: assumption pass skipped (%r)\n" % (e,))
+    if panel:
+        print("  intake panel: %s" % ", ".join(panel))
     if mf is not None:
         try: mf.set_front_end(ran=True, clarify=("interactive" if interactive else "assume-and-record"),
                               assumptions=assumptions)
         except Exception: pass
     if not assumptions:
         print("  intake: no material assumptions surfaced (goal is specific)")
-        return goal, []
+        return goal, [], panel
     _hi = sum(1 for a in assumptions if a.get("materiality") == "high")
     print("  intake: surfaced %d assumption(s) (%d high) — recorded + fed into the spec:" % (len(assumptions), _hi))
     for a in assumptions:
@@ -283,7 +312,7 @@ def _goal_intake(goal, ws, live, mf, interactive=False):
             pass
     _block = ("\n\nRESOLVED ASSUMPTIONS (the goal was ambiguous — BUILD TO THESE EXACTLY, do not silently "
               "re-decide them):\n" + "\n".join("- %s" % a["text"] for a in assumptions))
-    return goal + _block, assumptions
+    return goal + _block, assumptions, panel
 
 
 def _do_targeted(goal, spec_for):
@@ -410,9 +439,9 @@ def cmd_do(args):
         print("> drafting + building toward: %s\n" % goal)
     # MASTER_PLAN A: intake FIRST — surface the goal's unstated assumptions and feed them into drafting
     # (assume-and-record default; --interactive to confirm; --assume or LATHE_INTAKE=0 to skip).
-    _build_goal, _assumptions = (goal, [])
+    _build_goal, _assumptions, _panel = (goal, [], [])
     if not _no_intake:
-        _build_goal, _assumptions = _goal_intake(goal, ws, live, _mf, interactive=_interactive)
+        _build_goal, _assumptions, _panel = _goal_intake(goal, ws, live, _mf, interactive=_interactive)
         # A6: intake wrote the goal-scope ledger next to the plan → ARM the (now artifact-lane-covering)
         # assumption gate so the build reads + enforces it. assume-and-record auto-confirms, so it passes but
         # is recorded + enforceable; under STRICT or unconfirmed HIGH it blocks. setdefault: an explicit
@@ -437,7 +466,10 @@ def cmd_do(args):
                 _cls = _tool("model_class").model_class(os.environ.get("LATHE_MODEL", "openai:local"))
             except Exception:
                 _cls = "?"
-            _mf.set_selection("goal-router", [], [focus, "spec-for:" + _cls] + ([ws] if ws else []))
+            # A1/E2: record the intake PANEL personas (was permanently personas=[] for do).
+            _mf.set_selection("goal-router+intake-panel" if _panel else "goal-router",
+                              [{"id": p, "role": "intake-panel"} for p in _panel],
+                              [focus, "spec-for:" + _cls] + ([ws] if ws else []))
         except Exception:
             pass
     if _mf is not None and _draft_calls["n"]:

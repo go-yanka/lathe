@@ -2,6 +2,21 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.33.0 — 2026-07-08 — MASTER_PLAN A1: intake INTERVIEW PANEL + E2 (personas recorded for `do`)
+
+**Intake is now a goal-matched expert PANEL, and `do` finally records which personas shaped the spec.**
+
+- The intake upgrades from a single auditor to a PANEL: `_intake_panel` reuses the EXISTING decider
+  (`agent_router.select_agents_for_goal` over agents/catalog.json + CE floor — the same one the planner
+  uses; no rebuild) to pick 2-3 goal-matched lenses. Their viewpoints are injected into one merged
+  assumption pass ("surface what each expert would flag, then dedupe") — panel thinks, one call asks.
+- E2 DONE: the panel personas are recorded in the manifest `selection.personas` (was permanently `[]` for
+  every `do` — the 'personas fire only in review' gap). Proven: a web `do` recorded
+  `['correctness-reviewer','business-analyst',...]` + 11 assumptions.
+- HONEST: panel QUALITY is bounded by the word-match decider (E3, still open) — a game goal can draw an
+  off-topic lens. The WIRING is correct + gated (12 gates green); the semantic-decider upgrade is E3.
+- Remaining in A: A3/A4 (interactive per-assumption confirm + spec approval — `--interactive` is the seed).
+
 ## v2.32.0 — 2026-07-08 — MASTER_PLAN A6: assumption gate ARMED on the web lane (bypass closed)
 
 **The assumption gate now covers ARTIFACT/webapp plans and enforces the intake's ledger — pure wiring of the
