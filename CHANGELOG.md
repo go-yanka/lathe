@@ -2,6 +2,25 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.30.0 — 2026-07-08 — MASTER_PLAN B4: the wiring gate (declared == executed)
+
+**The anti-disconnect gate: a workflow step that is DECLARED but not EXECUTED now fails the build.**
+
+This is the foundational fix for the disease surfaced by WIRING_AUDIT.md / WORKFLOWS_MAP.md — capabilities
+built and pinned in isolation but never wired into the command a user runs, uncaught for weeks because
+nothing gated the plumbing itself.
+
+- **Runner fix (`_run_workflow`):** every DECLARED step is now RECORDED — a placeholder that binds to
+  nothing is recorded `skipped` (was silently dropped, the exact historical bug); steps after a halt are
+  recorded `not-reached`. So `declared == executed` holds by construction, and any gap is visible.
+- **New standing gate `workflow_wiring_gate` (regression now 12 checks):** runs the REAL runner against
+  synthetic workflows (primitives stubbed, deterministic, ~ms) + checks every command-promoted workflow —
+  asserts every declared step label appears in the executed record. 4/4 probes; P4 confirms all 14 promoted
+  workflows satisfy declared==executed today.
+- Why this is first: once it exists, wiring the front-end (intake/assumptions, MASTER_PLAN A) is
+  self-proving — a declared clarify/assume step that doesn't fire fails the build. Disconnection becomes a
+  red gate, not a silent rot.
+
 ## v2.29.2 — 2026-07-08
 
 **Corrects v2.29.1 (shipped with a red gate — my error): bare-goal fix moved to the right layer.**

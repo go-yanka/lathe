@@ -2188,7 +2188,9 @@ def _run_workflow(wf, cmd, rest, argv, mf=None, eff_cmd=None):
     _joined = " ".join(rest)                                 # {files}/{args}/{goal} -> the full arg string
     _primitive_done = False
     rows = []
-    for kind, label, action in wf.get("steps", []):
+    _declared = wf.get("steps", [])
+    _halted_at = None                                       # index of the step we halted on (blocked)
+    for _i, (kind, label, action) in enumerate(_declared):
         action = action or ""
         if kind == "you":
             print("  [YOU checkpoint] %s" % label)
@@ -2208,7 +2210,12 @@ def _run_workflow(wf, cmd, rest, argv, mf=None, eff_cmd=None):
             act = (action.replace("{plan}", _plan_arg).replace("{args}", _joined)
                          .replace("{files}", _joined).replace("{goal}", _joined))
             if "{" in action and not act.replace(action.split(" ", 1)[0], "").strip():
-                continue                                    # placeholder bound to nothing -> skip, never a silent pass
+                # B4: a step whose placeholder bound to nothing is SKIPPED — but it must still be RECORDED,
+                # never silently dropped. A silent drop is exactly how declared steps went un-run and unnoticed.
+                rows.append("skipped")
+                if mf:
+                    mf.append_step(label, "skipped", kind)
+                continue
             rc = main(shlex.split(act))
         status = classify_step(kind, rc, "")
         rows.append(status)
@@ -2220,7 +2227,14 @@ def _run_workflow(wf, cmd, rest, argv, mf=None, eff_cmd=None):
                 # #59b: a refused run must NAME its cause — outcome used to read "REFUSE - reason: None"
                 # while only the buried step row said which workflow step blocked.
                 mf.record_gate("workflow", "blocked", True, "step blocked: %s (rc=%s)" % (label, rc))
+            _halted_at = _i
             break
+    # B4 INVARIANT: every DECLARED step must appear in the executed record. Steps after a halt didn't run —
+    # record them as "not-reached" so declared==executed always holds and the reason is visible (never a
+    # silent gap the wiring-gate can't see).
+    if _halted_at is not None and mf:
+        for kind, label, _a in _declared[_halted_at + 1:]:
+            mf.append_step(label, "not-reached", kind)
     return 0 if workflow_verdict(rows) == "PASS" else 1
 
 

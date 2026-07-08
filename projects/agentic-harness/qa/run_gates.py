@@ -30,6 +30,7 @@ CHECKS = [("tree_no_stale_dups", os.path.join(QA, "stale_gate.py")),
           ("env_not_drifted", os.path.join(QA, "env_drift_gate.py")),               # every env var the code reads is documented in env_catalog.py (lathe env)
           ("manifest_contract", os.path.join(QA, "manifest_contract_gate.py")),     # #12: every invocation emits a complete, un-skippable manifest (T2-T6)
           ("skeleton_lane", os.path.join(QA, "skeleton_lane_gate.py")),             # v2.26 post-mortem: BOTH artifact lanes get the RIGHT output contract (deterministic stub implementer)
+          ("workflow_wiring", os.path.join(QA, "workflow_wiring_gate.py")),         # B4: every DECLARED workflow step is EXECUTED+recorded (no silent disconnect); declared==executed
           ("spine_enforced", os.path.join(QA, "spine_gate.py")),                     # #12 P1: guard-forge/skill-subprocess/bypass attacks all defeated (P1-P5)
           ("gate_tristate", os.path.join(QA, "tristate_gate.py"))]                    # #12 U1: gates fail CLOSED (INOPERATIVE), never open, on their own error
 
