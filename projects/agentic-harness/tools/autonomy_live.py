@@ -71,6 +71,15 @@ def engine_build(plan_rel, model=None, tries="3", timeout=420):
     except subprocess.TimeoutExpired:
         return {"ok": False, "reason": "engine timeout"}
     out = (p.stdout or "") + "\n" + (p.stderr or "")
+    # #12 U1 (whole-class close): the engine now declares a gate whose ENV broke as INOPERATIVE. That verdict
+    # must survive up the stack — the analyst repair loop cannot fix a browser, so spending draft/repair
+    # budget on it is waste that LOOKS like an endless fix loop to the operator.
+    if "GATE INOPERATIVE" in out:
+        return {"ok": False, "inoperative": True,
+                "reason": "GATE INOPERATIVE (environment): the functional gate itself could not run "
+                          "(browser/playwright env). The spec is NOT at fault - no repair attempted. "
+                          "Fix the environment (e.g. `python -m playwright install chromium`, check "
+                          "antivirus locks) and rerun."}
     # ROBUST success signal: parse the engine's METRICS_JSON block. build_ok covers BOTH functions and
     # artifacts (the old "implemented: N/M" scrape reported every artifact-only plan as 0/0 -> failed).
     mj = re.search(r"===METRICS_JSON_BEGIN===\s*(\{.*?\})\s*===METRICS_JSON_END===", out, re.S)
@@ -409,6 +418,15 @@ def run(objective, max_steps=24, max_plans=6, build_one=False, db_path=None, dep
             task = res["task"] or {}
             tid = task.get("id") or task.get("name")
             last_blocker = res.get("reason", "")
+            # #12 U1 (whole-class close): INOPERATIVE = the gate ENV is down, so EVERY further build/repair
+            # this run would fail the same way. Halt immediately with the environment verdict — never spend
+            # analyst repairs on it, never Rule-of-Three escalate the plan (the plan is not at fault).
+            if "INOPERATIVE" in (last_blocker or ""):
+                if tid:
+                    _board.set_status(tid, "blocked", reason=last_blocker[:200], db_path=db_path)
+                sys.stderr.write("autonomy: HALT - %s\n" % last_blocker)
+                transcript.append({"step": "halt", "reason": last_blocker, "task": task})
+                break
             fails[tid] = fails.get(tid, 0) + 1
             # persist the fail count on the board so a stuck plan escalates ACROSS cycles, not just within one
             persisted = 0

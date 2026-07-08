@@ -2,6 +2,16 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.20.2 — 2026-07-08
+
+**INOPERATIVE closes end-to-end: the autonomy loop halts on a broken gate env instead of "repairing" the spec.**
+
+- v2.20.1 made the ENGINE honest about a broken browser env; this closes the REST of the class in one sweep:
+  `engine_build` surfaces the INOPERATIVE verdict upward, and the `do`/`chat`/auto loop HALTS immediately with
+  the environment fix instruction — no analyst repair calls (a rewrite can't fix a browser), no Rule-of-Three
+  escalation of a blameless plan, no repeat builds into a dead gate. Verified end-to-end: broken env =
+  1 build → halt with instructions; healthy env = green.
+
 ## v2.20.1 — 2026-07-07
 
 **Functional gate joins the tri-state contract: a broken browser env is INOPERATIVE, never a spec failure.**
