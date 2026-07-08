@@ -140,6 +140,11 @@ decider selected lenses for this code: correctness, adversarial, security, relia
 ### `lathe verify <plan.py>`
 Rebuild a plan and confirm it still passes its gates (a targeted regression for one plan).
 
+> **Default feedback loop:** a failed `lathe build` automatically invokes this repair once — the analyst
+> adjusts the SPEC from the banked evidence and the same implementer retries the repaired plan
+> (`<plan>_repaired.py`). Applies to every workflow that builds. Disable with `LATHE_REPAIR=0`;
+> `--json` stays primitive-only. An INOPERATIVE (environment) failure is never "repaired".
+
 ### `lathe repair <plan.py>`
 The two-tier feedback loop as a command: the analyst reads the plan plus its banked failure evidence
 (`_fn_fails/`, `_artifact_fails/` under the plan's OUT_DIR) and rewrites the SPEC so the current

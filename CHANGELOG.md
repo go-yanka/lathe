@@ -2,6 +2,25 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.23.0 — 2026-07-08
+
+**The feedback loop is now the DEFAULT everywhere: a failed build auto-invokes the analyst to adjust the spec.**
+
+- **`lathe build` auto-repair (owner rule: "if the lower model struggles, the higher model adjusts the
+  spec — in every workflow").** On a failed build, the analyst rewrites the plan from its banked failure
+  evidence and the SAME implementer retries the repaired spec (`<plan>_repaired.py`; original preserved).
+  One bounded round; `LATHE_REPAIR=0` disables; `--json` stays primitive-only; an INOPERATIVE (environment)
+  failure is never "repaired". Every promoted workflow that builds inherits this. Proven live: a plan with
+  a wrong test (`double_it(2)==5`) failed, the analyst corrected exactly the bad assert, rebuild green.
+- **Fix: repair now reads the per-goal fail bank.** Function failures bank under the workspace
+  (`OUT_DIR/_fn_fails/`) since v2.20, but the repair feedback reader still looked only in the legacy
+  `tools/_fn_fails` — repairs ran on empty evidence for workspace builds.
+- **Fix: manifest_contract gate de-flaked.** Probes located "their" manifest by mtime with a 1s slack;
+  back-to-back probes in the same second (full-suite timing) could read their PREDECESSOR's manifest and
+  fail with wrong-content verdicts (T2b/T2c "outcome wrong", "KeyError: analyst"). Now exact
+  set-difference: only a file that did not exist before the probe counts. 5/5 clean suite runs (was ~1-in-3
+  flaky).
+
 ## v2.22.0 — 2026-07-08
 
 **`lathe repair <plan>` — the two-tier feedback loop as a first-class command.**

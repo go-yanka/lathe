@@ -274,7 +274,11 @@ def repair_plan(plan_path):
     except SyntaxError:
         pass
     out_abs = out_dir if os.path.isabs(out_dir) else os.path.join(_ROOT, out_dir.replace("/", os.sep))
-    fb_fn = _recent_fail_feedback(_plan_function_names(abs_plan))
+    # per-goal workspaces: the engine banks fn fails under OUT_DIR/_fn_fails — read THERE first, with the
+    # legacy tools/_fn_fails as fallback (pre-workspace plans).
+    fb_fn = (_recent_fail_feedback(_plan_function_names(abs_plan),
+                                   faildir=os.path.join(out_abs, "_fn_fails")) if out_dir else "")
+    fb_fn = fb_fn or _recent_fail_feedback(_plan_function_names(abs_plan))
     fb_art = _artifact_fail_feedback(out_abs) if out_dir else ""
     feedback = "\n\n".join(x for x in (fb_fn, fb_art) if x)
     if not feedback.strip():
@@ -323,16 +327,17 @@ def _plan_function_names(path):
     return _plan_meta_ast(path)[1]
 
 
-def _recent_fail_feedback(fn_names, max_chars=1800):
+def _recent_fail_feedback(fn_names, max_chars=1800, faildir=None):
     """Pull the engine's banked post-mortems (exact failing test/error + the local model's candidate)
     for these functions — newest attempt per name. This is the concrete signal the analyst sharpens from."""
-    if not os.path.isdir(_FN_FAILDIR):
+    faildir = faildir or _FN_FAILDIR
+    if not os.path.isdir(faildir):
         return ""
     chunks = []
     for nm in fn_names:
         if not isinstance(nm, str) or not re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', nm):
             continue                                       # defense in depth: only identifier names (no ../ traversal into a read+exfil)
-        reasons = sorted(glob.glob(os.path.join(_FN_FAILDIR, glob.escape(nm) + ".*.reason.txt")),
+        reasons = sorted(glob.glob(os.path.join(faildir, glob.escape(nm) + ".*.reason.txt")),
                          key=os.path.getmtime, reverse=True)
         if not reasons:
             continue

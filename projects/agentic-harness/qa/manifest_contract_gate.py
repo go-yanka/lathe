@@ -30,24 +30,26 @@ import manifest as mfmod                        # noqa: E402
 import manifest_core as core                    # noqa: E402
 
 
-def _latest_manifest(after):
-    files = [f for f in glob.glob(os.path.join(mfmod.out_dir(), "*.manifest.json"))
-             if os.path.getmtime(f) >= after]
-    assert files, "no manifest emitted"
+def _new_manifest(known):
+    """The manifest THIS probe's invocation emitted = a file that was NOT there before it ran. The old
+    version used an mtime window with a 1s slack — back-to-back probes land in the same second under the
+    full suite, so a probe could read its PREDECESSOR's manifest and fail with a WRONG-content assert
+    ('T2c outcome wrong', 'KeyError: analyst') pointing at the wrong file. Set-difference is exact."""
+    files = [f for f in glob.glob(os.path.join(mfmod.out_dir(), "*.manifest.json")) if f not in known]
+    assert files, "no manifest emitted (probe produced no NEW manifest file)"
     latest = max(files, key=os.path.getmtime)
     return json.load(open(latest, encoding="utf-8")), latest
 
 
 def _invoke(argv):
-    import time
-    t0 = time.time() - 1
+    known = set(glob.glob(os.path.join(mfmod.out_dir(), "*.manifest.json")))   # snapshot BEFORE the probe
     try:
         rc = lathe.main(argv)
     except SystemExit as e:
         rc = e.code
     except RuntimeError:
         rc = "raised"
-    return rc, _latest_manifest(t0)[0]
+    return rc, _new_manifest(known)[0]
 
 
 def main():

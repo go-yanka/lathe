@@ -152,7 +152,63 @@ def cmd_build(args):
         print(_json.dumps(obj))
         return 0 if obj.get("build_ok") else 1
     print("> building %s on %s (best-of-%s)..." % (os.path.basename(plan), model, tries))
-    return _run([PY, ENGINE, plan, model, tries])
+    rc = _run([PY, ENGINE, plan, model, tries])
+    if rc == 0:
+        return 0
+    # DEFAULT FEEDBACK LOOP (owner rule): when the implementer fails, the HIGHER model adjusts the SPEC —
+    # in every workflow, not just `lathe do`. One bounded auto-repair round: analyst rewrites the plan from
+    # its banked failure evidence, then the SAME implementer retries the repaired spec. Opt out with
+    # LATHE_REPAIR=0 (or --json, whose primitive-only output is a compat guarantee).
+    if os.environ.get("LATHE_REPAIR", "on").strip().lower() in ("0", "false", "no", "off"):
+        return rc
+    # never "repair" an environment problem — the gate itself was inoperative, the spec is not at fault
+    try:
+        import json as _json
+        _last = _json.loads(open(os.path.join(ROOT, "metrics", "runs.jsonl"), encoding="utf-8").read()
+                            .strip().splitlines()[-1])
+        if _last.get("plan") == os.path.basename(plan) and any(
+                "INOPERATIVE" in str(a.get("gate", "")) for a in (_last.get("per_artifact") or [])):
+            print("> auto-repair SKIPPED: the gate was INOPERATIVE (environment) - fix the env and rebuild")
+            return rc
+    except Exception:
+        pass
+    print("> build failed - invoking the analyst to adjust the spec from banked evidence (LATHE_REPAIR=0 to disable)...")
+    live = _load_autonomy()
+    _mfx = _manifest()
+    if _mfx is not None:
+        try:
+            import pricebook as _pb
+            _am = os.environ.get("HARNESS_ANALYST_MODEL", "sonnet")
+            live._reqspec.USAGE_HOOK = lambda role, u: _mfx.record_usage(
+                "analyst", u.get("prompt_tokens", 0), u.get("completion_tokens", 0), 1,
+                "measured" if u.get("total_tokens") else "unmetered", _pb.price_for(_am))
+        except Exception:
+            pass
+    try:
+        new_text, _fb = live.repair_plan(plan)
+    except ValueError as e:
+        print("> auto-repair skipped: %s" % e)
+        return rc
+    if not new_text.strip():
+        print("> auto-repair skipped: analyst returned no rewrite")
+        return rc
+    v = _tool("plan_validator").is_valid_plan(new_text)
+    if not (v.get("ok") if isinstance(v, dict) else v):
+        print("> auto-repair REJECTED - rewritten plan failed validation: %s"
+              % (v.get("reason") if isinstance(v, dict) else "invalid"))
+        return rc
+    rplan = os.path.splitext(plan)[0] + "_repaired.py"
+    with open(rplan, "w", encoding="utf-8") as f:
+        f.write(new_text)
+    if _mfx is not None:
+        try:
+            _mfx.append_contributor({"id": "analyst-repair", "role": "analyst", "kind": "model",
+                                     "action": "auto-repair: rewrote spec of %s -> %s after failed build" % (
+                                         os.path.basename(plan), os.path.basename(rplan)), "status": "ok"})
+        except Exception:
+            pass
+    print("> repaired spec -> %s ; rebuilding on %s..." % (os.path.relpath(rplan, ROOT), model))
+    return _run([PY, ENGINE, rplan, model, tries])
 
 
 def _goal_board():
