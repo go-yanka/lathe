@@ -221,6 +221,56 @@ def _goal_board():
     return path
 
 
+def _do_targeted(goal, spec_for):
+    """`lathe do "<goal>" --for <class|all>` — draft spec variant(s) FOR the requested model class(es),
+    save them in the goal's workspace, and BUILD one: the requested class (single) or the variant matching
+    the configured implementer ('all'). Builds go through cmd_build, so the default feedback loop applies."""
+    live = _load_autonomy()
+    _mf = _manifest()
+    if _mf:
+        _mf.set_goal(goal)
+        try:
+            import pricebook as _pb
+            _am = os.environ.get("HARNESS_ANALYST_MODEL", "sonnet")
+            live._reqspec.USAGE_HOOK = lambda role, u: _mf.record_usage(
+                "analyst", u.get("prompt_tokens", 0), u.get("completion_tokens", 0), 1,
+                "measured" if u.get("total_tokens") else "unmetered", _pb.price_for(_am))
+        except Exception:
+            pass
+    ws, focus = _goal_workspace(goal)
+    if not ws:
+        print("do --for: goal_router unavailable"); return 1
+    os.makedirs(os.path.join(ROOT, ws.replace("/", os.sep)), exist_ok=True)
+    classes = ["frontier", "local-large", "local-small"] if spec_for == "all" else [spec_for]
+    print("> drafting spec variant(s) for: %s" % ", ".join(classes))
+    print("  workspace: %s   (focus: %s)\n" % (ws, focus))
+    made = {}
+    for cls in classes:
+        p = live.draft_spec_for(goal, focus, ws, cls)
+        print("  %-12s %s" % (cls, os.path.relpath(p, ROOT) if p else "DRAFT FAILED (analyst/validator)"))
+        if p:
+            made[cls] = p
+    if not made:
+        return 1
+    if spec_for == "all":
+        try:
+            _build_cls = _tool("model_class").model_class(os.environ.get("LATHE_MODEL", "openai:local"))
+        except Exception:
+            _build_cls = "local-small"
+        target = made.get(_build_cls) or list(made.values())[0]
+        print("\n> building the %s variant (configured implementer)..." % _build_cls)
+    else:
+        target = made[spec_for]
+        print("\n> building the %s variant..." % spec_for)
+    if _mf:
+        try:
+            _mf.set_workspace(ws)
+            _mf.set_selection("goal-router", [], [focus] + ["spec-for:" + c for c in classes] + [ws])
+        except Exception:
+            pass
+    return cmd_build([target])
+
+
 def _goal_workspace(goal):
     """(workspace_rel, focus) for a goal — harness-built goal_router decides both. The workspace is a
     per-goal folder (projects/<project>/goals/<slug>_<stamp>/) so a goal's plan, module, artifacts and
@@ -238,9 +288,23 @@ def _goal_workspace(goal):
 
 
 def cmd_do(args):
+    # owner design (draft-time targeting): --for <frontier|local-large|local-small|all> drafts the spec(s)
+    # FOR a chosen model class up front (not post-failure adaptation). 'all' saves all three variants in
+    # the workspace and builds the one matching the configured implementer.
+    spec_for = None
+    args = list(args)
+    if "--for" in args:
+        _i = args.index("--for")
+        spec_for = args[_i + 1].strip().lower() if _i + 1 < len(args) else ""
+        del args[_i:_i + 2]
+        _valid = ("frontier", "local-large", "local-small", "all")
+        if spec_for not in _valid:
+            print("usage: lathe do \"<goal>\" [--for frontier|local-large|local-small|all]"); return 2
     goal = " ".join(args).strip()
     if not goal:
-        print("usage: lathe do \"<goal>\""); return 2
+        print("usage: lathe do \"<goal>\" [--for <class>|all]"); return 2
+    if spec_for:
+        return _do_targeted(goal, spec_for)
     _mf = _manifest()                                    # #19 M1: record the goal in the run manifest
     if _mf:
         _mf.set_goal(goal)

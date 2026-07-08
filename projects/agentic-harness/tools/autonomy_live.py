@@ -174,7 +174,9 @@ def _profile_block(impl_model, focus):
         if prof.get("artifact_skeleton"):
             block += (' You MUST also provide a "skeleton" field: the COMPLETE working file written by YOU '
                       '(shell + wiring + run loop) with exactly ONE __FILL__ marker for a bounded data/'
-                      'config region the implementer completes.')
+                      'config region the implementer completes. The skeleton value must be ONE '
+                      'triple-quoted Python string LITERAL (r"""...""") - no concatenation with +, no '
+                      'f-strings, no variables (a data-only validator rejects anything else).')
     return block
 
 
@@ -274,6 +276,37 @@ def _artifact_fail_feedback(out_dir_abs, max_chars=1800):
             continue
         chunks.append("ARTIFACT `%s`\n%s" % (stem, "\n".join("  " + ln[:160] for ln in reason.splitlines()[:14])))
     return ("\n\n".join(chunks))[:max_chars]
+
+
+def draft_spec_for(objective, focus, out_dir, spec_for):
+    """Owner design (draft-time targeting): produce ONE validated spec variant written FOR a given model
+    class ('frontier'|'local-large'|'local-small'), saved as <workspace>/plan_for_<class>.py. No board, no
+    build — the caller decides which variant to build. Returns the saved path or '' on failure."""
+    _CLASS_MODEL = {"frontier": "claude", "local-large": "qwen-35B", "local-small": "ornith-9b"}
+    probe_model = _CLASS_MODEL.get(spec_for)
+    if probe_model is None:
+        return ""
+    ask = ("Draft ONE plan for this goal: %s" % objective) + _strict_suffix(focus, out_dir, impl_model=probe_model)
+    body = clean_plan_text(_reqspec.request_spec(ask))
+    if not body.strip():
+        return ""
+    try:
+        import importlib.util as _iu
+        _vs = _iu.spec_from_file_location("plan_validator", os.path.join(_TOOLS, "plan_validator.py"))
+        _vm = _iu.module_from_spec(_vs); _vs.loader.exec_module(_vm)
+        v = _vm.is_valid_plan(body)
+        if not (v.get("ok") if isinstance(v, dict) else v):
+            sys.stderr.write("draft_spec_for(%s): rejected - %s\n" % (spec_for, v.get("reason") if isinstance(v, dict) else "invalid"))
+            return ""
+    except Exception as e:
+        sys.stderr.write("draft_spec_for: validator unavailable (%r) - refusing to save unvalidated model output\n" % (e,))
+        return ""
+    _dir = os.path.join(_ROOT, out_dir.replace("/", os.sep))
+    os.makedirs(_dir, exist_ok=True)
+    path = os.path.join(_dir, "plan_for_%s.py" % spec_for)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(body)
+    return path
 
 
 def repair_plan(plan_path):

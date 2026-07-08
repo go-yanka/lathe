@@ -2,6 +2,19 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.25.0 — 2026-07-08
+
+**Draft-time model targeting (owner design): `lathe do "<goal>" --for <class|all>`.**
+
+- Generate the spec FOR a chosen model class up front — `frontier`, `local-large`, `local-small`, or `all`
+  (saves all three variants in the workspace as plan_for_<class>.py and builds the one matching the
+  configured implementer). Distinct from repair/adaptation, which is post-failure.
+- Drafting primitive `draft_spec_for` (autonomy_live): one validated variant per class, saved to the
+  workspace, no board/no build; profile skeleton directive now demands ONE triple-quoted literal (the
+  first draft failed validation on a concatenated skeleton — validator caught it, directive tightened).
+- Experiment C recorded (the missing table row): Tetris drafted DIRECTLY for the 9B -> green on attempt 1,
+  ZERO feedback rounds — analyst 11.7k tokens (one-time spec), 9B fill 196 output tokens in 8.3s.
+
 ## v2.24.1 — 2026-07-08
 
 **web_canvas_game gate: slow-tick games no longer false-fail (a WORKING 9B Tetris was refused).**
