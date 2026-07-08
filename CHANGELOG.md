@@ -2,6 +2,30 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.46.0 — 2026-07-08 — THE CLOSED LOOP: the spec refines ITSELF to consistent BEFORE the implementer runs
+
+The persistent gap named this session: gates DETECT bad output but nothing iterates the SPEC toward correct, so
+a contradictory test wastes the implementer on an unwinnable target (the helicopter: a WORKING copter rejected
+by its own "score in 1.2s vs 5s grace" test). This closes it — draft -> detect contradiction -> analyst REFINES
+spec+test -> consistent -> only THEN engage the implementer.
+
+- `tools/spec_review.py` — `converge(spec, behavior, analyst_fn, max_rounds)`: loops critique->refine until the
+  DETERMINISTIC bar (spec_test_consistency) is clean, so it always terminates and "clean" is objective; the
+  analyst's LLM self-critique feeds the refinement but never decides termination. Analyst injected; never raises.
+  PROVEN LIVE: the real analyst took the helicopter contradiction and, in ONE 28s call, widened the score-check
+  window 1200ms -> 5500ms (past the 5s grace) — clean, no remaining contradiction.
+- `engine_v2.py` — the behavioral branch now REFINES before building: on a spec<->test contradiction it runs the
+  loop and rebuilds the gate + the implementer prompt from the reconciled spec. CHEAP: 0 analyst calls when the
+  spec is already consistent, 1 only when a contradiction must be fixed. LATHE_SPEC_REVIEW=0 warn-only, =deep
+  adds the LLM critique; LATHE_SPEC_TEST_STRICT still refuses if unresolved.
+- `qa/spec_review_gate.py` (regression now 24 checks) — proves convergence with a stub analyst: a contradiction
+  refines to clean within max_rounds, a clean spec is untouched (round 0), an unfixable one ends clean=False
+  (surfaced, not hidden), never raises.
+- `env_catalog.py` — LATHE_SPEC_REVIEW / _MODEL / _TIMEOUT documented.
+
+This is the shift from DETECTION to CONVERGENCE: the 23 gates define "correct"; this loop pursues it. Had it
+been live, the helicopter's attempt-1 (a working copter) would have shipped.
+
 ## v2.45.0 — 2026-07-08 — spec<->test consistency: catch a build spec that contradicts its own acceptance test
 
 Prompted by a real failure: a helicopter build produced a WORKING copter that its own test rejected. The spec

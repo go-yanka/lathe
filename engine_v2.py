@@ -1190,29 +1190,46 @@ for art in getattr(plan, "ARTIFACTS", []):
     # from a FIXED verb set) is compiled by the TRUSTED interpreter into a gate that proves INPUT->RESPONSE
     # (e.g. hold Space -> the craft rises), not just liveness. Malformed DATA => refuse (fail closed).
     if _aref == "behavioral" and not afunc:
-        # SPEC<->TEST CONSISTENCY: catch a behavioral test that CONTRADICTS the spec (e.g. "score increases in
-        # 1.2s" vs a stated 5s grace period) BEFORE the implementer wastes attempts on an unwinnable target.
-        # Advisory by default (loud warning + recorded); LATHE_SPEC_TEST_STRICT refuses so the analyst fixes the
-        # TEST, not the artifact. (The 2026-07-08 helicopter: a WORKING copter was rejected by its own test.)
+        _tooldir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools")
+        _behavior = art.get("behavior")
+        # SPEC<->TEST CONSISTENCY + CLOSED-LOOP REFINE (the fix for "it keeps coming back to crap input"): before
+        # the implementer runs, catch a test that CONTRADICTS the spec (e.g. "score up in 1.2s" vs a stated 5s
+        # grace period) and let the analyst REFINE spec+test until consistent. CHEAP: 0 analyst calls when already
+        # consistent; 1 only when a contradiction must be fixed. LATHE_SPEC_REVIEW=0 = warn-only; =deep also runs
+        # the LLM self-critique. If still unresolved, LATHE_SPEC_TEST_STRICT refuses (fix the TEST, not the build).
         try:
-            _stc = importlib.util.spec_from_file_location("spec_test_consistency", os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "spec_test_consistency.py"))
+            _stc = importlib.util.spec_from_file_location("spec_test_consistency", os.path.join(_tooldir, "spec_test_consistency.py"))
             _stcm = importlib.util.module_from_spec(_stc); _stc.loader.exec_module(_stcm)
-            _stc_warns = _stcm.check(art.get("prompt", ""), art.get("behavior"))
+            _stc_warns = _stcm.check(aprompt, _behavior)
         except Exception:
-            _stc_warns = []
+            _stcm = None; _stc_warns = []
         if _stc_warns:
-            print("  [spec<->test WARNING] " + _stcm.summary(_stc_warns))
-            if os.environ.get("LATHE_SPEC_TEST_STRICT", "") in ("1", "true"):
+            print("  [spec<->test WARNING] " + (_stcm.summary(_stc_warns) if _stcm else str(_stc_warns)))
+            _rev_mode = os.environ.get("LATHE_SPEC_REVIEW", "1")
+            if _rev_mode not in ("0", "off", "false"):
+                try:
+                    if _tooldir not in sys.path:
+                        sys.path.insert(0, _tooldir)     # so spec_review's `import request_spec` resolves
+                    _sr = importlib.util.spec_from_file_location("spec_review", os.path.join(_tooldir, "spec_review.py"))
+                    _srm = importlib.util.module_from_spec(_sr); _sr.loader.exec_module(_srm)
+                    _rv = _srm.converge(aprompt, _behavior, max_rounds=1, use_llm=(_rev_mode == "deep"))
+                    if _rv.get("clean"):
+                        aprompt = _rv["spec"]; _behavior = _rv["behavior"]; _stc_warns = []
+                        print("  [spec<->test REFINED] contradiction resolved BEFORE the implementer (rounds=%d) — "
+                              "the build now targets a consistent spec+test" % _rv.get("rounds", 0))
+                    else:
+                        print("  [spec<->test UNRESOLVED after refine]")
+                except Exception as _sre:
+                    print(f"  [spec-review skipped: {_sre}]")
+            if _stc_warns and os.environ.get("LATHE_SPEC_TEST_STRICT", "") in ("1", "true"):
                 print("  [artifact REFUSED - the acceptance test contradicts the spec (fix the TEST, not the build)]")
                 artifact_results.append(False)
                 artifact_rows.append({"path": art["path"], "ok": False, "src": None, "gate": "spec-test-inconsistent"})
                 continue
         try:
-            _bg = importlib.util.spec_from_file_location("behavioral_gate", os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "behavioral_gate.py"))
+            _bg = importlib.util.spec_from_file_location("behavioral_gate", os.path.join(_tooldir, "behavioral_gate.py"))
             _bgm = importlib.util.module_from_spec(_bg); _bg.loader.exec_module(_bgm)
-            afunc = _bgm.build_script(art.get("behavior"))
+            afunc = _bgm.build_script(_behavior)
         except Exception as _bge:
             print(f"  [artifact REFUSED - invalid behavioral spec: {_bge}]")
             artifact_results.append(False)
