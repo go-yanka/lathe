@@ -2,6 +2,22 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.40.0 — 2026-07-08 — MASTER_PLAN B3/B5 (+B1/B2 closed): honest command->workflow contract
+
+WORKFLOWS_MAP found the `front_end`/`select` flags in CONTRACT_FOR were DECORATIVE — never read by the spine
+(which reads only `workflow` and `gate`), yet they implied the spine did intake/persona-selection. Removed.
+
+- `tools/workflows.py` — deleted `front_end`/`select` from every CONTRACT_FOR entry (proven 0 read-sites). The
+  front-end (intake + per-assumption confirm + spec approval) runs in cmd_do; persona selection runs in
+  _intake_panel/_do_review — at the COMMAND layer, which is where they were actually wired (A1-A4). Header
+  comment now states only `workflow`/`gate` are behavior-bearing; `writes`/`argmap` are documentary.
+- `qa/contract_hygiene_gate.py` (regression now 18 checks) — B3: no entry may carry the retired
+  front_end/select keys or any key outside {workflow, gate, writes, argmap}; B5: every promoted `workflow` must
+  exist with non-empty steps (no dangling `lathe flow` target). 27 contracts clean, 14 promotions resolve.
+- B1/B2 closed: `do` runs its full front-end at the command layer; the runner records every declared step
+  (workflow_wiring, v2.30). `sdlc <goal>` intentionally runs the requirements phase — the full 11-step SDLC has
+  mandatory human review/resolve steps and is the human-guided `lathe flow sdlc`, not a single auto-promotion.
+
 ## v2.39.0 — 2026-07-08 — MASTER_PLAN A3/A4: per-assumption confirm + spec approval before build
 
 `lathe do --interactive` now genuinely interviews: it walks EACH surfaced assumption for accept/correct/drop

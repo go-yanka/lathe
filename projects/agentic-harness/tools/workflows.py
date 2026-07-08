@@ -186,20 +186,24 @@ WORKFLOWS.update({
 })
 
 # --- Operating contract #12 Phase 1: command -> CONTRACT (data — auditable; the spine's PHASES are code) ---
-# Keys: workflow (Phase-2 promotion target; run when it exists AND binds cleanly), front_end (clarify/assume),
-# select (personas), gate (phase-4 standing gates after a green write), writes (mutates the tree), argmap
-# (how bare argv binds the workflow's placeholder). A command absent here (or {}) is TRIVIAL: the spine still
+# Keys: workflow (Phase-2 promotion target; run when it exists AND binds cleanly), gate (phase-4 standing gates
+# after a green write), writes (mutates the tree — documentary), argmap (how bare argv binds the workflow's
+# placeholder — documentary). Only `workflow` and `gate` are BEHAVIOR-BEARING (read by run_spine); the rest is
+# auditable metadata. The former `front_end`/`select` flags were REMOVED in v2.40.0 (MASTER_PLAN B3): they were
+# never read — intake/assumptions run in cmd_do (front-end) and persona selection in _intake_panel/_do_review
+# (select), at the COMMAND layer, not the spine. contract_hygiene_gate enforces they cannot creep back.
+# A command absent here (or {}) is TRIVIAL: the spine still
 # runs (run_id + thinking + manifest) but phases 1/2/4 no-op — byte-identical behavior for read-only commands.
 # NOTE Phase 1: build/do gate:0 because the ENGINE already runs the standing regression inside the build
 # (gating twice doubles cost for zero coverage); their workflow promotion + phase-4 wiring lands in Phase 2.
 CONTRACT_FOR = {
     # workflow-promoted (#12 P2). gate flags: 0 where the workflow carries its own gate step or the engine
     # gates internally — the contract never runs the same gate twice for zero coverage.
-    "do":       {"workflow": "build-from-goal",     "front_end": 1, "select": 1, "gate": 0, "writes": 1, "argmap": "goal"},
-    "build":    {"workflow": "build-from-plan",     "front_end": 0, "select": 0, "gate": 0, "writes": 1, "argmap": "plan"},
-    "review":   {"workflow": "code-review",         "front_end": 0, "select": 1, "gate": 0, "writes": 0, "argmap": "files"},
-    "sdlc":     {"workflow": "sdlc-requirements",   "front_end": 1, "select": 1, "gate": 1, "writes": 1, "argmap": "goal"},
-    "clarify":  {"workflow": "clarify-goal",        "front_end": 1, "writes": 1, "argmap": "goal"},
+    "do":       {"workflow": "build-from-goal",     "gate": 0, "writes": 1, "argmap": "goal"},
+    "build":    {"workflow": "build-from-plan",     "gate": 0, "writes": 1, "argmap": "plan"},
+    "review":   {"workflow": "code-review",         "gate": 0, "writes": 0, "argmap": "files"},
+    "sdlc":     {"workflow": "sdlc-requirements",   "gate": 1, "writes": 1, "argmap": "goal"},
+    "clarify":  {"workflow": "clarify-goal",        "writes": 1, "argmap": "goal"},
     "assume":   {"workflow": "assumption-audit",    "gate": 1, "writes": 1, "argmap": "plan"},
     "verify":   {"workflow": "verify-reproduce",    "gate": 0, "writes": 0, "argmap": "plan"},
     "trace":    {"workflow": "trace-inspect",       "writes": 0, "argmap": "plan"},
