@@ -162,7 +162,10 @@ if plan.FUNCTIONS:
 # proceed while any HIGH-materiality assumption is unconfirmed. Opt-in (LATHE_ASSUMPTION_GATE=1, forced by
 # STRICT); the ledger + confirmations are authored by `lathe assume <plan>`. Decision logic is the
 # harness-built pinned module tools/assumption_logic.py; the engine only reads the ledger (offline, deterministic).
-if plan.FUNCTIONS and os.environ.get("LATHE_ASSUMPTION_GATE", "").strip().lower() in ("1", "true", "yes", "on"):
+# A6: the gate covers the ARTIFACT/webapp lane too (was `plan.FUNCTIONS`-only, so it silently skipped every
+# web goal — the empty-FUNCTIONS bypass). Digest over whichever spec list the plan carries.
+_asm_specs = plan.FUNCTIONS or getattr(plan, "ARTIFACTS", None) or []
+if _asm_specs and os.environ.get("LATHE_ASSUMPTION_GATE", "").strip().lower() in ("1", "true", "yes", "on"):
     try:
         _al = importlib.util.spec_from_file_location("assumption_logic", os.path.join(
             os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "assumption_logic.py"))
@@ -173,12 +176,22 @@ if plan.FUNCTIONS and os.environ.get("LATHE_ASSUMPTION_GATE", "").strip().lower(
         except Exception:
             _asm = {}
         _entry = _asm.get(os.path.basename(PLAN_PATH)) if isinstance(_asm, dict) else None
+        # A6: a GOAL-SCOPE ledger (written by `lathe do` intake, keyed "*" before the plan name is known)
+        # applies to whatever plan the goal drafts — trust it for this run and skip the plan-digest freshness
+        # check (its scope is the goal, not the plan spec). Plan-scoped audits (`lathe assume <plan>`) keep the
+        # digest check unchanged.
+        _skip_digest = False
+        if _entry is None and isinstance(_asm, dict) and isinstance(_asm.get("*"), dict) and _asm["*"].get("scope") == "goal":
+            _entry = _asm["*"]
+            _skip_digest = True
         # SCRUTINY is user-governed: env LATHE_ASSUMPTION_POLICY (set from config `assumptions.scrutiny` by the
         # lathe CLI) picks the level. 'off'/'advisory' never blocks — the audit becomes informational, so a
         # team can dial the gate down without abandoning STRICT. Default 'high' (block on high-materiality only).
         _policy = os.environ.get("LATHE_ASSUMPTION_POLICY", "high")
         _advisory = _policy.strip().lower() in ("off", "none", "advisory", "0", "false", "")
-        _digest = _alm.spec_digest(plan.FUNCTIONS)
+        _digest = _alm.spec_digest(_asm_specs)
+        if _skip_digest and isinstance(_entry, dict):     # goal-scope: normalize digest so the == checks pass
+            _digest = _entry.get("digest")
         if _advisory:
             if isinstance(_entry, dict) and _entry.get("digest") == _digest and _entry.get("ledger"):
                 print("engine: assumption audit (advisory, scrutiny=%s): %d unstated assumption(s) noted — not blocking."

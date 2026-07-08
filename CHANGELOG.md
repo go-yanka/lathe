@@ -2,6 +2,25 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.32.0 — 2026-07-08 — MASTER_PLAN A6: assumption gate ARMED on the web lane (bypass closed)
+
+**The assumption gate now covers ARTIFACT/webapp plans and enforces the intake's ledger — pure wiring of the
+existing gate + assumption_logic (no new gate, no rewrite).**
+
+- Engine: the gate guard was `plan.FUNCTIONS`-only, so it SILENTLY SKIPPED every web goal (empty FUNCTIONS =
+  structural bypass, per WIRING_AUDIT D2). Now fires for `plan.FUNCTIONS OR plan.ARTIFACTS`; digest over
+  whichever spec list the plan carries.
+- Engine: accepts a GOAL-SCOPE ledger (keyed "*", scope="goal") that `lathe do` intake writes before the
+  plan name is known — trusts it for the run, skips the plan-digest freshness check. Plan-scoped
+  `lathe assume <plan>` audits unchanged. Reuses `assumption_logic.unconfirmed_blockers`/`spec_digest`
+  verbatim — the enforcement logic is untouched.
+- cmd_do: intake writes `.assumptions.json` (the exact {ledger, confirmed} format the gate reads) next to the
+  plan and ARMS `LATHE_ASSUMPTION_GATE`. assume-and-record auto-confirms → passes but is recorded +
+  enforceable; unconfirmed HIGH (interactive/STRICT) → BLOCKS.
+- PROVEN: a real web `do` built green with the gate armed; then un-confirming one HIGH in that plan's ledger
+  and rebuilding → `engine: ASSUMPTION GATE — 1 unresolved high-materiality assumption` BLOCKED the build.
+  A web plan that pre-A6 skipped the gate entirely now enforces it. 12 gates green.
+
 ## v2.31.0 — 2026-07-08 — MASTER_PLAN A (phase 1): INTAKE wired into `do` — assumptions surfaced before drafting
 
 **The biggest bug-source fixed at the origin: `do` now surfaces the goal's UNSTATED assumptions and feeds

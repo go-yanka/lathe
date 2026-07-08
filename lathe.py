@@ -261,13 +261,24 @@ def _goal_intake(goal, ws, live, mf, interactive=False):
                 print("  intake: your correction added to the spec.")
         except (EOFError, KeyboardInterrupt):
             print()
+    # confirmed: assume-and-record auto-accepts (recorded intent); interactive keeps only what the user OK'd.
+    _confirmed = [a["text"] for a in assumptions]
     if ws:
+        _wsabs = os.path.join(ROOT, ws.replace("/", os.sep))
         try:
             _lines = ["# ASSUMPTIONS — surfaced by intake (%s)" % ("interactive" if interactive else "assume-and-record"),
                       "", "Goal: %s" % goal, ""]
             _lines += ["- [%s | %s] %s" % (a["materiality"].upper(), a["category"], a["text"]) for a in assumptions]
-            open(os.path.join(ROOT, ws.replace("/", os.sep), "ASSUMPTIONS.md"),
-                 "w", encoding="utf-8").write("\n".join(_lines) + "\n")
+            open(os.path.join(_wsabs, "ASSUMPTIONS.md"), "w", encoding="utf-8").write("\n".join(_lines) + "\n")
+        except Exception:
+            pass
+        # A6: emit the ledger in the EXISTING assumption-gate format (goal-scope, keyed "*") so the engine's
+        # assumption gate — now covering the artifact lane — reads + enforces it. Reuses assumption_logic's
+        # {ledger, confirmed} shape; no new gate.
+        try:
+            import json as _json
+            _led = {"*": {"scope": "goal", "digest": "goal", "ledger": assumptions, "confirmed": _confirmed}}
+            open(os.path.join(_wsabs, ".assumptions.json"), "w", encoding="utf-8").write(_json.dumps(_led, indent=1))
         except Exception:
             pass
     _block = ("\n\nRESOLVED ASSUMPTIONS (the goal was ambiguous — BUILD TO THESE EXACTLY, do not silently "
@@ -402,6 +413,12 @@ def cmd_do(args):
     _build_goal, _assumptions = (goal, [])
     if not _no_intake:
         _build_goal, _assumptions = _goal_intake(goal, ws, live, _mf, interactive=_interactive)
+        # A6: intake wrote the goal-scope ledger next to the plan → ARM the (now artifact-lane-covering)
+        # assumption gate so the build reads + enforces it. assume-and-record auto-confirms, so it passes but
+        # is recorded + enforceable; under STRICT or unconfirmed HIGH it blocks. setdefault: an explicit
+        # env still wins.
+        if _assumptions:
+            os.environ.setdefault("LATHE_ASSUMPTION_GATE", "1")
     elif _mf is not None:
         try: _mf.set_front_end(ran=False, clarify="skipped (--assume)", assumptions=[])
         except Exception: pass
