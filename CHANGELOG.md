@@ -2,6 +2,21 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.44.0 — 2026-07-08 — MASTER_PLAN F4: code/docs/scripts/config layout for multi-file projects (plan COMPLETE)
+
+The final code item. Every A/B/C/D/E/F item on the MASTER_PLAN is now done and gated.
+
+- `tools/project_layout.py` — classify(file) buckets into code/docs/scripts/config; is_multifile_project()
+  triggers ONLY on 2+ code files (a lone artifact + its docs is not a project — single-goal workspaces stay
+  flat); organize() writes a PROJECT.md layout map and, opt-in, relocates files into bucket subdirs.
+- `lathe.py` — after a `do` build, a genuine multi-file project gets a PROJECT.md map; physical reorganization
+  is opt-in via LATHE_PROJECT_LAYOUT=1 (so a built file is never silently moved and a relative reference broken).
+- `qa/project_layout_gate.py` (regression now 22 checks) — proves bucketing, the multi-code-only trigger,
+  plan-without-move + PROJECT.md, and apply=True relocation.
+- `env_catalog.py` — LATHE_PROJECT_LAYOUT documented.
+
+Plan status: A,B,C,D,E,F complete + gated. Remaining (G) is OWNER-GATED — needs credentials/data/hardware.
+
 ## v2.43.0 — 2026-07-08 — MASTER_PLAN F1/F2/F3: workspace intent docs + honest naming + clearer help
 
 - `tools/workspace_docs.py` (F1) — every `lathe do` workspace now gets a GOAL.md (the intent + the resolved

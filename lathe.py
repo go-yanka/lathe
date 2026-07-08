@@ -497,12 +497,29 @@ def cmd_do(args):
         except Exception:
             pass
     _gdb = _goal_board()
+    _ws_abs = os.path.join(ROOT, ws.replace("/", os.sep)) if ws else None
     try:
         tr = live.run(_build_goal, max_plans=1, max_steps=4, build_one=True, max_repairs=2, db_path=_gdb,
                       focus=focus, out_dir=ws)
     finally:
         try: os.remove(_gdb)
         except OSError: pass
+    # F4: if the build produced a genuine MULTI-FILE project (2+ code files), write a PROJECT.md map of the
+    # code/docs/scripts/config layout. Physical reorganization is opt-in (LATHE_PROJECT_LAYOUT=1) so we never
+    # silently move a built file and break a relative reference. Single-goal workspaces stay flat (no trigger).
+    if _ws_abs and os.path.isdir(_ws_abs):
+        try:
+            _pl = _tool("project_layout")
+            _pfiles = [os.path.join(_ws_abs, n) for n in os.listdir(_ws_abs)
+                       if os.path.isfile(os.path.join(_ws_abs, n)) and not n.startswith(".")]
+            if _pl.is_multifile_project(_pfiles):
+                _apply = os.environ.get("LATHE_PROJECT_LAYOUT", "") in ("1", "true")
+                _res = _pl.organize(_ws_abs, _pfiles, apply=_apply)
+                print("  project layout: %s (%d files bucketed%s)" % (
+                    os.path.relpath(_res["project_md"], ROOT) if _res.get("project_md") else "PROJECT.md",
+                    len(_res.get("moves") or []), ", organized into subdirs" if _apply else " — set LATHE_PROJECT_LAYOUT=1 to move"))
+        except Exception:
+            pass
     if _mf is not None:
         try:
             # #59b: the goal-router's decision IS this run's selection — record it (was "- not reached -").
