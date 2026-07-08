@@ -230,17 +230,26 @@ def _intake_panel(goal, k=3):
         import json as _json
         if TOOLS not in sys.path:
             sys.path.insert(0, TOOLS)
-        from agent_router import select_agents_for_goal
         cat = _json.load(open(os.path.join(INNER, "agents", "catalog.json"), encoding="utf-8"))
         ents = cat.get("agents", [])
-        names = select_agents_for_goal(goal, [[e["name"], e.get("capability", "")] for e in ents], k) or []
+        # E3: the decider is lexical by default (free); LATHE_DECIDER_MODE=semantic|auto uses the analyst to
+        # rank by MEANING (semantic_decider.decide, honest about which path ran). Same behavior as before when
+        # unset, so no cost regression.
+        from semantic_decider import decide as _decide
+        names, _how = _decide(goal, [(e["name"], e.get("capability", "")) for e in ents], k)
         try:
             from persona_market import ensure_ce_floor
             _ce = [e["name"] for e in ents if e.get("source", "").startswith("EveryInc")]
             names = ensure_ce_floor(names, _ce, "correctness-reviewer")
         except Exception:
             pass
-        return [n for n in names if n][:k]
+        # E1: guarantee the prompt-architect MODERATOR lens is in the room (crafts the brief from the panel).
+        try:
+            from panel_floor import with_architect
+            names = with_architect(names)
+        except Exception:
+            pass
+        return [n for n in names if n][:max(k, 1) + 1]   # +1 so the architect never displaces a matched lens
     except Exception:
         return []
 

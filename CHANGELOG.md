@@ -2,6 +2,24 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.41.0 — 2026-07-08 — MASTER_PLAN E1/E3: prompt-architect in the panel + an HONEST (real) semantic decider
+
+- `tools/semantic_decider.py` (E3) — the base decider (agent_router) is synonym-expanded WORD-OVERLAP; calling
+  it "semantic" overclaimed. This adds the real thing: `decide(goal, candidates, k, mode)` where mode=semantic
+  asks the analyst to RANK candidates BY MEANING (PROVEN LIVE: for "users get logged out and can't prove who
+  they are", lexical found only 1 match, semantic returned the full k with sound reasoning). Crucially it
+  returns (names, HOW) — 'lexical' | 'semantic' | 'lexical-fallback(analyst-unavailable)' — so nothing ever
+  silently claims semantic when lexical ran. Default stays lexical (free, no regression); LATHE_DECIDER_MODE
+  opts into semantic/auto. Reuses the SSRF-guarded analyst client; never raises.
+- `tools/panel_floor.py` (E1) — `with_architect()` guarantees the prompt-architect MODERATOR lens is in the
+  intake panel, FIRST (it crafts the analyst's brief from the panel's questions), de-duplicated, no mutation.
+- `lathe.py` — `_intake_panel` now routes selection through `semantic_decider.decide` (honest mode) and
+  guarantees the architect via `with_architect`.
+- `qa/persona_wiring_gate.py` (regression now 19 checks) — proves: architect always present+first+deduped;
+  decider reports the true path; a down analyst falls back with a LABELED how; hallucinated candidate names
+  are filtered. E1/E3 can't silently regress or overclaim.
+- `env_catalog.py` — LATHE_DECIDER_MODE / LATHE_DECIDER_MODEL / LATHE_DECIDER_TIMEOUT documented.
+
 ## v2.40.0 — 2026-07-08 — MASTER_PLAN B3/B5 (+B1/B2 closed): honest command->workflow contract
 
 WORKFLOWS_MAP found the `front_end`/`select` flags in CONTRACT_FOR were DECORATIVE — never read by the spine
