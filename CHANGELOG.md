@@ -2,6 +2,18 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.29.2 — 2026-07-08
+
+**Corrects v2.29.1 (shipped with a red gate — my error): bare-goal fix moved to the right layer.**
+
+- v2.29.1 fixed the silent no-op by rewriting a bare goal's argv to `do` BEFORE the spine — which erased
+  the manifest's routed_via="bare-goal" stamp and failed the manifest_contract T6 probe (the shared-path
+  class again; I pushed without re-reading the gate — on the record). Reverted.
+- Correct fix: the workflow's primitive step now matches an EFFECTIVE command ("do" for a bare goal) so the
+  build step fires, while cmd stays the goal text and the manifest keeps routed_via="bare-goal"/is_bare_goal.
+  The single-token typo guard stays in the entry (clear error + difflib suggestion). All 11 gates green;
+  T6 restored; bare multi-word goal builds; `lathe stauts` -> suggestion.
+
 ## v2.29.1 — 2026-07-08
 
 **Fix silent no-op: `lathe "<goal>"` (no `do`) now builds instead of just running gates.**

@@ -2066,26 +2066,22 @@ def main(argv):
     if not argv or argv[0] in ("help", "-h", "--help"):
         print(__doc__); return 0
     cmd, rest = argv[0], argv[1:]
-    # BARE-GOAL normalization (usability fix): `lathe "<natural-language goal>"` with no subcommand used to
-    # promote the goal-STRING-as-command to do's workflow, whose build step keys on "do" and never fired —
-    # so only the gates ran and nothing built (silent no-op that reads as "it didn't do a thing"). A bare
-    # arg that looks like a goal (multi-word) is now rewritten to an explicit `do`. A bare SINGLE token is a
-    # likely command typo -> a clear error with a suggestion, so we neither silently no-op nor waste a build.
-    if _is_bare(cmd) and not os.environ.get(_SPINE_GUARD):
-        _looks_like_goal = (" " in cmd) or (len(rest) > 0 and not cmd.startswith("-"))
-        if _looks_like_goal:
-            argv = ["do"] + argv
-            cmd, rest = "do", argv[1:]
-        elif not cmd.startswith("-"):
-            import difflib
-            _known = ("build", "do", "chat", "auto", "gate", "review", "status", "board", "verify", "repair",
-                      "selftest", "trace", "clean", "checkin", "env", "metrics", "plans", "sdlc")
-            _near = difflib.get_close_matches(cmd, _known, n=1)
-            _hint = (" Did you mean `lathe %s`?" % _near[0]) if _near else ""
-            print("unknown command: %r.%s\n"
-                  "To build from a goal, wrap it in quotes AFTER `do`:  python lathe.py do \"%s ...\"\n"
-                  "See all commands:  python lathe.py help" % (cmd, _hint, cmd))
-            return 2
+    # TYPO GUARD (usability): a bare SINGLE token that isn't a command (e.g. `lathe stauts`) used to be
+    # treated as a one-word GOAL and drafted+built into garbage. Now it's a clear error with a suggestion.
+    # A MULTI-word bare arg IS a real goal and flows to the bare-goal path below (run_spine -> do), which
+    # keeps the manifest's routed_via="bare-goal" stamp. (The build-step-never-fires bug that made bare
+    # goals a silent no-op is fixed in _run_workflow via the effective-primitive command.)
+    if (_is_bare(cmd) and not os.environ.get(_SPINE_GUARD)
+            and " " not in cmd and not cmd.startswith("-") and len(rest) == 0):
+        import difflib
+        _known = ("build", "do", "chat", "auto", "gate", "review", "status", "board", "verify", "repair",
+                  "selftest", "trace", "clean", "checkin", "env", "metrics", "plans", "sdlc")
+        _near = difflib.get_close_matches(cmd, _known, n=1)
+        _hint = (" Did you mean `lathe %s`?" % _near[0]) if _near else ""
+        print("unknown command: %r.%s\n"
+              "To build from a goal, put it in quotes:  python lathe.py do \"%s ...\"\n"
+              "See all commands:  python lathe.py help" % (cmd, _hint, cmd))
+        return 2
     if os.environ.get(_SPINE_GUARD):           # RE-ENTRANT inner step: the outer spine owns the contract
         return _dispatch(cmd, rest, argv)
     return run_spine(cmd, rest, argv)          # TOP-LEVEL: the enforced contract
@@ -2145,7 +2141,11 @@ def run_spine(cmd, rest, argv):
                 mf.record_gate("promotion", "pass", False, "workflow=%s" % contract["workflow"])
                 mf.set_workflow(contract["workflow"],                    # #12 MANIFEST_DESIGN §1: name the
                                 [lbl for _k, lbl, _a in wf.get("steps", [])])   # resolved workflow in intake
-            rc = _run_workflow(wf, cmd, rest, argv, mf)
+            # bare goal: the effective primitive is `do` even though `cmd` is the goal text — so the build
+            # step matches and fires (else only the gate steps ran = silent no-op). _dispatch still gets the
+            # real cmd (-> cmd_do(argv) for a bare goal). Table commands: effective == cmd, unchanged.
+            _eff = cmd if routed == "table" else "do"
+            rc = _run_workflow(wf, cmd, rest, argv, mf, eff_cmd=_eff)
         else:
             rc = _dispatch(cmd, rest, argv)
         if contract.get("gate") and rc == 0:                 # phase 4: standing gates after a green write
@@ -2169,7 +2169,7 @@ def run_spine(cmd, rest, argv):
             mf.finalize()                                    # phase 5: ALWAYS
 
 
-def _run_workflow(wf, cmd, rest, argv, mf=None):
+def _run_workflow(wf, cmd, rest, argv, mf=None, eff_cmd=None):
     """#12 P2: run a per-invocation workflow's steps IN ORDER, halting on the first blocked step. Verdicts
     come from rc via the pinned classifier (flow_report), never from model text. Steps re-enter main() and
     run RAW under the spine's guard — the outer manifest records every step; no nested manifests.
@@ -2198,8 +2198,10 @@ def _run_workflow(wf, cmd, rest, argv, mf=None):
             continue
         if kind == "gate":
             rc = cmd_gate([])
-        elif (not _primitive_done) and action.split(" ", 1)[0] == cmd:
-            # the primitive-first step IS what the operator invoked — run their ORIGINAL argv, don't re-template
+        elif (not _primitive_done) and action.split(" ", 1)[0] == (eff_cmd or cmd):
+            # the primitive-first step IS what the operator invoked — run their ORIGINAL argv, don't re-template.
+            # eff_cmd lets a bare goal (cmd=goal text) match its `do` primitive; _dispatch still routes the
+            # real cmd (a bare goal -> cmd_do(argv)).
             _primitive_done = True
             rc = _dispatch(cmd, rest, argv)
         else:
