@@ -140,6 +140,18 @@ decider selected lenses for this code: correctness, adversarial, security, relia
 ### `lathe verify <plan.py>`
 Rebuild a plan and confirm it still passes its gates (a targeted regression for one plan).
 
+### `lathe repair <plan.py>`
+The two-tier feedback loop as a command: the analyst reads the plan plus its banked failure evidence
+(`_fn_fails/`, `_artifact_fails/` under the plan's OUT_DIR) and rewrites the SPEC so the current
+implementer can succeed — tighter prompts with worked examples, split functions, or a skeleton whose
+one `__FILL__` region the small model completes. Writes `<plan>_repaired.py` (original preserved).
+```
+$ python lathe.py repair X_tetris_9b
+> repair: analyst diagnosing X_tetris_9b.py from its banked failures...
+repaired plan -> projects/agentic-harness/plans/X_tetris_9b_repaired.py
+  next: python lathe.py build X_tetris_9b_repaired
+```
+
 ### `lathe selftest`
 Exercise every Lathe capability and report PASS/FAIL — the confidence check before relying on it.
 ```

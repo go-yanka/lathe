@@ -522,6 +522,56 @@ def cmd_board(args):
     return 0
 
 
+def cmd_repair(args):
+    """lathe repair <plan> — the two-tier feedback loop as a first-class command: the ANALYST reads the
+    plan plus its banked failure evidence (_fn_fails/ + _artifact_fails/) and rewrites the SPEC so the
+    CURRENT implementer can succeed (tighter prompts, split functions, or a skeleton the small model
+    fills). Saves <stem>_repaired.py next to the original — the original is preserved for comparison.
+    Was previously only reachable inside `lathe do`/auto; a failing `lathe build` had no repair path."""
+    paths = [a for a in args if not a.startswith("--")]
+    if not paths:
+        print("usage: lathe repair <plan>   (rewrites the spec from banked failures -> <plan>_repaired.py)"); return 2
+    plan = _resolve_plan(paths[0])
+    if not os.path.isfile(plan):
+        print("repair: no such plan: %s" % paths[0]); return 2
+    live = _load_autonomy()
+    _mf = _manifest()
+    if _mf is not None:                                   # analyst usage attribution, same fix as cmd_do
+        try:
+            import pricebook as _pb
+            _am = os.environ.get("HARNESS_ANALYST_MODEL", "sonnet")
+            live._reqspec.USAGE_HOOK = lambda role, u: _mf.record_usage(
+                "analyst", u.get("prompt_tokens", 0), u.get("completion_tokens", 0), 1,
+                "measured" if u.get("total_tokens") else "unmetered", _pb.price_for(_am))
+        except Exception:
+            pass
+    print("> repair: analyst diagnosing %s from its banked failures..." % os.path.basename(plan))
+    try:
+        new_text, feedback = live.repair_plan(plan)
+    except ValueError as e:
+        print("repair: %s" % e); return 1
+    if not new_text.strip():
+        print("repair: analyst returned no rewrite (endpoint down or over budget)"); return 1
+    v = _tool("plan_validator").is_valid_plan(new_text)   # model output is DATA: validate before saving
+    if not (v.get("ok") if isinstance(v, dict) else v):
+        print("repair: REJECTED - rewritten plan failed validation: %s" %
+              (v.get("reason") if isinstance(v, dict) else "invalid")); return 1
+    out_path = os.path.splitext(plan)[0] + "_repaired.py"
+    with open(out_path, "w", encoding="utf-8") as f:
+        f.write(new_text)
+    print("repaired plan -> %s" % os.path.relpath(out_path, ROOT))
+    print("  evidence used: %d chars of banked failure feedback" % len(feedback))
+    print("  next: python lathe.py build %s" % os.path.splitext(os.path.basename(out_path))[0])
+    if _mf is not None:
+        try:
+            _mf.append_contributor({"id": "analyst-repair", "role": "analyst", "kind": "model",
+                                    "action": "rewrote spec of %s from banked failures -> %s" % (
+                                        os.path.basename(plan), os.path.basename(out_path)), "status": "ok"})
+        except Exception:
+            pass
+    return 0
+
+
 def cmd_verify(args):
     if not args:
         print("usage: lathe verify <plan>   (rebuilds; pins => byte-stable)"); return 2
@@ -1855,7 +1905,7 @@ def _dispatch(cmd, rest, argv):
     table = {
         "build": cmd_build, "do": cmd_do, "chat": cmd_chat, "auto": cmd_auto,
         "gate": cmd_gate, "review": cmd_review, "status": cmd_status,
-        "board": cmd_board, "verify": cmd_verify, "selftest": cmd_selftest,
+        "board": cmd_board, "verify": cmd_verify, "repair": cmd_repair, "selftest": cmd_selftest,
         "decompose": cmd_decompose, "checkpoint": cmd_checkpoint, "run": cmd_run,
         "metrics": cmd_metrics, "plans": cmd_plans, "dups": cmd_dups, "whatis": cmd_whatis,
         "clean": cmd_clean, "wait": cmd_wait, "resume": cmd_resume, "waiting": cmd_waiting,
@@ -2023,7 +2073,7 @@ def _run_workflow(wf, cmd, rest, argv, mf=None):
 
 def _is_bare(cmd):
     return cmd not in (
-        "build", "do", "chat", "auto", "gate", "review", "status", "board", "verify", "selftest",
+        "build", "do", "chat", "auto", "gate", "review", "status", "board", "verify", "repair", "selftest",
         "decompose", "checkpoint", "run", "metrics", "plans", "dups", "whatis", "clean", "wait",
         "resume", "waiting", "report", "issues", "logs", "lint-spec", "flow", "map", "env", "serve",
         "checkin", "agent", "ack", "trace", "sdlc", "clarify", "assume")

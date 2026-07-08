@@ -216,6 +216,76 @@ _REPAIR_PREAMBLE = (
 )
 
 
+# Artifact-lane repair guidance, appended when the failing plan has ARTIFACTS. The known-good pattern for
+# a small implementer on a whole-file artifact is the SKELETON: the analyst writes the working scaffold
+# (page shell + the game/app loop wiring — the parts small models get wrong) and leaves exactly ONE
+# __FILL__ region for the model to complete (the parts it demonstrably can write).
+_REPAIR_ARTIFACT_HINT = (
+    "\nARTIFACT-SPECIFIC FIXES (this plan builds whole files):\n"
+    "  - if the file 'looks right but does not RUN' (frozen canvas, runtime null errors), RESTRUCTURE as a\n"
+    "    SKELETON: add a \"skeleton\" field to the artifact dict containing a COMPLETE working file you\n"
+    "    write yourself, with exactly ONE __FILL__ marker where the implementer completes a BOUNDED region\n"
+    "    (e.g. the piece definitions + scoring constants). The engine splices the model's fill into your\n"
+    "    scaffold, so the loop/wiring is YOUR code and cannot be broken by the small model;\n"
+    "  - keep the SAME \"path\", \"tests\" and \"functional_ref\"; keep OUT_DIR unchanged;\n"
+    "  - do NOT change \"model\" — the point is to make the CURRENT model succeed.\n"
+)
+
+
+def _artifact_fail_feedback(out_dir_abs, max_chars=1800):
+    """Newest banked reason per artifact from OUT_DIR/_artifact_fails — the analyst's repair evidence.
+    Mirrors _recent_fail_feedback (functions lane) for the artifact lane."""
+    faildir = os.path.join(out_dir_abs, "_artifact_fails")
+    if not os.path.isdir(faildir):
+        return ""
+    newest = {}
+    for rp in sorted(glob.glob(os.path.join(faildir, "*.reason.txt")), key=os.path.getmtime):
+        stem = os.path.basename(rp).split(".attempt")[0]      # tetris.html.openai_local -> one bucket per artifact+model
+        newest[stem] = rp
+    chunks = []
+    for stem, rp in newest.items():
+        try:
+            with open(rp, encoding="utf-8") as f:
+                reason = f.read().strip()
+        except OSError:
+            continue
+        chunks.append("ARTIFACT `%s`\n%s" % (stem, "\n".join("  " + ln[:160] for ln in reason.splitlines()[:14])))
+    return ("\n\n".join(chunks))[:max_chars]
+
+
+def repair_plan(plan_path):
+    """`lathe repair` entry: analyst rewrites a failing plan's SPEC from its banked failure evidence.
+    Returns (new_text, feedback) — new_text == "" means no rewrite (no analyst reply). Raises ValueError
+    when there is no banked evidence (nothing to diagnose — build the plan first)."""
+    abs_plan = plan_path if os.path.isabs(plan_path) else os.path.join(_ROOT, plan_path)
+    text = open(abs_plan, encoding="utf-8").read()
+    # OUT_DIR as data (never exec a plan to inspect it)
+    import ast as _a
+    out_dir = ""
+    has_artifacts = False
+    try:
+        for n in _a.walk(_a.parse(text)):
+            if isinstance(n, _a.Assign):
+                for t in n.targets:
+                    if isinstance(t, _a.Name) and t.id == "OUT_DIR" and isinstance(n.value, _a.Constant):
+                        out_dir = str(n.value.value)
+                    if isinstance(t, _a.Name) and t.id == "ARTIFACTS" and getattr(n.value, "elts", None):
+                        has_artifacts = True
+    except SyntaxError:
+        pass
+    out_abs = out_dir if os.path.isabs(out_dir) else os.path.join(_ROOT, out_dir.replace("/", os.sep))
+    fb_fn = _recent_fail_feedback(_plan_function_names(abs_plan))
+    fb_art = _artifact_fail_feedback(out_abs) if out_dir else ""
+    feedback = "\n\n".join(x for x in (fb_fn, fb_art) if x)
+    if not feedback.strip():
+        raise ValueError("no banked failures found for this plan (run `lathe build` first; evidence lands in "
+                         "_fn_fails/ and _artifact_fails/ under the plan's OUT_DIR)")
+    preamble = _REPAIR_PREAMBLE % (text, feedback)
+    if has_artifacts:
+        preamble += _REPAIR_ARTIFACT_HINT
+    return clean_plan_text(_reqspec.request_spec(preamble)), feedback
+
+
 def _plan_meta_ast(path):
     """Read MODULE_NAME + FUNCTION/ARTIFACT names from a plan WITHOUT executing it. Enumeration runs on
     every cycle over EVERY file in plans/, before the validator ever sees them — so doing it by import

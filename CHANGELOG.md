@@ -2,6 +2,20 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.22.0 — 2026-07-08
+
+**`lathe repair <plan>` — the two-tier feedback loop as a first-class command.**
+
+- The analyst reads a failing plan plus its banked failure evidence (`_fn_fails/` + NEW: the artifact
+  fail bank `_artifact_fails/`) and rewrites the SPEC so the CURRENT implementer can succeed. For whole-file
+  artifacts it is taught the skeleton pattern: the analyst writes the working scaffold (loop/wiring — what
+  small models break) and leaves ONE `__FILL__` region for the implementer. Writes `<plan>_repaired.py`;
+  the original is preserved for A/B. Rewritten plans are validated as DATA before saving.
+- Motivation (live experiment): the local 9B, given fable's Tetris spec, passed all 14 STRUCTURAL asserts
+  3/3 times and failed the real-browser gate 3/3 times (frozen canvas, null-rotation crashes) — code that
+  LOOKS right but doesn't RUN, caught only by the behavioral gate. `repair` is the missing path from that
+  evidence back to a spec the small model can execute: architect-model + free-labor-model + gate.
+
 ## v2.21.0 — 2026-07-08
 
 **Report completeness pass: every data point a run produces is now in its manifest.**
