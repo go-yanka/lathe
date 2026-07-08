@@ -283,13 +283,21 @@ def _goal_intake(goal, ws, live, mf, interactive=False):
     for a in assumptions:
         print("    [%s|%s] %s" % (a["materiality"].upper(), a["category"], a["text"][:90]))
     if interactive:
+        # A3: confirm/correct EACH assumption (Enter=accept, 'd'/'drop'=remove, or type a replacement). The
+        # decision logic lives in the pure, gated intake_confirm.confirm_assumptions — here we just supply an
+        # input()-backed responder.
         try:
-            _resp = input("  Confirm these assumptions? [Enter=accept all, or type corrections]: ").strip()
-            if _resp:
-                assumptions.append({"materiality": "high", "category": "user", "text": "USER OVERRIDE: " + _resp})
-                print("  intake: your correction added to the spec.")
-        except (EOFError, KeyboardInterrupt):
-            print()
+            _ic = _tool("intake_confirm")
+
+            def _resp(a):
+                return input("    [%s|%s] %s\n      Enter=accept, 'd'=drop, or corrected text: "
+                             % (a["materiality"].upper(), a["category"], a["text"][:90]))
+            _kept = _ic.confirm_assumptions(assumptions, _resp)
+            _dropped = len(assumptions) - len(_kept)
+            assumptions = _kept
+            print("  intake: %d confirmed%s." % (len(assumptions), (", %d dropped" % _dropped) if _dropped else ""))
+        except Exception as e:
+            sys.stderr.write("intake: interactive confirm skipped (%r)\n" % (e,))
     # confirmed: assume-and-record auto-accepts (recorded intent); interactive keeps only what the user OK'd.
     _confirmed = [a["text"] for a in assumptions]
     if ws:
@@ -448,6 +456,24 @@ def cmd_do(args):
         # env still wins.
         if _assumptions:
             os.environ.setdefault("LATHE_ASSUMPTION_GATE", "1")
+        # A4: with --interactive, show the refined spec (goal + resolved assumptions) and require approval
+        # BEFORE building. A revision request is folded into the build goal; a reject aborts. Logic is the
+        # gated intake_confirm.approve_spec; here we supply an input()-backed responder.
+        if _interactive:
+            try:
+                _ic = _tool("intake_confirm")
+                _summary = "%s\n  Resolved assumptions:\n%s" % (
+                    goal, "\n".join("   - %s" % a["text"] for a in _assumptions) or "   (none)")
+                print("\n> SPEC FOR APPROVAL:\n  %s" % _summary.replace("\n", "\n  "))
+                _ok, _rev = _ic.approve_spec(_summary, lambda s: input(
+                    "\n  Approve this spec and build? [Enter=yes, 'n'=abort, or type a revision]: "))
+                if not _ok and _rev is None:
+                    print("do: aborted at spec approval (no build)."); return 0
+                if _rev:
+                    _build_goal = _build_goal + "\n\nUSER REVISION (apply this): " + _rev
+                    print("  revision folded into the spec.")
+            except Exception as e:
+                sys.stderr.write("do: spec-approval step skipped (%r)\n" % (e,))
     elif _mf is not None:
         try: _mf.set_front_end(ran=False, clarify="skipped (--assume)", assumptions=[])
         except Exception: pass

@@ -2,6 +2,22 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.39.0 — 2026-07-08 — MASTER_PLAN A3/A4: per-assumption confirm + spec approval before build
+
+`lathe do --interactive` now genuinely interviews: it walks EACH surfaced assumption for accept/correct/drop
+(A3), then shows the refined spec (goal + resolved assumptions) and requires approval — or folds in a revision,
+or aborts — BEFORE any build starts (A4). No more single blob "confirm?" prompt; no more building on unreviewed
+guesses.
+
+- `tools/intake_confirm.py` — the DECISION logic as pure, testable functions driven by an injected responder:
+  `confirm_assumptions(assumptions, responder)` (accept="" , drop='d'/'n'/'-', or replacement text -> edited)
+  and `approve_spec(summary, responder)` (""/yes -> approve, no/abort -> reject, other text -> revision).
+- `lathe.py` — the interactive intake supplies an input()-backed responder for both steps; a revision request
+  is appended to the build goal, a reject cleanly aborts with no build.
+- `qa/intake_confirm_gate.py` (regression now 17 checks) — proves the logic with SCRIPTED responders (no
+  stdin): accept keeps+tags, drop removes, edit replaces without mutating inputs, approve/reject/revise map
+  correctly. The interview logic can't silently regress.
+
 ## v2.38.0 — 2026-07-08 — MASTER_PLAN C1/C2: the per-build adversarial second spec + refute pass
 
 Completes the adversarial ratchet's LIVE arm (the durable registry was C3/4/5). Owner's design: a build carries
