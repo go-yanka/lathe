@@ -2,6 +2,27 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.45.0 — 2026-07-08 — spec<->test consistency: catch a build spec that contradicts its own acceptance test
+
+Prompted by a real failure: a helicopter build produced a WORKING copter that its own test rejected. The spec
+said "no obstacles for the FIRST 5 SECONDS" while the acceptance test said "hold Space 1.2s -> #score must
+INCREASE". Score is obstacle/distance based, so in 1.2s it is legitimately 0 — a correct build fails an
+impossible test. The implementer can't win; re-rolling the artifact never fixes the TEST. New failure class.
+
+- `tools/spec_test_consistency.py` — pure `check(spec_text, behavior)` flags where the behavioral test
+  contradicts the spec: score-vs-grace (score-increase window inside a stated no-score/grace period),
+  undeclared-selector (test asserts on an element the spec never says to create), motion-vs-paused (an idle
+  trial expects motion while the spec says the game starts paused). Deterministic, never raises.
+- `engine_v2.py` — before compiling a behavioral gate, the engine runs the check: a contradiction prints a loud
+  `[spec<->test WARNING]` (advisory) and, under LATHE_SPEC_TEST_STRICT, REFUSES the build so the analyst fixes
+  the TEST rather than wasting attempts. Proven: run against the actual failed build, it flags BOTH real
+  contradictions (score-vs-grace + motion-vs-paused).
+- `qa/spec_test_consistency_gate.py` (regression now 23 checks) — reproduces the helicopter case and proves the
+  check catches it, flags an undeclared selector, stays quiet on a consistent spec, and does not false-flag a
+  long-enough window.
+- `tools/failure_modes.py` — new guarded class `spec-test-inconsistent` -> `spec_test_consistency`.
+- `env_catalog.py` — LATHE_SPEC_TEST_STRICT documented.
+
 ## v2.44.0 — 2026-07-08 — MASTER_PLAN F4: code/docs/scripts/config layout for multi-file projects (plan COMPLETE)
 
 The final code item. Every A/B/C/D/E/F item on the MASTER_PLAN is now done and gated.

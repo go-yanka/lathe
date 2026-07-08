@@ -1190,6 +1190,24 @@ for art in getattr(plan, "ARTIFACTS", []):
     # from a FIXED verb set) is compiled by the TRUSTED interpreter into a gate that proves INPUT->RESPONSE
     # (e.g. hold Space -> the craft rises), not just liveness. Malformed DATA => refuse (fail closed).
     if _aref == "behavioral" and not afunc:
+        # SPEC<->TEST CONSISTENCY: catch a behavioral test that CONTRADICTS the spec (e.g. "score increases in
+        # 1.2s" vs a stated 5s grace period) BEFORE the implementer wastes attempts on an unwinnable target.
+        # Advisory by default (loud warning + recorded); LATHE_SPEC_TEST_STRICT refuses so the analyst fixes the
+        # TEST, not the artifact. (The 2026-07-08 helicopter: a WORKING copter was rejected by its own test.)
+        try:
+            _stc = importlib.util.spec_from_file_location("spec_test_consistency", os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "spec_test_consistency.py"))
+            _stcm = importlib.util.module_from_spec(_stc); _stc.loader.exec_module(_stcm)
+            _stc_warns = _stcm.check(art.get("prompt", ""), art.get("behavior"))
+        except Exception:
+            _stc_warns = []
+        if _stc_warns:
+            print("  [spec<->test WARNING] " + _stcm.summary(_stc_warns))
+            if os.environ.get("LATHE_SPEC_TEST_STRICT", "") in ("1", "true"):
+                print("  [artifact REFUSED - the acceptance test contradicts the spec (fix the TEST, not the build)]")
+                artifact_results.append(False)
+                artifact_rows.append({"path": art["path"], "ok": False, "src": None, "gate": "spec-test-inconsistent"})
+                continue
         try:
             _bg = importlib.util.spec_from_file_location("behavioral_gate", os.path.join(
                 os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "behavioral_gate.py"))

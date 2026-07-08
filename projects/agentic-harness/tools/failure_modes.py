@@ -43,6 +43,11 @@ FAILURE_MODES = [
      "klass": "Game 'works' visually but its STATE never progresses (score frozen, or it is already game-over)",
      "manifests": "score label stuck at 0; 'game over' the instant it starts. GATED v2.36.0: state assertions "
                   "(score increases / text_absent 'game over') + web_canvas_game instant-game-over guard"},
+    {"id": "spec-test-inconsistent", "gate": "spec_test_consistency",
+     "klass": "The analyst's acceptance TEST contradicts its own build SPEC — a correct build cannot pass",
+     "manifests": "helicopter: spec says '5s grace, no obstacles' but test says 'score rises in 1.2s' — a "
+                  "WORKING copter scored 0 and was rejected. GATED v2.45.0: spec<->test consistency check flags "
+                  "score-vs-grace / undeclared-selector / motion-vs-paused before the implementer runs"},
     {"id": "visual-mismatch-unchecked", "gate": "vision_lane",
      "klass": "Page passes every structural/behavioral gate but LOOKS wrong (blank, unstyled, off-topic)",
      "manifests": "renders as a blank/broken rectangle. GATED v2.37.0: the vision judge SHOWS the screenshot to "

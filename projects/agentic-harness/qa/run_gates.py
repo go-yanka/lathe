@@ -41,6 +41,7 @@ CHECKS = [("tree_no_stale_dups", os.path.join(QA, "stale_gate.py")),
           ("outcome_feedback", os.path.join(QA, "outcome_feedback_gate.py")),        # E4: review outcomes EWMA-blend into persona ratings (engaged up, inoperative skipped); the grade loop learns
           ("workspace_docs", os.path.join(QA, "workspace_docs_gate.py")),            # F1: every goal workspace gets a GOAL.md (intent+assumptions+panel) + README.md (layout)
           ("project_layout", os.path.join(QA, "project_layout_gate.py")),            # F4: genuine multi-file projects get a code/docs/scripts/config PROJECT.md map (+ opt-in organize)
+          ("spec_test_consistency", os.path.join(QA, "spec_test_consistency_gate.py")),  # catch a behavioral test that contradicts its own spec (score-vs-grace, undeclared selector) before the build wastes attempts
 
           ("spine_enforced", os.path.join(QA, "spine_gate.py")),                     # #12 P1: guard-forge/skill-subprocess/bypass attacks all defeated (P1-P5)
           ("gate_tristate", os.path.join(QA, "tristate_gate.py"))]                    # #12 U1: gates fail CLOSED (INOPERATIVE), never open, on their own error

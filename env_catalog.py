@@ -74,6 +74,7 @@ REGISTRY = [
     ("LATHE_DECIDER_TIMEOUT", "autonomy", "seconds for a semantic-decider call", "60"),
     ("LATHE_GRADE_FEEDBACK", "autonomy", "E4: feed `lathe review` outcomes back into persona ratings (EWMA-blended); 1 to enable", "off"),
     ("LATHE_PROJECT_LAYOUT", "autonomy", "F4: physically organize a multi-file project into code/docs/scripts/config subdirs (1 to move; default writes PROJECT.md map only)", "off"),
+    ("LATHE_SPEC_TEST_STRICT", "gates", "refuse a build when its behavioral acceptance test contradicts its own spec (score-vs-grace etc.); default warns", "off"),
     ("LATHE_AUTO_COMMIT", "autonomy", "let auto/do/run git-commit green builds (opt-in)", "off"),
     ("LATHE_PROJECT", "autonomy", "active project subtree under projects/", "agentic-harness"),
     ("LATHE_REMOTE", "autonomy", "git remote for checkin --push", "origin"),
