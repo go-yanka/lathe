@@ -182,6 +182,15 @@ class Manifest:
         except Exception:
             pass
 
+    def set_front_end(self, ran, clarify=None, assumptions=None):
+        """MASTER_PLAN A7: record that intake ran + the assumptions it surfaced. Fills the front_end slot
+        that was declared but never written (the 'built but not wired' tell)."""
+        try:
+            self._d["front_end"] = {"ran": bool(ran), "clarify": clarify,
+                                    "assumptions": list(assumptions or [])}
+        except Exception:
+            pass
+
     def set_selection(self, selector, personas, lenses):
         try:
             self._d["selection"] = {"selector": selector, "personas": list(personas or []),

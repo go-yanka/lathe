@@ -221,6 +221,60 @@ def _goal_board():
     return path
 
 
+def _goal_intake(goal, ws, live, mf, interactive=False):
+    """MASTER_PLAN A: INTAKE before drafting. An analyst pass surfaces the UNSTATED assumptions a goal leaves
+    open — the choices an implementer would otherwise GUESS (the helicopter-physics class). Reuses the
+    existing assumption-auditor persona + assumption_logic (wire-don't-rebuild). Assume-and-record by default:
+    assumptions are written to the workspace + manifest AND injected into the drafting prompt so the spec is
+    built to them explicitly. interactive=True lets the user confirm/correct each before building.
+    Returns (augmented_goal, assumptions)."""
+    assumptions = []
+    try:
+        _al = _tool("assumption_logic")
+        _ap = os.path.join(INNER, "ce_personas", "assumption-auditor.md")
+        _persona = open(_ap, encoding="utf-8").read() if os.path.exists(_ap) else ""
+        _ask = ("%s\n\n--- GOAL TO AUDIT ---\n%s\n\nList the UNSTATED assumptions this goal leaves open — the "
+                "specific choices an implementer must make that the goal never pins down (behaviour, controls, "
+                "physics, edge cases, win/lose, defaults, scope). One per line, EXACTLY this format, nothing else:\n"
+                "[assumption | high|med|low | <category>] <the specific unstated choice + the default you'd take>\n"
+                "Only real ambiguities that change the result. No preamble, no trailing prose.") % (_persona, goal)
+        raw = live._reqspec.request_spec(_ask)
+        assumptions = _al.parse_assumptions(raw or "")
+    except Exception as e:
+        sys.stderr.write("intake: assumption pass skipped (%r)\n" % (e,))
+    if mf is not None:
+        try: mf.set_front_end(ran=True, clarify=("interactive" if interactive else "assume-and-record"),
+                              assumptions=assumptions)
+        except Exception: pass
+    if not assumptions:
+        print("  intake: no material assumptions surfaced (goal is specific)")
+        return goal, []
+    _hi = sum(1 for a in assumptions if a.get("materiality") == "high")
+    print("  intake: surfaced %d assumption(s) (%d high) — recorded + fed into the spec:" % (len(assumptions), _hi))
+    for a in assumptions:
+        print("    [%s|%s] %s" % (a["materiality"].upper(), a["category"], a["text"][:90]))
+    if interactive:
+        try:
+            _resp = input("  Confirm these assumptions? [Enter=accept all, or type corrections]: ").strip()
+            if _resp:
+                assumptions.append({"materiality": "high", "category": "user", "text": "USER OVERRIDE: " + _resp})
+                print("  intake: your correction added to the spec.")
+        except (EOFError, KeyboardInterrupt):
+            print()
+    if ws:
+        try:
+            _lines = ["# ASSUMPTIONS — surfaced by intake (%s)" % ("interactive" if interactive else "assume-and-record"),
+                      "", "Goal: %s" % goal, ""]
+            _lines += ["- [%s | %s] %s" % (a["materiality"].upper(), a["category"], a["text"]) for a in assumptions]
+            open(os.path.join(ROOT, ws.replace("/", os.sep), "ASSUMPTIONS.md"),
+                 "w", encoding="utf-8").write("\n".join(_lines) + "\n")
+        except Exception:
+            pass
+    _block = ("\n\nRESOLVED ASSUMPTIONS (the goal was ambiguous — BUILD TO THESE EXACTLY, do not silently "
+              "re-decide them):\n" + "\n".join("- %s" % a["text"] for a in assumptions))
+    return goal + _block, assumptions
+
+
 def _do_targeted(goal, spec_for):
     """`lathe do "<goal>" --for <class|all>` — draft spec variant(s) FOR the requested model class(es),
     save them in the goal's workspace, and BUILD one: the requested class (single) or the variant matching
@@ -299,6 +353,12 @@ def cmd_do(args):
     # the workspace and builds the one matching the configured implementer.
     spec_for = None
     args = list(args)
+    _interactive = "--interactive" in args
+    if _interactive:
+        args = [a for a in args if a != "--interactive"]
+    _no_intake = "--assume" in args or os.environ.get("LATHE_INTAKE", "").strip().lower() in ("0", "off", "no")
+    if "--assume" in args:
+        args = [a for a in args if a != "--assume"]
     if "--for" in args:
         _i = args.index("--for")
         spec_for = args[_i + 1].strip().lower() if _i + 1 < len(args) else ""
@@ -337,9 +397,17 @@ def cmd_do(args):
         print("  workspace: %s   (focus: %s)\n" % (ws, focus))
     else:
         print("> drafting + building toward: %s\n" % goal)
+    # MASTER_PLAN A: intake FIRST — surface the goal's unstated assumptions and feed them into drafting
+    # (assume-and-record default; --interactive to confirm; --assume or LATHE_INTAKE=0 to skip).
+    _build_goal, _assumptions = (goal, [])
+    if not _no_intake:
+        _build_goal, _assumptions = _goal_intake(goal, ws, live, _mf, interactive=_interactive)
+    elif _mf is not None:
+        try: _mf.set_front_end(ran=False, clarify="skipped (--assume)", assumptions=[])
+        except Exception: pass
     _gdb = _goal_board()
     try:
-        tr = live.run(goal, max_plans=1, max_steps=4, build_one=True, max_repairs=2, db_path=_gdb,
+        tr = live.run(_build_goal, max_plans=1, max_steps=4, build_one=True, max_repairs=2, db_path=_gdb,
                       focus=focus, out_dir=ws)
     finally:
         try: os.remove(_gdb)

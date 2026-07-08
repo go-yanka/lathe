@@ -2,6 +2,27 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.31.0 — 2026-07-08 — MASTER_PLAN A (phase 1): INTAKE wired into `do` — assumptions surfaced before drafting
+
+**The biggest bug-source fixed at the origin: `do` now surfaces the goal's UNSTATED assumptions and feeds
+them into the spec, instead of letting the model silently guess (the helicopter-physics class).**
+
+- New intake stage in `cmd_do` (assume-and-record default): before drafting, an analyst pass using the
+  EXISTING assumption-auditor persona + `assumption_logic` (wire-don't-rebuild) surfaces the choices the goal
+  left open — behaviour, controls, physics, edge cases, win/lose, defaults. Written to `<workspace>/
+  ASSUMPTIONS.md` + the manifest `front_end` slot, and injected into the drafting prompt as RESOLVED
+  ASSUMPTIONS the spec must build to.
+- `front_end` manifest slot is now FILLED (was permanently `ran=False` — the 'built but not wired' tell):
+  `set_front_end(ran, mode, assumptions)`. The report finally shows what was assumed.
+- Flags: `--interactive` (confirm/correct the assumptions before building), `--assume` / `LATHE_INTAKE=0`
+  (skip the intake).
+- PROVEN on the exact goal that failed: "classic helicopter game" — old behaviour = silent guess → helicopter
+  fell instantly (score 0). New = intake surfaced 14 assumptions incl. the physics (one-button hold-to-rise,
+  constant gravity+thrust, instant-death), recorded + injected; the rebuilt game FLIES (played to score 12,
+  full score/best/restart). The guess is replaced by a stated, recorded decision. 12 gates green.
+- Next (A phase 2): the interview PANEL (multi-persona questions → moderator merge) + arming the assumption
+  gate on the artifact lane so unconfirmed HIGH assumptions can block.
+
 ## v2.30.0 — 2026-07-08 — MASTER_PLAN B4: the wiring gate (declared == executed)
 
 **The anti-disconnect gate: a workflow step that is DECLARED but not EXECUTED now fails the build.**

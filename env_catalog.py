@@ -62,6 +62,7 @@ REGISTRY = [
     ("LATHE_DOCKER_SSH", "sandbox", "remote host for LATHE_SANDBOX=docker-ssh", "—"),
     # --- autonomy / project ---
     ("LATHE_REPAIR", "autonomy", "failed `lathe build` auto-invokes analyst spec repair + one retry (set 0 to disable)", "on"),
+    ("LATHE_INTAKE", "autonomy", "`lathe do` intake: surface + record the goal's assumptions before drafting (set 0/off to skip)", "on"),
     ("LATHE_AUTO_COMMIT", "autonomy", "let auto/do/run git-commit green builds (opt-in)", "off"),
     ("LATHE_PROJECT", "autonomy", "active project subtree under projects/", "agentic-harness"),
     ("LATHE_REMOTE", "autonomy", "git remote for checkin --push", "origin"),
