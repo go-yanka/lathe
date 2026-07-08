@@ -2,6 +2,19 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.26.0 — 2026-07-08
+
+**Owner finding: fresh-attempt duds were FORMAT failures — hard output contract cuts attempts to 1.**
+
+- Controlled experiment (same fable Tetris spec, fair gate): 3 fresh generations needed 2/2/3 attempts —
+  the banked duds were the model NARRATING the file instead of emitting it (prose preamble, no code).
+  3 pinned rebuilds: 0 model calls, 0 tokens, byte-identical hash every time (pins proven end to end).
+- Fix, three layers: (1) the engine wraps EVERY artifact generation in its own fixed OUTPUT CONTRACT
+  ("your reply IS the file; first character = first character of the file") — never trusting drafted
+  phrasing alone; (2) SALVAGE — chatter before `<!doctype` is stripped and the candidate judged instead
+  of wasted; (3) webapp drafts anchor the reply's first characters explicitly.
+- After (n=1): the same spec generated green on attempt 1 (4.4k tokens, 53s vs 33-95k tokens, 6-19 min).
+
 ## v2.25.0 — 2026-07-08
 
 **Draft-time model targeting (owner design): `lathe do "<goal>" --for <class|all>`.**

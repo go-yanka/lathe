@@ -1258,11 +1258,24 @@ for art in getattr(plan, "ARTIFACTS", []):
             ushort = "claude" if use_model == "claude" else "local"
             _aattempts = k + 1
             try:
-                raw = call_model(aprompt, min(0.2 + 0.1 * k, 1.0), use_model)
+                # Owner finding (variance experiment): the #1 fresh-attempt dud was FORMAT, not capability —
+                # the model narrating instead of emitting. The engine wraps EVERY artifact call in its own
+                # fixed output contract (never trusts the drafted prompt's phrasing alone).
+                _EMIT = ("OUTPUT CONTRACT (hard rule): your ENTIRE reply is the raw file content and NOTHING "
+                         "else. The FIRST character of your reply is the first character of the file. No "
+                         "preamble, no plan, no explanation, no markdown fences, no commentary after.\n\n")
+                raw = call_model(_EMIT + aprompt, min(0.2 + 0.1 * k, 1.0), use_model)
             except Exception as e:
                 print(f"    [gen ERROR attempt {k+1} ({use_model})] {e}")
                 continue
             c = _strip_fence(raw)
+            # SALVAGE (owner finding): chatter before the file start — cut to the first real file token.
+            # Converts a preamble-dud into a judgeable candidate instead of a wasted attempt.
+            if apath.lower().endswith((".html", ".htm")):
+                _dt = c.lower().find("<!doctype")
+                if _dt > 0:
+                    print(f"    [salvage: stripped {_dt} chars of preamble chatter before <!doctype]")
+                    c = c[_dt:]
             if askel:   # H8 splice skeleton-fill: model returned ONLY the fill region; place it in the scaffold
                 c = askel.replace(amark, c, 1)
             sok, sfails = _structural(c)

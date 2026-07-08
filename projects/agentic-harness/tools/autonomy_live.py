@@ -147,7 +147,8 @@ _SCOPE = {
         '- "model": "claude" (whole-file generation needs the capable model).\n'
         '- "prompt": describe the COMPLETE single-file page: starts with <!DOCTYPE html>, ALL CSS/JS inline, '
         "no external URLs, works opened from disk. State the concrete features the goal asks for and end "
-        'with "Output ONLY the file contents - no prose, no markdown."\n'
+        'with "The FIRST characters of your reply must be <!DOCTYPE html - output ONLY the file contents, '
+        'no prose, no markdown."\n'
         '- "tests": >=6 assert strings on the file text via `content` (lowercase match), e.g. '
         "`assert '<canvas' in content.lower()` - assert the structural things the goal needs "
         "(doctype, canvas/elements, script, event handlers, key nouns like score).\n"
