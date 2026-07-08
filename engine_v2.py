@@ -1237,6 +1237,7 @@ for art in getattr(plan, "ARTIFACTS", []):
                                  + afunc + (("\x00SK\x00" + askel) if askel else "")).encode()).hexdigest()
     acontent, asrc = None, None
     _vision = None                     # D3: advisory visual verdict (set only when LATHE_VISION_JUDGE opts in)
+    _redteam = None                    # C1/C2: advisory red-team report (set only when LATHE_REDTEAM opts in)
     _faildir = os.path.join(_pre_out, "_artifact_fails")
     if akey in pins and _structural(pins[akey])[0]:
         acontent, asrc = pins[akey], "pinned"   # pin reuse: structural only (functional already gated at gen)
@@ -1392,6 +1393,19 @@ for art in getattr(plan, "ARTIFACTS", []):
                       f"conf={_vision.get('confidence')} {('- ' + '; '.join(_vision.get('issues') or [])) if _vision.get('verdict')=='fail' else ''}")
             except Exception as _ve:
                 _vision = {"verdict": "inoperative", "issues": ["judge hook error: %s" % str(_ve)[:100]]}
+        # C1/C2 ADVISORY red-team (opt-in LATHE_REDTEAM=1): the analyst enumerates how ANY LLM could get this
+        # goal wrong (the second spec), then a refute pass judges whether THIS artifact exhibits any of them.
+        # Advisory — records the report in the manifest; the deterministic gates decide pass/fail. Never raises.
+        if os.environ.get("LATHE_REDTEAM", "") in ("1", "true"):
+            try:
+                _ra = importlib.util.spec_from_file_location("refute_auditor", os.path.join(
+                    os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "refute_auditor.py"))
+                _ram = importlib.util.module_from_spec(_ra); _ra.loader.exec_module(_ram)
+                _redteam = _ram.audit(aprompt, acontent)
+                print(f"  [redteam {_redteam.get('verdict','?'):11}] {len(_redteam.get('hypotheses') or [])} hypotheses; "
+                      f"present={_redteam.get('present') or []}")
+            except Exception as _re:
+                _redteam = {"verdict": "inoperative", "note": "redteam hook error: %s" % str(_re)[:100]}
     elif _gate_broken:
         # HONEST verdict: environment problem, not a spec problem — the analyst repair loop must NOT be told
         # the spec failed (it can't fix a browser), and no candidate was banked as a failure.
@@ -1404,6 +1418,7 @@ for art in getattr(plan, "ARTIFACTS", []):
     artifact_rows.append({"path": art["path"], "ok": acontent is not None, "src": asrc,
                           "attempts": _aattempts, "attempt_log": _attempt_log,
                           "vision": _vision,          # D3: advisory visual verdict (None unless opted in)
+                          "redteam": _redteam,        # C1/C2: advisory red-team report (None unless opted in)
                           "bytes": (len(acontent) if acontent is not None else None),
                           "fail_bank": (None if acontent is not None else
                                         os.path.relpath(_faildir, os.path.dirname(os.path.abspath(__file__)))),

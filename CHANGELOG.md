@@ -2,6 +2,25 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.38.0 — 2026-07-08 — MASTER_PLAN C1/C2: the per-build adversarial second spec + refute pass
+
+Completes the adversarial ratchet's LIVE arm (the durable registry was C3/4/5). Owner's design: a build carries
+two specs — how to DO it, and how any LLM could GET IT WRONG — and the second is audited before we trust it.
+
+- `tools/refute_auditor.py` — C1 `hypotheses(goal)`: the analyst enumerates concrete, per-goal ways ANY LLM
+  implementer is likely to get THIS goal wrong (the second spec). C2 `refute(goal, artifact, hyps)`: a pass
+  that ASSUMES the build is broken and judges, per hypothesis, whether the artifact exhibits it. PROVEN LIVE:
+  for a helicopter goal it produced 8 expert holes (Space-scroll not suppressed, gravity not accumulated,
+  obstacle-gap not guaranteed, game-loop-survives-death, canvas attr-vs-CSS size mismatch, collision coord
+  space...) and refuted a fixture accurately. Reuses the SSRF-guarded analyst client. Never raises.
+- `engine_v2.py` — opt-in `LATHE_REDTEAM=1`: after an artifact is written, the engine runs the second-spec +
+  refute pass and records the report in the manifest. ADVISORY — the deterministic gates decide pass/fail; the
+  red-team surfaces candidate new failure classes (which graduate into the registry via C4).
+- `qa/refute_lane_gate.py` (regression now 16 checks) — proves the PLUMBING with a STUB analyst: parse
+  hypotheses, map present->holes / none->clean, analyst-down->inoperative (never propagates), audit() composes
+  both. The wire can't silently un-wire; the live red-team is non-deterministic and validated on demand.
+- `env_catalog.py` — LATHE_REDTEAM / LATHE_REDTEAM_MODEL / LATHE_REDTEAM_TIMEOUT documented.
+
 ## v2.37.0 — 2026-07-08 — MASTER_PLAN D3: the ADVISORY visual judge — the harness can now SEE the page
 
 Deterministic gates prove a page loads/animates/responds/keeps-state (D1/D2) but cannot see that it LOOKS like

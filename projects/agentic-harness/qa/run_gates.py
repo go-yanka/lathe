@@ -34,6 +34,7 @@ CHECKS = [("tree_no_stale_dups", os.path.join(QA, "stale_gate.py")),
           ("failure_registry", os.path.join(QA, "failure_registry_gate.py")),       # C4: every known failure CLASS that claims a gate has it wired; open holes tracked loudly (the adversarial ratchet)
           ("behavioral_lane", os.path.join(QA, "behavioral_lane_gate.py")),          # D1: input->response is enforced (working helicopter passes, dead-control one fails) — not just liveness
           ("vision_lane", os.path.join(QA, "vision_lane_gate.py")),                  # D3: the screenshot->judge->verdict pipeline works + is fail-safe advisory (stub judge; live judging opt-in)
+          ("refute_lane", os.path.join(QA, "refute_lane_gate.py")),                  # C1/C2: the second-spec + refute pipeline works + is fail-safe advisory (stub analyst; live red-team opt-in)
 
           ("spine_enforced", os.path.join(QA, "spine_gate.py")),                     # #12 P1: guard-forge/skill-subprocess/bypass attacks all defeated (P1-P5)
           ("gate_tristate", os.path.join(QA, "tristate_gate.py"))]                    # #12 U1: gates fail CLOSED (INOPERATIVE), never open, on their own error
