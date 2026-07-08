@@ -2,6 +2,23 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.34.0 — 2026-07-08 — MASTER_PLAN C3/C4/C5: the adversarial-ratchet SPINE (failure-mode registry + coverage gate)
+
+**Owner's "keep adding them to the gates" made self-enforcing: a known failure CLASS must have a gate, or the
+build says so.**
+
+- `tools/failure_modes.py` — the curated, GROWING registry of LLM-implementation failure CLASSES we have
+  actually hit, each bound to the standing gate that catches it (or gate=None = OPEN hole). Seeded with
+  tonight's: wire-not-tested-e2e, silent-step-drop, contradictory-contracts, prose-instead-of-code,
+  assumption-guess, gate-inoperative-blamed-spec, duplicate-capability (all guarded) + 4 tracked-open holes
+  (pin-provenance-endpoint, behavioral-correctness-unchecked, false-done-unwired-tasklist, stub-satisfiable-tests).
+- `qa/failure_registry_gate.py` (regression now 13 checks) — enforces the ratchet: every class claiming a gate
+  MUST have that gate wired into run_gates; open holes print LOUDLY every run (never a silent gap). Proven: a
+  class claiming a non-existent gate FAILS; the 7 guarded classes all verify.
+- This is C3 (the checklist) + C4 (coverage enforced) + C5 (seeded). Add a failure class -> you must wire its
+  gate or the registry gate calls the coverage a lie. C1/C2 (per-build refute-mode second-spec auditor) is the
+  next, model-calling slice.
+
 ## v2.33.0 — 2026-07-08 — MASTER_PLAN A1: intake INTERVIEW PANEL + E2 (personas recorded for `do`)
 
 **Intake is now a goal-matched expert PANEL, and `do` finally records which personas shaped the spec.**
