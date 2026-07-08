@@ -2,6 +2,27 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.28.0 — 2026-07-08
+
+**Post-mortem mechanisms (owner: "how do we stop this stupidness over and over"): contradictions now die at
+validation or in the standing regression, not in production.**
+
+Root causes of the v2.26 skeleton regression, named: (1) the artifact path serves TWO output contracts and
+was edited reasoning about only one; (2) NO standing gate covered the skeleton lane, so the break shipped
+green; (3) implementer instructions accrete across three layers (scope text, profile override, engine
+envelope) with no consistency check. Mechanical fixes:
+
+- **Contract-consistency validation:** a plan whose artifact has a skeleton (region fill) but whose prompt
+  orders whole-file output ("whole file" / "<!DOCTYPE"-first reply) is now REFUSED at validation with a
+  named reason — the exact contradiction that wasted 9 builds can no longer reach the engine.
+- **skeleton_lane standing gate** (regression is now 11 checks): runs BOTH artifact lanes against a
+  deterministic local stub implementer (~2s, zero model cost) and asserts the fill lane receives the
+  REGION contract, the whole-file lane receives the FILE contract, splice+echo-strip work, and preamble
+  salvage works. This gate fails in seconds on the class of change that caused the regression.
+- Principle adopted: the ENGINE owns output-format contracts; plans own content specs. Any format
+  instruction a drafted prompt carries is overridden by the engine envelope and cross-checked by the
+  validator.
+
 ## v2.27.1 — 2026-07-08
 
 **RETRACTION + fix: the 9B never failed Game of Life — the harness gave it contradictory contracts.**

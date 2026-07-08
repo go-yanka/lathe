@@ -306,6 +306,17 @@ def is_valid_plan(text):
                     return {'ok': False, 'reason': 'unsafe .py artifact skeleton (runs as code)'}
             elif any(d in _sk.value for d in _SKEL_DENY):
                 return {'ok': False, 'reason': 'unsafe content skeleton (eval/require/fetch/import denied)'}
+            # CONTRACT-CONSISTENCY (v2.27.1 post-mortem): a skeleton artifact whose PROMPT orders whole-file
+            # output ("whole file", "<!DOCTYPE"-first reply) is self-contradictory — the splice expects the
+            # REGION only. This exact contradiction cost 9 wasted builds and a wrong verdict on the model.
+            # Refuse it at validation instead of discovering it in the browser.
+            _pr = _kv.get('prompt')
+            if isinstance(_pr, ast.Constant) and isinstance(_pr.value, str):
+                _plow = _pr.value.lower()
+                if ('whole file' in _plow or 'whole completed file' in _plow or 'entire file' in _plow
+                        or 'reply must be <!doctype' in _plow or 'must be <!doctype' in _plow):
+                    return {'ok': False, 'reason': 'CONTRADICTORY spec: artifact has a skeleton (region fill) '
+                                                   'but its prompt orders whole-file output'}
         for fr in _collect_strs(lst, 'functional_ref'):           # a registry KEY, not code — pin to identifier form
             if not re.match(r'^[A-Za-z_][A-Za-z0-9_]*$', fr):
                 return {'ok': False, 'reason': "functional_ref must be a simple identifier (a tools/func_gates.py key)"}
