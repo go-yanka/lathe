@@ -279,8 +279,14 @@ def _goal_workspace(goal):
     try:
         gr = _tool("goal_router")
         import datetime
-        stamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        ws = "projects/agentic-harness/" + gr.workspace_rel(gr.slugify_goal(goal), stamp)
+        stamp = datetime.datetime.now().strftime("%m%d-%H%M%S")   # short: year is noise at project scale
+        # owner design: the folder NAME says WHAT is being built and WITH WHICH model —
+        # e.g. goals/conway-game-life-canvas_9b_0708-122704
+        try:
+            slug = gr.short_goal(goal) + "_" + gr.model_abbrev(os.environ.get("LATHE_MODEL", "openai:local"))
+        except AttributeError:                                    # pre-v2.29 goal_router build
+            slug = gr.slugify_goal(goal)
+        ws = "projects/agentic-harness/" + gr.workspace_rel(slug, stamp)
         return ws, gr.pick_focus(goal)
     except Exception as e:
         print("  (goal_router unavailable - building in tools/: %s)" % e)

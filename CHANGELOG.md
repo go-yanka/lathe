@@ -2,6 +2,17 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.29.0 — 2026-07-08
+
+**Workspace names say WHAT is being built and WITH WHICH model (owner design).**
+
+- goals/<short-goal>_<model>_<MMDD-HHMMSS>/ — e.g. `conway-game-life-canvas_9b_0708-1227` instead of the
+  old 60-char mid-word-truncated slug with no model info. Harness-built (`short_goal`: stopword-dropping
+  keyword slug, whole-word truncation; `model_abbrev`: fable/claude/gpt names or the size token like 9b/35b).
+- Class-fix in passing: `slugify_goal`'s spec was missing the explicit `import re` instruction its sibling
+  got fixed for yesterday (instance-not-class — the standing gate caught the regeneration failure and the
+  repaired spec is now pinned). Old-format workspaces remain valid; naming applies to new goals.
+
 ## v2.28.0 — 2026-07-08
 
 **Post-mortem mechanisms (owner: "how do we stop this stupidness over and over"): contradictions now die at
