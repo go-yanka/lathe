@@ -12,7 +12,7 @@ _TOOLS = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(os.path.dirname(os.path.dirname(_TOOLS)))       # repo root
 
 SCHEMA_VERSION = "1.0.0"
-EMITTER_VERSION = "1.1.0"   # #59: workspace/thinking fields, work.builds records, BUILD/USAGE-by-role render
+EMITTER_VERSION = "1.2.0"   # #59b: run-scoped merge (parent_run), assert checklists, attempts/bytes, selection=router, draft/repair split
 
 
 def _core():
@@ -285,9 +285,14 @@ def render(d):
         wf = it.get("skill")
         if wf:
             L.append("WORKFLOW   %s  (%d steps)" % (wf, len(it.get("workflow_steps") or [])))
-        pers = (d.get("selection") or {}).get("personas") or []
-        L.append("SELECTION  %s" % (", ".join(str(p.get("id", p)) if isinstance(p, dict) else str(p)
-                                              for p in pers) if pers else "- not reached -"))
+        sel = d.get("selection") or {}
+        pers = sel.get("personas") or []
+        if pers:
+            L.append("SELECTION  %s" % ", ".join(str(p.get("id", p)) if isinstance(p, dict) else str(p) for p in pers))
+        elif sel.get("selector"):
+            L.append("SELECTION  %s -> %s" % (sel["selector"], ", ".join(str(x) for x in (sel.get("lenses") or []))))
+        else:
+            L.append("SELECTION  - not reached -")
         cons = d.get("contributors") or []
         L.append("CONTRIBUTORS")
         if cons:
@@ -307,10 +312,25 @@ def render(d):
                     L.append("    fn         %-18s %-6s %s tries  (%s)" % (
                         fr.get("name"), "PASS" if fr.get("ok") else "FAIL", fr.get("tries"),
                         fr.get("src") or "no source"))
+                    _cl = (b.get("checks") or {}).get(fr.get("name")) or []
+                    for _c in _cl[:4]:
+                        L.append("      check    %s" % _c[:100])
+                    if len(_cl) > 4:
+                        L.append("      check    ... +%d more (see %s)" % (len(_cl) - 4, b.get("plan")))
                 for ar in (b.get("per_artifact") or []):
-                    L.append("    artifact   %-24s %-6s gates: %s  [%s]" % (
-                        ar.get("path"), "PASS" if ar.get("ok") else "FAIL",
+                    _sz = ("%db" % ar["bytes"]) if ar.get("bytes") else ""
+                    _at = ("attempt %s" % ar["attempts"]) if ar.get("attempts") else "no model call"
+                    L.append("    artifact   %-24s %-6s %-9s %-13s gates: %s  [%s]" % (
+                        ar.get("path"), "PASS" if ar.get("ok") else "FAIL", _sz, _at,
                         ar.get("gate") or "?", ar.get("src") or "fail"))
+                    if not ar.get("ok") and ar.get("fail_bank"):
+                        L.append("               failed candidates + reasons: %s" % ar["fail_bank"])
+                    # #59b: the actual assert checklist — the proof of WHAT the spec pinned down.
+                    _cl = (b.get("checks") or {}).get(ar.get("path")) or []
+                    for _c in _cl[:8]:
+                        L.append("      check    %s" % _c[:100])
+                    if len(_cl) > 8:
+                        L.append("      check    ... +%d more (see %s)" % (len(_cl) - 8, b.get("plan")))
                 L.append("    pins       +%s new   out: %s   (%ss)" % (
                     b.get("pins_added", 0), b.get("out_dir") or "?", b.get("elapsed_s", "?")))
         gv = (d.get("gates") or {}).get("verdicts") or []

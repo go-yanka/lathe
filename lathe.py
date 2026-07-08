@@ -218,11 +218,19 @@ def cmd_do(args):
     finally:
         try: os.remove(_gdb)
         except OSError: pass
+    if _mf is not None:
+        try:
+            # #59b: the goal-router's decision IS this run's selection — record it (was "- not reached -").
+            _mf.set_selection("goal-router", [], [focus] + ([ws] if ws else []))
+        except Exception:
+            pass
     if _mf is not None and _draft_calls["n"]:
         try:
+            _nd = sum(1 for r in tr if r.get("step") == "planned")           # #59b: split draft vs repair
+            _nr = sum(1 for r in tr if r.get("step") == "spec_repaired")
             _mf.append_contributor({"id": "analyst-draft", "role": "analyst", "kind": "model",
-                                    "action": "%d spec draft/repair call(s) via %s (focus=%s)" % (
-                                        _draft_calls["n"],
+                                    "action": "%d draft + %d repair analyst call(s) via %s (focus=%s)" % (
+                                        _nd, _nr,
                                         os.environ.get("HARNESS_ANALYST_MODEL", "analyst endpoint"), focus),
                                     "status": "ok"})
             _mf.add_model({"role": "analyst",
@@ -2005,6 +2013,10 @@ def _run_workflow(wf, cmd, rest, argv, mf=None):
             mf.append_step(label, status, kind)
         if status == "blocked":
             print("  [workflow] step BLOCKED — halting: %s" % label)
+            if mf:
+                # #59b: a refused run must NAME its cause — outcome used to read "REFUSE - reason: None"
+                # while only the buried step row said which workflow step blocked.
+                mf.record_gate("workflow", "blocked", True, "step blocked: %s (rc=%s)" % (label, rc))
             break
     return 0 if workflow_verdict(rows) == "PASS" else 1
 
@@ -2098,6 +2110,13 @@ def _manifest_merge_metrics(mf, offset):
                 row = _json.loads(line)
             except ValueError:
                 continue
+            # #59b INTEGRITY: scope the merge to THIS run's lineage. The window is time-based, so a
+            # CONCURRENT build from another process used to leak into the wrong manifest. Engine rows now
+            # carry parent_run (= the spine token = this manifest's run_id); mismatched rows are skipped.
+            # Rows with no parent_run (legacy / direct engine bypass) are kept for compatibility.
+            _pr = row.get("parent_run")
+            if _pr and mf._d.get("run_id") and _pr != mf._d["run_id"]:
+                continue
             _nfn, _nart = row.get("functions_total", 0), row.get("artifacts_total", 0)
             mf.append_contributor({
                 "id": "engine-build", "role": "build", "kind": "engine",
@@ -2118,9 +2137,37 @@ def _manifest_merge_metrics(mf, offset):
                                               row.get("functions_total")))
             # #59: the full build record — per-function/per-artifact results, pins, resolved model, out dir.
             try:
-                mf.append_build({k: row.get(k) for k in
-                                 ("plan", "model", "resolved_model", "endpoint", "elapsed_s", "out_dir",
-                                  "pins_added", "per_function", "per_artifact", "build_ok")})
+                _build_row = {k: row.get(k) for k in
+                              ("plan", "model", "resolved_model", "endpoint", "elapsed_s", "out_dir",
+                               "pins_added", "per_function", "per_artifact", "build_ok")}
+                # #59b: attach the actual assert CHECKLIST from the plan (the spec-coverage proof) — parsed
+                # as DATA (ast literals), never imported/executed.
+                try:
+                    import ast as _ast
+                    _pp = row.get("plan_path")
+                    if _pp and not os.path.isabs(_pp):
+                        _pp = os.path.join(ROOT, _pp)
+                    if _pp and os.path.exists(_pp):
+                        _tree = _ast.parse(open(_pp, encoding="utf-8").read())
+                        _checks = {}
+                        for _n in _ast.walk(_tree):
+                            if isinstance(_n, _ast.Assign) and any(
+                                    isinstance(t, _ast.Name) and t.id in ("ARTIFACTS", "FUNCTIONS") for t in _n.targets):
+                                for _el in getattr(_n.value, "elts", []):
+                                    if not isinstance(_el, _ast.Dict):
+                                        continue
+                                    _kv = {k.value: v for k, v in zip(_el.keys, _el.values)
+                                           if isinstance(k, _ast.Constant)}
+                                    _nm = _kv.get("path") or _kv.get("name")
+                                    _ts = _kv.get("tests")
+                                    if isinstance(_nm, _ast.Constant) and isinstance(_ts, (_ast.List, _ast.Tuple)):
+                                        _checks[str(_nm.value)] = [e.value for e in _ts.elts
+                                                                   if isinstance(e, _ast.Constant) and isinstance(e.value, str)]
+                        if _checks:
+                            _build_row["checks"] = _checks
+                except Exception:
+                    pass
+                mf.append_build(_build_row)
                 mf.add_model({"role": "implementer", "model": row.get("resolved_model") or row.get("model"),
                               "endpoint": row.get("endpoint")})
                 _arts = ["%s/%s" % (row.get("out_dir") or "?", (a.get("path") or "").lstrip("/"))

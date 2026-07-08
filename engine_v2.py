@@ -1098,6 +1098,7 @@ artifact_results = []
 artifact_rows = []                 # report plumbing: {path, ok, src, gate} per artifact -> metrics -> manifest
 for art in getattr(plan, "ARTIFACTS", []):
     _gate_broken = False           # #12 U1: per-artifact — True when the functional gate's ENV failed (inoperative)
+    _aattempts = 0                 # #59b: generation attempts spent on THIS artifact (0 = pinned/skeleton, no model call)
     apath = art["path"] if os.path.isabs(art["path"]) else os.path.normpath(os.path.join(_pre_out, art["path"]))
     # SECURITY: the artifact path is analyst/model-chosen. Never let it escape OUT_DIR (an absolute path
     # or a ../ traversal would overwrite arbitrary files, e.g. engine_v2.py/board.py). Reject + bank as fail.
@@ -1186,6 +1187,7 @@ for art in getattr(plan, "ARTIFACTS", []):
         for k in range(N):
             use_model = amodel if (not afallback or k < afb_after) else afallback   # local-first -> escalate
             ushort = "claude" if use_model == "claude" else "local"
+            _aattempts = k + 1
             try:
                 raw = call_model(aprompt, min(0.2 + 0.1 * k, 1.0), use_model)
             except Exception as e:
@@ -1256,6 +1258,9 @@ for art in getattr(plan, "ARTIFACTS", []):
         print(f"  [artifact FAIL -> analyst refines spec/tests] {apath}  (candidates saved in {_faildir})")
     artifact_results.append(acontent is not None)
     artifact_rows.append({"path": art["path"], "ok": acontent is not None, "src": asrc,
+                          "attempts": _aattempts, "bytes": (len(acontent) if acontent is not None else None),
+                          "fail_bank": (None if acontent is not None else
+                                        os.path.relpath(_faildir, os.path.dirname(os.path.abspath(__file__)))),
                           "gate": ("INOPERATIVE (gate env broke - not a spec failure)" if _gate_broken
                                    else "structural(%d)%s" % (len(atests), "+functional:" + (_aref or "inline")
                                                               if afunc else ""))})
@@ -1579,6 +1584,10 @@ _metrics = {
     "out_dir": getattr(plan, "OUT_DIR", "") or "",
     "pins_added": len(_pins_added_this_run),
     "per_artifact": artifact_rows,
+    # #59b: run lineage — the dispatcher merge was TIME-window based, so a CONCURRENT build from another
+    # process leaked into the wrong run's manifest. The spine token IS the parent manifest's run id.
+    "parent_run": os.environ.get("LATHE_SPINE_TOKEN") or None,
+    "plan_path": PLAN_PATH,
 }
 print("===METRICS_JSON_BEGIN===")
 print(json.dumps(_metrics))

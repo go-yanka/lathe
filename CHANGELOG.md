@@ -2,6 +2,23 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.21.0 — 2026-07-08
+
+**Report completeness pass: every data point a run produces is now in its manifest.**
+
+- **Run-scoped merge (integrity fix).** Engine metrics rows carry `parent_run` (the spine token); the
+  manifest merges ONLY its own builds. Previously the time-window merge absorbed a CONCURRENT process's
+  builds into the wrong run's report.
+- **The assert checklist is rendered.** Each artifact/function row lists the actual checks the spec pinned
+  (parsed from the plan as data, never executed) — "structural(14)" now shows the 14 things it means.
+- **Attempts + size per artifact** (`attempt 1`, `11151b`), and on failure a pointer to the banked
+  candidates in `_artifact_fails/`.
+- **SELECTION records the goal-router decision** (`goal-router -> webapp, <workspace>`) instead of
+  "- not reached -"; analyst contributor splits draft vs repair calls.
+- **A refused run names its cause.** The blocking workflow step is recorded as a gate verdict
+  (`workflow BLOCKED: step ... rc=N`) — outcome no longer reads "REFUSE - reason: None".
+- Emitter 1.2.0.
+
 ## v2.20.2 — 2026-07-08
 
 **INOPERATIVE closes end-to-end: the autonomy loop halts on a broken gate env instead of "repairing" the spec.**
