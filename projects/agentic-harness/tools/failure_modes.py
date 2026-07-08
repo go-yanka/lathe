@@ -35,9 +35,10 @@ FAILURE_MODES = [
     {"id": "pin-provenance-endpoint", "gate": None,
      "klass": "Pin records the model STRING, not the endpoint behind it",
      "manifests": "fable-behind-proxy pinned as 'openai:local'. OPEN — candidate: stamp endpoint in .pins.index.json"},
-    {"id": "behavioral-correctness-unchecked", "gate": None,
-     "klass": "Interactive output passes 'it loads/animates' but is functionally WRONG",
-     "manifests": "dead game controls pass web_canvas_game. OPEN — MASTER_PLAN D1 (analyst-authored behavioral tests)"},
+    {"id": "behavioral-correctness-unchecked", "gate": "behavioral_lane",
+     "klass": "Interactive output passes 'it loads/animates' but is functionally WRONG (controls do nothing)",
+     "manifests": "dead helicopter falls regardless of input — passes liveness. GATED v2.35.0: the behavioral "
+                  "interpreter proves input->response (hold Space -> craft rises), not just that pixels move"},
     {"id": "false-done-unwired-tasklist", "gate": None,
      "klass": "'DONE' recorded when the MODULE's gate is green, not when the user command works + a gate proves it",
      "manifests": "tasks #41/#42 marked done but unwired. OPEN — cultural; each wire needs its own proving gate"},

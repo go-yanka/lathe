@@ -2,6 +2,30 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.35.0 — 2026-07-08 — MASTER_PLAN D1: behavioral lane — proves the controls WORK, not just that pixels move
+
+**Closes the helicopter class end-to-end.** The `web_canvas_game` gate only proved the canvas CHANGES over
+time — a helicopter that falls and dies still "changes", so DEAD CONTROLS passed it. That was the tracked-open
+failure class `behavioral-correctness-unchecked`. Now GATED.
+
+- `tools/behavioral_gate.py` (TRUSTED CORE_INFRA) — a behavioral-intent INTERPRETER. The analyst authors a
+  spec as pure DATA: a list of trials, each a DRIVE keyed to its argument (`{"hold":"Space","ms":900}` |
+  `{"press":...}` | `{"idle":900}` | `{"click":[x,y]}`) + an `expect` in up|down|left|right|move|still.
+  `build_script()` compiles it into a Playwright gate that loads the page FRESH per trial, samples the canvas
+  foreground CENTROID before/after the drive, and asserts it moved as specified. The analyst picks only from a
+  FIXED vocabulary — an unknown verb makes build_script RAISE and the engine refuses the build (fail closed).
+- `engine_v2.py` — `functional_ref: "behavioral"` + a DATA `behavior` list is compiled by the trusted
+  interpreter (a bad spec => artifact REFUSED). The plan carries NO gate code; the validator already rejects
+  any injection inside `behavior` via its whole-AST danger scan (verified).
+- `autonomy_live.py` — the webapp drafter now PREFERS the behavioral lane for games: it authors the
+  input->response trials that encode the goal's core controls, falling back to `web_canvas_game` (liveness)
+  only when it cannot state a concrete control->response.
+- `qa/behavioral_lane_gate.py` + `qa/fixtures/heli_{good,bad}.html` (regression now 14 checks) — the standing
+  PROOF: one spec (hold Space -> up; idle -> down) PASSES a working helicopter and FAILS a dead-control one
+  that only falls. Both animate, so the old liveness gate passed both — this gate discriminates play from motion.
+- `tools/failure_modes.py` — `behavioral-correctness-unchecked` flips from OPEN hole to guarded by
+  `behavioral_lane`; the registry gate now tracks 3 open holes, down from 4.
+
 ## v2.34.0 — 2026-07-08 — MASTER_PLAN C3/C4/C5: the adversarial-ratchet SPINE (failure-mode registry + coverage gate)
 
 **Owner's "keep adding them to the gates" made self-enforcing: a known failure CLASS must have a gate, or the

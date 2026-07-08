@@ -32,6 +32,8 @@ CHECKS = [("tree_no_stale_dups", os.path.join(QA, "stale_gate.py")),
           ("skeleton_lane", os.path.join(QA, "skeleton_lane_gate.py")),             # v2.26 post-mortem: BOTH artifact lanes get the RIGHT output contract (deterministic stub implementer)
           ("workflow_wiring", os.path.join(QA, "workflow_wiring_gate.py")),         # B4: every DECLARED workflow step is EXECUTED+recorded (no silent disconnect); declared==executed
           ("failure_registry", os.path.join(QA, "failure_registry_gate.py")),       # C4: every known failure CLASS that claims a gate has it wired; open holes tracked loudly (the adversarial ratchet)
+          ("behavioral_lane", os.path.join(QA, "behavioral_lane_gate.py")),          # D1: input->response is enforced (working helicopter passes, dead-control one fails) — not just liveness
+
           ("spine_enforced", os.path.join(QA, "spine_gate.py")),                     # #12 P1: guard-forge/skill-subprocess/bypass attacks all defeated (P1-P5)
           ("gate_tristate", os.path.join(QA, "tristate_gate.py"))]                    # #12 U1: gates fail CLOSED (INOPERATIVE), never open, on their own error
 

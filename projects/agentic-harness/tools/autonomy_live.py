@@ -152,8 +152,15 @@ _SCOPE = {
         '- "tests": >=6 assert strings on the file text via `content` (lowercase match), e.g. '
         "`assert '<canvas' in content.lower()` - assert the structural things the goal needs "
         "(doctype, canvas/elements, script, event handlers, key nouns like score).\n"
-        '- "functional_ref": EXACTLY "web_canvas_game" if the goal is a game/canvas/animation, else '
-        '"web_page". This is a trusted-registry NAME - NEVER write a "functional" field with code.\n'
+        '- "functional_ref": "web_page" for a static page. For a game/canvas/animation, PREFER the BEHAVIORAL '
+        'lane: set "functional_ref": "behavioral" AND add a "behavior" list that proves the CONTROLS actually '
+        "work (not just that pixels move). Each item is one trial: a drive keyed to its argument "
+        '(`{"hold": "<KeyboardEvent.code>", "ms": 900}` | `{"press": "<code>"}` | `{"idle": 900}` | '
+        '`{"click": [x, y]}`) plus `"expect"` in up|down|left|right|move|still (how the FOREGROUND should move). '
+        'Example helicopter: [{"hold":"Space","ms":900,"expect":"up"}, {"idle":900,"expect":"down"}] - holding '
+        "thrust must RISE, no input must FALL. Author 1-4 trials that encode the goal's core control->response. "
+        'If you cannot state a concrete input->response, fall back to "web_canvas_game" (liveness only). '
+        'These are trusted-registry NAMES / DATA - NEVER write a "functional" field with code.\n'
     ),
 }
 

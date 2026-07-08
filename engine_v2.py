@@ -1186,6 +1186,21 @@ for art in getattr(plan, "ARTIFACTS", []):
     # from the TRUSTED registry (tools/func_gates.py, CORE_INFRA) and the engine resolves it here.
     # Unknown ref = REFUSE the artifact (fail closed) — never silently build ungated.
     _aref = art.get("functional_ref", "")
+    # D1 behavioral lane: functional_ref "behavioral" + a DATA `behavior` intent list (authored by the analyst,
+    # from a FIXED verb set) is compiled by the TRUSTED interpreter into a gate that proves INPUT->RESPONSE
+    # (e.g. hold Space -> the craft rises), not just liveness. Malformed DATA => refuse (fail closed).
+    if _aref == "behavioral" and not afunc:
+        try:
+            _bg = importlib.util.spec_from_file_location("behavioral_gate", os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools", "behavioral_gate.py"))
+            _bgm = importlib.util.module_from_spec(_bg); _bg.loader.exec_module(_bgm)
+            afunc = _bgm.build_script(art.get("behavior"))
+        except Exception as _bge:
+            print(f"  [artifact REFUSED - invalid behavioral spec: {_bge}]")
+            artifact_results.append(False)
+            artifact_rows.append({"path": art["path"], "ok": False, "src": None, "gate": "bad-behavior-spec"})
+            continue
+        _aref = ""   # consumed — skip the named-registry resolver below
     if _aref and not afunc:
         try:
             _fg = importlib.util.spec_from_file_location("func_gates", os.path.join(

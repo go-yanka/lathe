@@ -1,0 +1,22 @@
+<!doctype html><html><head><meta charset="utf-8"><title>heli-good</title></head>
+<body style="margin:0;background:#0b1020">
+<canvas id="c" width="480" height="360"></canvas>
+<script>
+// A WORKING helicopter: gravity pulls it down; holding Space thrusts it UP. Input matters.
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+let y = 180, vy = 0, thrust = false;
+addEventListener('keydown', e => { if (e.code === 'Space') { thrust = true; e.preventDefault(); } });
+addEventListener('keyup',   e => { if (e.code === 'Space') { thrust = false; } });
+function step() {
+  vy += 0.12;                       // gentle gravity (observable fall over ~1s, does not floor instantly)
+  if (thrust) vy -= 0.42;           // holding Space overcomes gravity and lifts
+  vy *= 0.99; y += vy;
+  if (y < 12) { y = 12; vy = 0; }
+  if (y > 348) { y = 348; vy = 0; } // floor: rests, does not "die" (keeps the fixture simple + live)
+  ctx.fillStyle = '#0b1020'; ctx.fillRect(0, 0, 480, 360);
+  ctx.fillStyle = '#e8c547'; ctx.fillRect(210, y - 8, 60, 16);   // the craft
+  requestAnimationFrame(step);
+}
+step();
+</script>
+</body></html>
