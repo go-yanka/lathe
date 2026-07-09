@@ -273,15 +273,64 @@ def _intake_panel(goal, k=3):
         return []
 
 
+def _goal_discovery(goal, live, panel):
+    """DISCOVERY — the stage BEFORE assumptions: interrogate the GOAL ITSELF (why, who, what does 'done well'
+    mean, the real intent) so everything downstream is grounded in what the user ACTUALLY wants — not just
+    implementation gap-filling. The analyst generates the questions; the CLI asks them; the answers ENRICH the
+    goal that then drives the assumption pass + the spec. Non-interactive stdin -> skip (never hang). Returns
+    (enriched_goal, [(q,a)...])."""
+    _pl = ("Experts in the room: %s. " % ", ".join(panel)) if panel else ""
+    _ask = ("%sYou are running DISCOVERY before ANYTHING is designed. The user's goal, verbatim:\n\n  %s\n\n"
+            "Ask the 3-5 MOST IMPORTANT questions to understand the REAL INTENT behind it — the purpose, who "
+            "it's for, what 'done well' means to THEM, the whys and the context — NOT implementation details "
+            "(controls, physics, colours come later). Make them specific to THIS goal, open-ended, and genuinely "
+            "illuminating — the questions a thoughtful person would ask before starting. Reply with ONLY a JSON "
+            "array of 3-5 question strings, nothing else." % (_pl, goal))
+    try:
+        import json as _json
+        raw = live._reqspec.request_spec(_ask)
+        _m = re.search(r"\[.*\]", raw or "", re.DOTALL)
+        questions = [q.strip() for q in (_json.loads(_m.group()) if _m else []) if isinstance(q, str) and q.strip()][:5]
+    except Exception:
+        questions = []
+    if not questions:
+        return goal, []
+    print("\n  " + "=" * 66)
+    print("  First — help me understand what you REALLY want (the WHY behind this),")
+    print("  so I don't build the wrong thing. Answer in your words, or Enter to skip one.")
+    print("  " + "=" * 66)
+    qa = []
+    _noninteractive = False
+    for _i, _q in enumerate(questions, 1):
+        print("\n  --- question %d of %d ---" % (_i, len(questions)))
+        print("  %s" % _q)
+        try:
+            _ans = input("  > ").strip()
+        except (EOFError, KeyboardInterrupt):
+            _noninteractive = True
+            break
+        if _ans:
+            qa.append((_q, _ans))
+    if _noninteractive:
+        print("\n  ! No interactive terminal — skipping goal discovery (the build won't know your deeper intent).\n")
+        return goal, []
+    if not qa:
+        return goal, []
+    print("\n  intake: captured %d answer(s) about your intent — folding them into the goal.\n" % len(qa))
+    _block = "\n\nWHAT THE USER ACTUALLY WANTS (from discovery — treat these as the real intent):\n" + "\n".join(
+        "- Q: %s\n  A: %s" % (q, a) for q, a in qa)
+    return goal + _block, qa
+
+
 def _goal_intake(goal, ws, live, mf, interactive=False):
-    """MASTER_PLAN A: INTAKE before drafting. An analyst pass surfaces the UNSTATED assumptions a goal leaves
-    open — the choices an implementer would otherwise GUESS (the helicopter-physics class). Reuses the
-    existing assumption-auditor persona + assumption_logic (wire-don't-rebuild). Assume-and-record by default:
-    assumptions are written to the workspace + manifest AND injected into the drafting prompt so the spec is
-    built to them explicitly. interactive=True lets the user confirm/correct each before building.
-    Returns (augmented_goal, assumptions)."""
+    """MASTER_PLAN A: INTAKE before drafting. FIRST a DISCOVERY interview interrogates the goal's real intent
+    (why/who/success); THEN an analyst pass surfaces the UNSTATED assumptions the (enriched) goal leaves open —
+    the choices an implementer would otherwise GUESS — and the user confirms them. So the spec is built on what
+    the user actually wants, not on the harness's own guesses. Returns (augmented_goal, assumptions)."""
     assumptions = []
     panel = _intake_panel(goal)                          # A1: goal-matched expert lenses (reused decider)
+    # STAGE 0 — DISCOVERY: understand the goal + real intent BEFORE surfacing implementation assumptions.
+    goal, _discovery_qa = _goal_discovery(goal, live, panel)
     _panel_line = ("\n\nINTERVIEW PANEL — surface the assumptions each of these experts would flag, then MERGE "
                    "them (dedupe): %s.\n" % ", ".join(panel)) if panel else ""
     try:

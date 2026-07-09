@@ -2,6 +2,22 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.58.0 — 2026-07-09 — DISCOVERY: interrogate the goal's real intent BEFORE assumptions
+
+The deepest input-first gap: intake jumped straight to implementation ASSUMPTIONS ("hold-to-rise vs arrows")
+without first understanding the GOAL itself — the why, the who, what "done well" means to the user. We weren't
+thinking deep about intent; we were gap-filling on a goal we hadn't understood.
+
+- `lathe.py` `_goal_discovery` — a NEW discovery stage runs FIRST: the analyst (with the intake panel) generates
+  the 3-5 most important INTENT questions for this specific goal (purpose, audience, success, the whys — not
+  implementation), the CLI asks them, and the answers ENRICH the goal that then drives the assumption pass and
+  the spec. So everything downstream is grounded in what the user actually wants. PROVEN LIVE: for the
+  helicopter it asked who it's for, which retro era specifically, prototype-vs-polished, essential mechanics,
+  and constraints.
+- Same robustness as the assumption interview: prompts directly (no isatty guessing), skips cleanly on a
+  non-interactive stdin (EOF -> "skipping goal discovery", never hangs). Verified: piped run exits 0.
+- New intake order: DISCOVERY (intent) -> ASSUMPTIONS (grounded in intent) -> CONFIRM -> build.
+
 ## v2.57.0 — 2026-07-08 — readable interview: full text + options, not a truncated jumble
 
 The input-first interview (v2.56) worked — but presented each choice truncated to ~130 chars with the
