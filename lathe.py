@@ -409,7 +409,9 @@ def _goal_intake(goal, ws, live, mf, interactive=False):
                 "specific choices an implementer must make that the goal never pins down (behaviour, controls, "
                 "physics, edge cases, win/lose, defaults, scope). One per line, EXACTLY this format, nothing else:\n"
                 "[assumption | high|med|low | <category>] <the specific unstated choice + the default you'd take>\n"
-                "Only real ambiguities that change the result. No preamble, no trailing prose.") % (_persona, _panel_line, goal)
+                "Only real ambiguities that change the result. Each CHOICE appears exactly ONCE — do NOT list the "
+                "same decision twice under different wording, categories, or materialities; MERGE duplicates into a "
+                "single line. No preamble, no trailing prose.") % (_persona, _panel_line, goal)
         raw = live._reqspec.request_spec(_ask)
         assumptions = _al.parse_assumptions(raw or "")
     except Exception as e:
@@ -954,6 +956,10 @@ _DEFAULT_LENSES = ["correctness", "adversarial"]   # the two highest-value lense
 def cmd_review(args):
     """Multi-file, multi-lens CE review. `lathe review <files>` runs correctness + adversarial over ALL
     files together (cross-referencing). `lathe review <lens|all> <files>` selects lenses."""
+    try:
+        sys.stdout.reconfigure(line_buffering=True)      # #68: progress (decider picks, lens headers) flushes
+    except Exception:                                    # live even when stdout is a file redirect (block-buffered)
+        pass
     if not args:
         print("usage: lathe review [lens|all] <file> [file...]")
         print("  default lenses: %s ; or one of: %s ; or 'all'" % (", ".join(_DEFAULT_LENSES), ", ".join(_ALL_LENSES)))
@@ -1036,7 +1042,11 @@ def cmd_review(args):
     _lens_verdicts = {}
     for lens in lenses:
         print("\n========== lathe review: %s  (%d file%s) ==========" % (lens, len(files), "s" if len(files) != 1 else ""))
-        _lrc = _run([PY, HREVIEW, lens] + list(files), cwd=INNER)
+        sys.stdout.flush()                                    # #68: show which lens is running NOW, even under a
+        #                                                       file redirect (else it looks stuck on a bare heartbeat)
+        # run the review subprocess UNBUFFERED so its lens output + analyst heartbeat flush live, not in one
+        # block at the end (a busy review must not read as a hung one).
+        _lrc = _run([PY, HREVIEW, lens] + list(files), cwd=INNER, env=dict(os.environ, PYTHONUNBUFFERED="1"))
         rc |= _lrc
         # E4: a valid review (rc 0) means the lens ENGAGED; a nonzero rc is an inoperative/non-review (D5b).
         _lens_verdicts[lens] = "engaged" if _lrc == 0 else "inoperative"

@@ -2,6 +2,23 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.62.3 — 2026-07-09 — dedup at the source + review no longer looks stuck
+
+- Assumptions were duplicated because the analyst listed the same choice twice; the assumption prompt now
+  requires each choice EXACTLY ONCE (merge duplicates) — semantic dedup at the source, same call, with the
+  lexical dedup kept as a backstop.
+- `lathe review` looked HUNG under a file redirect (progress lines block-buffered, only the heartbeat flushed);
+  now `cmd_review` line-buffers its progress and the hreview subprocess runs UNBUFFERED, so the lens header +
+  heartbeat appear live — a busy review reads as busy, not stuck.
+
+## v2.62.2 — 2026-07-09 — PR #16 shakedown fixes (portability HIGH, CI METRICS_JSON HIGH, + 3 MED/LOW)
+
+Independent v2.61.1 terminal shakedown (PR #16) found real bugs; all fixed: cross-platform `WORKSPACE_ROOT`
+(HIGH — Windows path was relative on POSIX → stray `./C:/` in the repo); `lathe build` re-emits the
+`METRICS_JSON` block the repo's own CI greps for (HIGH — `verify` was red); honest `GOAL.md` on `--assume`
+(skipped ≠ none-found); `lathe review` manifest records the real reviewers instead of an empty selection;
+OS-aware `LATHE_STRICT` hint.
+
 ## v2.62.0 — 2026-07-09 — THE ADVOCATE presides over EVERY command (no exceptions) + cross-platform workspace root
 
 The Advocate is the sponsor's standing representative — the north star. It was wired only into `lathe do`;
