@@ -2,6 +2,32 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.60.0 — 2026-07-09 — THE ADVOCATE: a standing sponsor's representative, default-on, that can HOLD a green build
+
+Every other persona does one job and leaves. The **Advocate** is different: seeded with the sponsor's intent up
+front, it stays for the WHOLE run and judges ONE thing at each checkpoint — *does this still serve the sponsor's
+intent, direction, and quality?* (not "is the code correct" — reviewers do that). It answers the failure that
+plagues agent systems: confidently shipping the wrong thing because "the build finished". A green build proves
+the code RUNS; the Advocate proves it is the sponsor's THING. **Default-on** for every `lathe do`.
+
+- New `ce_personas/advocate.md` — the persona: the sponsor's legal representative, full authority, loyal to
+  intent and never to completion. Returns APPROVE / CONCERN / VETO, and a VETO routes the work back to the right
+  place (`rediscover` | `reassume` | `redraft` | `rebuild`).
+- New `tools/advocate.py` — `build_charter(goal, augmented_goal, assumptions)` assembles the sponsor's intent
+  record (goal + discovery answers + confirmed choices); `checkpoint(charter, stage, artifact)` returns
+  `{verdict, note, route}`. Pure/injectable and **fail-safe**: an analyst outage or unparseable reply degrades
+  to a recorded CONCERN — never a silent pass, never a crash, never raises. `render()` is ASCII-only (a Unicode
+  glyph would crash a cp1252 terminal and kill the run).
+- `lathe.py` `cmd_do` — seeds the charter after intake (writes `ADVOCATE.md` into the workspace), then runs an
+  enforced **delivery checkpoint** on the built artifact. A **VETO HOLDS certification**: the run prints `HELD`,
+  is not reported `DONE`, and returns non-zero. `LATHE_ADVOCATE=off` overrules; `LATHE_ADVOCATE_MODEL` /
+  `LATHE_ADVOCATE_TIMEOUT` tune it.
+- New standing gate `qa/advocate_gate.py` (registered in `run_gates.py`): charter carries intent; verdicts map;
+  unknown verdict/route sanitize; analyst outage/garbage → CONCERN (never a silent pass or crash).
+- PROVEN LIVE: on the same charter the Advocate VETOED an empty-canvas stub and an off-topic tax calculator, and
+  raised a specific CONCERN on a real playable game whose "helicopter" was a bare rectangle — graduated
+  judgement on intent, not code.
+
 ## v2.59.0 — 2026-07-09 — discovery is now OWNED by the requirements-liaison persona (comprehensive, not just "why")
 
 Refinement of v2.58: the discovery stage used a generic prompt and asked only "why"-flavoured questions. It is

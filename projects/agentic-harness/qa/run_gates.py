@@ -46,6 +46,7 @@ CHECKS = [("tree_no_stale_dups", os.path.join(QA, "stale_gate.py")),
           ("repair_prompt", os.path.join(QA, "repair_prompt_gate.py")),                # loop 2 targeted repair: a retry gets its OWN failed code + the EXACT gate failure to fix (not a blind re-roll)
           ("build_narrator", os.path.join(QA, "build_narrator_gate.py")),              # the plain-English layer over the engine's technical output (every build path routes through it)
 
+          ("advocate", os.path.join(QA, "advocate_gate.py")),                        # THE ADVOCATE: charter carries intent; verdicts map; unknowns+outages degrade to CONCERN (never silent pass/crash)
           ("spine_enforced", os.path.join(QA, "spine_gate.py")),                     # #12 P1: guard-forge/skill-subprocess/bypass attacks all defeated (P1-P5)
           ("gate_tristate", os.path.join(QA, "tristate_gate.py"))]                    # #12 U1: gates fail CLOSED (INOPERATIVE), never open, on their own error
 

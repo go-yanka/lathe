@@ -528,6 +528,37 @@ def _goal_workspace(goal):
         return None, "helper"
 
 
+_ADV_DOC_FILES = {"ADVOCATE.md", "GOAL.md", "README.md", "PROJECT.md", "ASSUMPTIONS.md", "BUILD_TRACE.md", "MANIFEST.json"}
+
+
+def _advocate_artifact_summary(ws_abs, budget=12000):
+    """Assemble what the Advocate reviews at delivery: the DELIVERED artifact files (not our own scaffolding
+    docs). Reads the workspace's code/markup, each under a filename header, truncated to a budget. Best-effort:
+    an unreadable file is noted, never fatal."""
+    if not ws_abs or not os.path.isdir(ws_abs):
+        return ""
+    exts = (".html", ".htm", ".js", ".mjs", ".css", ".py", ".ts", ".json", ".md", ".txt")
+    parts, used = [], 0
+    try:
+        names = sorted(n for n in os.listdir(ws_abs)
+                       if os.path.isfile(os.path.join(ws_abs, n)) and not n.startswith(".")
+                       and n not in _ADV_DOC_FILES and n.lower().endswith(exts))
+    except OSError:
+        return ""
+    for n in names:
+        if used >= budget:
+            parts.append("... (%d more file(s) not shown)" % (len(names) - len([p for p in parts if p.startswith("=== ")])))
+            break
+        try:
+            body = open(os.path.join(ws_abs, n), encoding="utf-8", errors="replace").read()
+        except Exception as e:
+            parts.append("=== %s === (unreadable: %s)" % (n, e)); continue
+        chunk = body[: max(600, budget - used)]
+        parts.append("=== %s (%d bytes) ===\n%s" % (n, len(body), chunk))
+        used += len(chunk)
+    return "\n\n".join(parts) if parts else "(workspace produced no reviewable artifact files)"
+
+
 def cmd_do(args):
     # owner design (draft-time targeting): --for <frontier|local-large|local-small|all> drafts the spec(s)
     # FOR a chosen model class up front (not post-failure adaptation). 'all' saves all three variants in
@@ -618,6 +649,22 @@ def cmd_do(args):
             _wd.write_workspace_docs(os.path.join(ROOT, ws.replace("/", os.sep)), goal, _assumptions, _panel, focus)
         except Exception:
             pass
+    # THE ADVOCATE (default-on): seed the sponsor's standing representative with the intent BEFORE the build.
+    # It holds the charter (goal + discovery + confirmed choices) for the whole run and judges the delivery
+    # against it. Off only if LATHE_ADVOCATE in {0,off,no}. Best-effort seeding — never blocks the build.
+    _advocate_on = os.environ.get("LATHE_ADVOCATE", "on").strip().lower() not in ("0", "off", "no")
+    _charter = None
+    if _advocate_on:
+        try:
+            _adv = _tool("advocate")
+            _charter = _adv.build_charter(goal, _build_goal, _assumptions)
+            if ws:
+                _ap = os.path.join(ROOT, ws.replace("/", os.sep), "ADVOCATE.md")
+                open(_ap, "w", encoding="utf-8").write(_charter)
+            print("  advocate: seeded - I hold the sponsor's intent for this run.")
+        except Exception as e:
+            sys.stderr.write("advocate: seeding skipped (%r)\n" % (e,))
+            _advocate_on = False
     _gdb = _goal_board()
     _ws_abs = os.path.join(ROOT, ws.replace("/", os.sep)) if ws else None
     try:
@@ -676,6 +723,28 @@ def cmd_do(args):
     if _mf and ws:
         try: _mf.set_workspace(ws)                       # report: where this goal's outputs live
         except Exception: pass
+    # THE ADVOCATE — enforced DELIVERY checkpoint: does what shipped still serve the sponsor's intent? A green
+    # build proves the code RUNS; the Advocate proves it is the sponsor's THING. A VETO HOLDS certification: the
+    # run is not reported DONE, and the route (rebuild/redraft/reassume/rediscover) says where to send it back.
+    # Fail-safe: any Advocate trouble degrades to a printed CONCERN and never blocks a green build from shipping.
+    _held = False
+    if _advocate_on and _charter and greens:
+        try:
+            _adv = _tool("advocate")
+            _artifact = _advocate_artifact_summary(_ws_abs) if _ws_abs else ""
+            _v = _adv.checkpoint(_charter, "delivery", _artifact,
+                                 context="The build finished with %d gated-green module(s)." % greens)
+            print("\n%s" % _adv.render(_v))
+            if _v.get("verdict") == "veto":
+                _held = True
+        except Exception as e:
+            sys.stderr.write("advocate: delivery checkpoint skipped (%r)\n" % (e,))
+    if _held:
+        print("\nHELD - the build is green but the Advocate VETOED it as not serving the sponsor's intent.")
+        print("Not certified DONE. Address the verdict above (or set LATHE_ADVOCATE=off to overrule) and re-run.")
+        if ws:
+            print("work-in-progress is in: %s" % ws)
+        return 1
     print("\n%s - %d module(s) built gated-green." % ("DONE" if greens else "no green build this run", greens))
     if greens and ws:
         print("everything for this goal is in: %s" % ws)
