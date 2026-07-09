@@ -2,6 +2,20 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.51.0 — 2026-07-08 — LIVE streaming actually live: fix block-buffering + a Windows encoding crash
+
+v2.49 tee'd the engine but two bugs made it invisible on a real (slow) build:
+1. BLOCK-BUFFERING — a piped child's stdout is block-buffered by Python, so engine_runner received NOTHING
+   until the engine EXITED. Fast builds flushed at exit (looked fine); a minutes-long helicopter build showed
+   nothing for minutes. FIX: run the engine with PYTHONUNBUFFERED=1 so every print flushes immediately.
+2. cp1252 CRASH — on a Windows terminal, writing an engine line containing a Unicode glyph (em-dash, arrow)
+   raised UnicodeEncodeError and KILLED the live stream mid-run (a few lines, then nothing). FIX: an
+   encoding-safe `_write` (+ stdout reconfigure errors='replace') so a stray glyph can never break the stream.
+
+Proven with timestamps: engine lines now arrive progressively during the build, not all at the end. Together
+with v2.50.0 (a gate flake can't block a green build) this is what makes the live play-by-play + plain-English
+summary + BUILD_TRACE.md actually reach the operator on every build.
+
 ## v2.50.0 — 2026-07-08 — FLAKE TOLERANCE: a transient gate flake can no longer BLOCK a real green build
 
 Root-caused from a live run: a helicopter build SUCCEEDED (repair loop rewrote the spec, the rebuild shipped

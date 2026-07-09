@@ -25,11 +25,35 @@ def _narrate(raw, label):
         return ""
 
 
+def _write(s):
+    """Encoding-SAFE stdout write: on a Windows cp1252 terminal a Unicode char (em-dash, arrow) in the engine's
+    output used to raise UnicodeEncodeError and KILL the live stream mid-run — so the operator saw a few lines
+    then nothing. Never let a stray glyph break observability."""
+    try:
+        sys.stdout.write(s)
+    except UnicodeEncodeError:
+        enc = getattr(sys.stdout, "encoding", None) or "ascii"
+        sys.stdout.write(s.encode(enc, "replace").decode(enc, "replace"))
+    try:
+        sys.stdout.flush()
+    except Exception:
+        pass
+
+
 def run_engine(engine_args, cwd, env=None, timeout=600, trace_path=None, stream=True, label=""):
     """Run the engine (engine_args = full argv), tee-ing output. Writes BUILD_TRACE.md if trace_path is given.
     Returns (returncode, raw_output). rc 124 on timeout."""
+    try:
+        sys.stdout.reconfigure(errors="replace")   # belt-and-suspenders: never crash the stream on a glyph
+    except Exception:
+        pass
     buf = []
     killed = {"v": False}
+    # CRITICAL for LIVE streaming: when the engine's stdout is a PIPE (as here), Python BLOCK-buffers it, so we
+    # would receive nothing until the engine EXITS — invisible for minutes on a slow build. Force the child
+    # unbuffered so every print() flushes immediately and the operator watches it happen in real time.
+    env = dict(env or os.environ)
+    env["PYTHONUNBUFFERED"] = "1"
     try:
         proc = subprocess.Popen(engine_args, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 text=True, encoding="utf-8", errors="replace", env=env, bufsize=1)
@@ -48,7 +72,7 @@ def run_engine(engine_args, cwd, env=None, timeout=600, trace_path=None, stream=
         for line in proc.stdout:
             buf.append(line)
             if stream:
-                sys.stdout.write("    | " + line); sys.stdout.flush()
+                _write("    | " + line)
         proc.wait()
     finally:
         timer.cancel()
@@ -56,7 +80,7 @@ def run_engine(engine_args, cwd, env=None, timeout=600, trace_path=None, stream=
     narr = _narrate(out, label)
 
     if stream and narr:
-        sys.stdout.write("\n" + narr + "\n"); sys.stdout.flush()
+        _write("\n" + narr + "\n")
     if trace_path:
         try:
             if os.path.dirname(trace_path):
@@ -69,7 +93,7 @@ def run_engine(engine_args, cwd, env=None, timeout=600, trace_path=None, stream=
                 tf.write((narr or "(no interpretation available)") + "\n\n")
                 tf.write("## Full engine output (technical)\n\n```\n" + out.strip() + "\n```\n")
             if stream:
-                sys.stdout.write("    +-- full trace + interpretation -> %s\n" % trace_path); sys.stdout.flush()
+                _write("    +-- full trace + interpretation -> %s\n" % trace_path)
         except Exception:
             pass
     return (124 if killed["v"] else proc.returncode), out
