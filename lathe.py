@@ -307,25 +307,45 @@ def _goal_intake(goal, ws, live, mf, interactive=False):
         print("  intake: no material assumptions surfaced (goal is specific)")
         return goal, [], panel
     _hi = sum(1 for a in assumptions if a.get("materiality") == "high")
-    print("  intake: surfaced %d assumption(s) (%d high) — recorded + fed into the spec:" % (len(assumptions), _hi))
+    print("  intake: surfaced %d assumption(s) (%d high) — these are the choices your goal left open:" % (len(assumptions), _hi))
     for a in assumptions:
         print("    [%s|%s] %s" % (a["materiality"].upper(), a["category"], a["text"][:90]))
-    if interactive:
-        # A3: confirm/correct EACH assumption (Enter=accept, 'd'/'drop'=remove, or type a replacement). The
-        # decision logic lives in the pure, gated intake_confirm.confirm_assumptions — here we just supply an
-        # input()-backed responder.
+    # INPUT-FIRST (the fundamental fix): a build must NOT proceed on assumptions the harness guessed and then
+    # rubber-stamped ITSELF — bad input -> bad output, no model or gate can save that. So when the goal left
+    # MATERIAL (high/med) choices open, INTERVIEW the user to get the input right BEFORE the analyst drafts the
+    # spec. This is the DEFAULT now, not an opt-in flag. isatty() is unreliable cross-platform (backwards on
+    # MSYS), so we don't guess: we just prompt, and if stdin has no interactive input the FIRST prompt EOFs and
+    # we fall back to auto-accept + a LOUD warning (never hangs). Autonomy skips intake entirely via --assume.
+    _material = [a for a in assumptions if a.get("materiality") in ("high", "med")]
+    _did_interview = False
+    if _material:
+        print("\n  Confirming the choices your goal left open BEFORE building (bad input -> bad output).")
+        print("  For each: press Enter to keep it, or type what you actually want instead.\n")
+        _low = [a for a in assumptions if a.get("materiality") not in ("high", "med")]
+        _noninteractive = {"v": False}
         try:
             _ic = _tool("intake_confirm")
 
             def _resp(a):
-                return input("    [%s|%s] %s\n      Enter=accept, 'd'=drop, or corrected text: "
-                             % (a["materiality"].upper(), a["category"], a["text"][:90]))
-            _kept = _ic.confirm_assumptions(assumptions, _resp)
-            _dropped = len(assumptions) - len(_kept)
-            assumptions = _kept
-            print("  intake: %d confirmed%s." % (len(assumptions), (", %d dropped" % _dropped) if _dropped else ""))
+                try:
+                    _tag = "HIGH-IMPACT" if a.get("materiality") == "high" else "affects the result"
+                    return input("    ? %s\n      [Enter = keep it | type the correct value | 'd' = drop]  (%s): "
+                                 % (a["text"][:130], _tag))
+                except (EOFError, KeyboardInterrupt):        # no interactive stdin -> note it, accept (never hang)
+                    _noninteractive["v"] = True
+                    return ""
+            _kept = _ic.confirm_assumptions(_material, _resp)
+            assumptions = _kept + _low                       # material ones handled; low-impact ones recorded as-is
         except Exception as e:
-            sys.stderr.write("intake: interactive confirm skipped (%r)\n" % (e,))
+            sys.stderr.write("intake: interview skipped (%r)\n" % (e,))
+            _noninteractive["v"] = True
+        if _noninteractive["v"]:
+            print("\n  ! No interactive terminal — %d material assumption(s) were AUTO-ACCEPTED. The build is "
+                  "GUESSING these; run this in a terminal to confirm the input first.\n" % len(_material))
+        else:
+            _did_interview = True
+            print("\n  intake: %d material choice(s) confirmed — the spec will be built to THESE.\n" % len(_kept))
+    interactive = _did_interview                             # reflect what actually happened in the manifest label
     # confirmed: assume-and-record auto-accepts (recorded intent); interactive keeps only what the user OK'd.
     _confirmed = [a["text"] for a in assumptions]
     if ws:

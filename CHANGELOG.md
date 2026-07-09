@@ -2,6 +2,23 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.56.0 — 2026-07-08 — INPUT-FIRST: stop building on assumptions the harness guessed AND rubber-stamped itself
+
+The real root cause of "why is the first attempt wrong", named by the owner: bad input -> bad output, and the
+input was bad because intake AUTO-CREATED assumptions to fill the goal's gaps and then AUTO-ACCEPTED its own
+guesses by default. No model, gate, or loop can fix a build handed the wrong problem. (Both thinker and
+implementer are the same frontier model — fable — so this was never a model-capability issue; it was the input.)
+
+- `lathe.py` `_goal_intake` — when the goal leaves MATERIAL (high/med) choices open, the run now INTERVIEWS the
+  user to confirm/correct each BEFORE the analyst drafts the spec. This is the DEFAULT, not the old opt-in
+  `--interactive` flag. Example: for "tidy a list of names" it now asks about "Title-Case (which mangles
+  McDonald/O'Brien)" instead of silently guessing it.
+- Robust, no isatty guessing (it's backwards on MSYS): it prompts, and if stdin has no interactive input the
+  first prompt EOFs -> it AUTO-ACCEPTS with a LOUD warning ("! No interactive terminal — N assumptions were
+  AUTO-ACCEPTED; the build is GUESSING these"). Never hangs (verified: input() raises EOFError cleanly on a
+  closed stdin). Autonomy still skips intake entirely via --assume.
+- Verified: terminal -> interviews; piped -> warns + auto-accepts + completes; regression 26 green.
+
 ## v2.55.0 — 2026-07-08 — READABLE LOG: clean step view instead of a raw firehose
 
 The terminal was an unreadable dump (raw engine lines, tracebacks, JSON, a 26-line gate wall printed after every
