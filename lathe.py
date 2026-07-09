@@ -319,21 +319,35 @@ def _goal_intake(goal, ws, live, mf, interactive=False):
     _material = [a for a in assumptions if a.get("materiality") in ("high", "med")]
     _did_interview = False
     if _material:
-        print("\n  Confirming the choices your goal left open BEFORE building (bad input -> bad output).")
-        print("  For each: press Enter to keep it, or type what you actually want instead.\n")
+        print("\n  " + "=" * 66)
+        print("  Before I build, confirm the choices your goal left open.")
+        print("  Bad input -> bad output, so nothing gets built until these are right.")
+        print("  For each: press Enter to keep it, type what you want instead, or 'd' to drop.")
+        print("  " + "=" * 66)
         _low = [a for a in assumptions if a.get("materiality") not in ("high", "med")]
         _noninteractive = {"v": False}
+        _prog = {"i": 0, "n": len(_material)}
+        import re as _re
+
+        def _resp(a):
+            try:
+                _prog["i"] += 1
+                _txt = (a.get("text") or "").strip()
+                # split the "[options: A | B | C]" tail off the decision so BOTH are shown in full (no truncation)
+                _m = _re.search(r"\[option[s]?:\s*(.+?)\]?\s*$", _txt, _re.I)
+                _decision = (_txt[:_m.start()] if _m else _txt).strip().rstrip(".")
+                _opts = [o.strip() for o in _m.group(1).split("|") if o.strip()] if _m else []
+                _imp = "HIGH IMPACT" if a.get("materiality") == "high" else "matters"
+                print("\n  --- choice %d of %d   [%s | %s] ---" % (_prog["i"], _prog["n"], _imp, a.get("category", "")))
+                print("  %s." % _decision)
+                if _opts:
+                    print("  options:  " + "   /   ".join(_opts))
+                return input("  Keep it? [Enter = yes]  or type your choice (or 'd' to drop):  ").strip()
+            except (EOFError, KeyboardInterrupt):            # no interactive stdin -> note it, accept (never hang)
+                _noninteractive["v"] = True
+                return ""
         try:
             _ic = _tool("intake_confirm")
-
-            def _resp(a):
-                try:
-                    _tag = "HIGH-IMPACT" if a.get("materiality") == "high" else "affects the result"
-                    return input("    ? %s\n      [Enter = keep it | type the correct value | 'd' = drop]  (%s): "
-                                 % (a["text"][:130], _tag))
-                except (EOFError, KeyboardInterrupt):        # no interactive stdin -> note it, accept (never hang)
-                    _noninteractive["v"] = True
-                    return ""
             _kept = _ic.confirm_assumptions(_material, _resp)
             assumptions = _kept + _low                       # material ones handled; low-impact ones recorded as-is
         except Exception as e:

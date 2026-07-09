@@ -2,6 +2,16 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.57.0 — 2026-07-08 — readable interview: full text + options, not a truncated jumble
+
+The input-first interview (v2.56) worked — but presented each choice truncated to ~130 chars with the
+"[options: ...]" tail cut off, so the operator couldn't tell what they were approving.
+
+- `lathe.py` `_goal_intake` — the interview now shows each material choice IN FULL: a numbered header
+  ("--- choice 2 of 9 [HIGH IMPACT | behavior] ---"), the full decision text, the parsed OPTIONS on their own
+  line ("options: hold-to-rise / arrow-key steering / tap-to-flap"), and a clear prompt. No truncation.
+- Verified the rendering on the real helicopter assumptions.
+
 ## v2.56.0 — 2026-07-08 — INPUT-FIRST: stop building on assumptions the harness guessed AND rubber-stamped itself
 
 The real root cause of "why is the first attempt wrong", named by the owner: bad input -> bad output, and the
