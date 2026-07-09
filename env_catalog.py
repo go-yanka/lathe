@@ -83,6 +83,7 @@ REGISTRY = [
     ("LATHE_HEARTBEAT", "autonomy", "print an alive-signal every N seconds during a slow BLOCKING analyst call (drafting/repair) so a slow phase is never a silent black hole (default on; 0 = off)", "on"),
     ("LATHE_HEARTBEAT_SECS", "autonomy", "heartbeat interval in seconds for a slow analyst call", "15"),
     ("LATHE_PHASE", "autonomy", "label the current phase shown in the analyst heartbeat (e.g. drafting spec / repairing spec)", "analyst"),
+    ("LATHE_GATE_FULL", "gate-control", "run the HEAVY browser/engine-spawning capability gates (skeleton/behavioral/vision) — set by `lathe gate`; the per-build regression skips them so a heavy gate can't false-block a green build", "off (per-build) / on (lathe gate)"),
     ("LATHE_AUTO_COMMIT", "autonomy", "let auto/do/run git-commit green builds (opt-in)", "off"),
     ("LATHE_PROJECT", "autonomy", "active project subtree under projects/", "agentic-harness"),
     ("LATHE_REMOTE", "autonomy", "git remote for checkin --push", "origin"),

@@ -2,6 +2,23 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.54.0 — 2026-07-08 — THE false-block, root-caused + fixed: heavy gates no longer run in the per-build regression
+
+The real reason a genuinely-GREEN build kept showing "BLOCKED". Three gates (skeleton_lane, behavioral_lane,
+vision_lane) spawn a full engine+Chromium BUILD inside themselves — they are capability PROOFS, not tree
+checks. The standing regression's own contract is "FAST + deterministic, runs on every plan", and a heavyweight
+sub-build violates it: under load (leftover processes) skeleton_lane failed 3x straight and BLOCKED a shipped
+helicopter game (heli_dodge.html was gated-green, then the post-regression false-failed). The flake-retry
+(v2.50) couldn't help — it's not a 2s flake, it's a heavy gate in the wrong tier. This was my design flaw
+(I added behavioral_lane/vision_lane to the per-build suite this session).
+
+- `qa/run_gates.py` — HEAVY = {skeleton_lane, behavioral_lane, vision_lane} now run ONLY in the explicit full
+  suite (`lathe gate`, which sets LATHE_GATE_FULL=1); the per-build post-regression SKIPS them. The user's OWN
+  artifact still gets its behavioral/functional gate in the engine — no coverage lost; the false-block is gone.
+- `lathe.py` — `cmd_gate` sets LATHE_GATE_FULL=1 so `lathe gate` (CI/dev) still runs the full 26.
+- VERIFIED both paths: per-build regression skips the 3 heavy gates and is clean even under load; `lathe gate`
+  runs all 26 green. `env_catalog.py` documents LATHE_GATE_FULL.
+
 ## v2.53.0 — 2026-07-08 — fix the narrator's per-attempt reason (was showing "Traceback", not the real failure)
 
 The plain-English layer (v2.49) reported each failed attempt's reason as "Traceback (most recent call last):"

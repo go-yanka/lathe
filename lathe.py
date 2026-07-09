@@ -640,6 +640,7 @@ def cmd_gate(args):
     # default: harness regression + stale gate
     rg = os.path.join(QA, "run_gates.py")
     print("> regression gate (%s)..." % rg)
+    os.environ["LATHE_GATE_FULL"] = "1"          # explicit `lathe gate` runs the FULL suite incl. heavy browser proofs
     return _run([PY, rg], cwd=INNER)
 
 
