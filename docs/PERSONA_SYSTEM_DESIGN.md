@@ -2,9 +2,12 @@
 
 > **✅ STATUS — IMPLEMENTED (PR #13 / issue #9).** The redesign shipped: `usage_ledger.py`, `persona_grade.py`,
 > `persona_select.py` (UCB1 explore/exploit), `persona_orchestrator.py`, `persona_manifest.py`. Reachability
-> independently verified — **143/143 personas reachable** over time (was 99/143 unreachable). It is
-> **feature-flagged opt-in** (`LATHE_PERSONA_UCB=1` / `personas.explore_exploit=true`), default OFF "until
-> validated"; the validation evidence is on issue #9. Retained as the design record.
+> independently verified — **143/143 personas reachable** over time (was 99/143 unreachable). As of **v2.16.0
+> it is ON by default** (`LATHE_PERSONA_UCB` defaults on; set `0`/`false` or `personas.explore_exploit=false`
+> to opt out). Retained as the design record. **Caveat (capstone review v2.16.0):** the redesign is only
+> partly wired into the live flow — the work-based grade pipeline is not yet called (UCB1 runs explore-by-
+> count), and the live review-lens decider still uses the old word-match; see the capstone report + issue for
+> the open wiring items.
 
 *Status: proposal from the independent review, at the owner's direction. Documents the honest current state
 of the persona subsystem and the target design it should move to. The reviewer authored this; the engine

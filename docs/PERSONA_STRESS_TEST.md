@@ -2,9 +2,11 @@
 
 > **✅ RESOLVED (PR #13 / issue #9).** The 99/143-unreachable finding below drove the persona redesign, which
 > shipped a UCB1 explore/exploit selector + usage ledger. Re-verified: **143/143 personas reachable** over
-> time (UCB1 pulls every unvisited arm), so the dead tail is gone when the selector is enabled
-> (`LATHE_PERSONA_UCB=1`, opt-in until validated). The findings below are retained as the record of what was
-> found and how the fix was validated — not as open defects.
+> time (UCB1 pulls every unvisited arm), so the dead tail is gone. As of **v2.16.0 the selector is ON by
+> default** (`LATHE_PERSONA_UCB` defaults on; `0`/`false` opts out). The findings below are retained as the
+> record of what was found and how the fix was validated — not as open defects. **Caveat (capstone v2.16.0):**
+> the *live review-lens decider* (`lathe.py`) still calls the old word-match, and the work-based grade
+> pipeline is not yet wired, so UCB1 currently runs explore-by-count only — see the capstone report.
 
 *Adversarial stress-test of the persona **decider** (`agent_router.select_agents_for_goal` / `score_match`),
 executed against the real 143-persona `catalog.json` — not reasoned about. Probe script:

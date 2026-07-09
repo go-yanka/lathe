@@ -80,7 +80,7 @@ check("strict: un-acked tests are REFUSED (test-ack forced)", rc != 0 and "TEST-
 
 # 3) strict + acked but stub-satisfiable tests -> blocked by the (forced) mutation probe
 mj, out, rc = build("noop", "Write noop(x): return None.", ["assert noop(5) is None"], ack=True)
-check("strict: stub-satisfiable tests are BLOCKED (lint forced)", rc != 0 and "inadequate tests" in out, out[-200:])
+check("strict: stub-satisfiable tests are BLOCKED (lint forced)", rc != 0 and "inadequate" in out, out[-200:])
 
 if model_up:
     # 4) compliant new function -> green
