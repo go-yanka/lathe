@@ -279,13 +279,24 @@ def _goal_discovery(goal, live, panel):
     implementation gap-filling. The analyst generates the questions; the CLI asks them; the answers ENRICH the
     goal that then drives the assumption pass + the spec. Non-interactive stdin -> skip (never hang). Returns
     (enriched_goal, [(q,a)...])."""
-    _pl = ("Experts in the room: %s. " % ", ".join(panel)) if panel else ""
-    _ask = ("%sYou are running DISCOVERY before ANYTHING is designed. The user's goal, verbatim:\n\n  %s\n\n"
-            "Ask the 3-5 MOST IMPORTANT questions to understand the REAL INTENT behind it — the purpose, who "
-            "it's for, what 'done well' means to THEM, the whys and the context — NOT implementation details "
-            "(controls, physics, colours come later). Make them specific to THIS goal, open-ended, and genuinely "
-            "illuminating — the questions a thoughtful person would ask before starting. Reply with ONLY a JSON "
-            "array of 3-5 question strings, nothing else." % (_pl, goal))
+    # OWNED by the dedicated requirements-liaison persona (the goal's first interrogator) — comprehensive
+    # discovery across ALL dimensions, not just "why". It hands a sharp understanding to the assumption pass.
+    _persona = ""
+    try:
+        _lp = os.path.join(INNER, "ce_personas", "requirements-liaison.md")
+        if os.path.exists(_lp):
+            _persona = open(_lp, encoding="utf-8").read()
+    except Exception:
+        _persona = ""
+    _pl = ("Other experts in the room: %s. " % ", ".join(panel)) if panel else ""
+    _ask = ("%s\n\n---\n%sYou are the FIRST mind this goal meets. Interrogate it for clarity BEFORE any design "
+            "or assumptions. The user's goal, verbatim:\n\n  %s\n\nProduce the FEWEST, highest-signal clarifying "
+            "questions that most reduce ambiguity — enough to COMPLETE the discovery. Cover, as relevant: the "
+            "real purpose/intent and audience; inputs; outputs and what 'done well' looks like; success/"
+            "acceptance criteria; constraints (platform, offline, size, performance, security); edge cases; and "
+            "explicit NON-GOALS. Ask only what you cannot safely infer; never more than 7. Where the answer "
+            "space is bounded, EMBED the choices inline as '[options: A | B | C]'. Reply with ONLY a JSON array "
+            "of question strings (each may contain an [options: ...] tail), nothing else." % (_persona, _pl, goal))
     try:
         import json as _json
         raw = live._reqspec.request_spec(_ask)
@@ -302,15 +313,26 @@ def _goal_discovery(goal, live, panel):
     qa = []
     _noninteractive = False
     for _i, _q in enumerate(questions, 1):
+        _om = re.search(r"\[option[s]?:\s*([^\]]+)\]", _q, re.I)      # options between [ ]
+        _dm = re.search(r"\(default:\s*([^)]+)\)", _q, re.I)         # a recommended default, if any
+        _qtext = re.sub(r"\s*\(default:[^)]+\)\s*", " ",
+                        re.sub(r"\s*\[option[s]?:[^\]]+\]\s*", " ", _q, flags=re.I), flags=re.I).strip()
+        _qtext = re.sub(r"^\d+[.)]\s*", "", _qtext)                  # drop any leading "1." the persona added
+        _opts = [o.strip() for o in _om.group(1).split("|") if o.strip()] if _om else []
+        _default = _dm.group(1).strip() if _dm else ""
         print("\n  --- question %d of %d ---" % (_i, len(questions)))
-        print("  %s" % _q)
+        print("  %s" % _qtext)
+        if _opts:
+            print("  options:  " + "   /   ".join(_opts))
         try:
-            _ans = input("  > ").strip()
+            _ans = input("  > %s" % (("[Enter = %s]  " % _default) if _default else "")).strip()
         except (EOFError, KeyboardInterrupt):
             _noninteractive = True
             break
+        if not _ans and _default:                                    # Enter accepts the recommended default
+            _ans = _default
         if _ans:
-            qa.append((_q, _ans))
+            qa.append((_qtext, _ans))
     if _noninteractive:
         print("\n  ! No interactive terminal — skipping goal discovery (the build won't know your deeper intent).\n")
         return goal, []

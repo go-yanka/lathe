@@ -2,6 +2,22 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.59.0 — 2026-07-09 — discovery is now OWNED by the requirements-liaison persona (comprehensive, not just "why")
+
+Refinement of v2.58: the discovery stage used a generic prompt and asked only "why"-flavoured questions. It is
+now driven by the DEDICATED `requirements-liaison` persona ("the first mind a goal meets") — the same one the
+`clarify` command uses — so it interrogates ALL dimensions to COMPLETE the discovery, then hands a sharp
+understanding to the assumption persona (assumption-auditor), which hands to the drafter. A real persona
+pipeline: liaison -> auditor -> drafter.
+
+- `lathe.py` `_goal_discovery` — loads `ce_personas/requirements-liaison.md` and asks for the fewest,
+  highest-signal questions covering purpose/audience, inputs, outputs/'done well', success criteria,
+  constraints, edge cases, and NON-GOALS, with bounded choices embedded as `[options: A | B]` and a
+  `(default: X)`. PROVEN LIVE: for the helicopter it asked visual style / controls / difficulty ramp / scoring
+  & persistence / mobile / audio / delivery format — each with options and a recommended default.
+- The CLI renders each question with its options; Enter accepts the recommended default; the answers enrich the
+  goal that drives assumptions + the spec. Non-interactive still skips cleanly (no hang).
+
 ## v2.58.0 — 2026-07-09 — DISCOVERY: interrogate the goal's real intent BEFORE assumptions
 
 The deepest input-first gap: intake jumped straight to implementation ASSUMPTIONS ("hold-to-rise vs arrows")
