@@ -2,6 +2,22 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.55.0 — 2026-07-08 — READABLE LOG: clean step view instead of a raw firehose
+
+The terminal was an unreadable dump (raw engine lines, tracebacks, JSON, a 26-line gate wall printed after every
+build). Now a `do`/build shows a clean workflow view; the raw detail lives in BUILD_TRACE.md.
+
+- `tools/engine_runner.py` — CLEAN streaming mode (default): the engine's raw output is translated to readable
+  step lines ("building the page", "x attempt 1 failed: the code crashed", "-> fixing the exact problem and
+  retrying", "ok - built and passed the checks"); tracebacks/JSON/paths suppressed. LATHE_STREAM_ENGINE=raw
+  restores the firehose; =0 silences. The full raw output always lands in BUILD_TRACE.md.
+- `qa/run_gates.py` — the per-build regression is now QUIET: no per-gate PASS wall, heavy gates silently
+  skipped, a single "workspace + tree checks: clean (N passed)" summary. Failures still print in full.
+- `lathe.py` — full-verbose (heavy gates + every PASS line) is driven ONLY by the TOP-LEVEL command being
+  `gate` (set once in run_spine); cmd_gate no longer mutates os.environ, so full mode can't leak into a build's
+  regression (that was the bug making every do-build print the 26-gate wall). `_run` gained an `env` param.
+- Verified on real builds: a `do` shows ~6 clean lines; `lathe gate` still runs all 26 green.
+
 ## v2.54.0 — 2026-07-08 — THE false-block, root-caused + fixed: heavy gates no longer run in the per-build regression
 
 The real reason a genuinely-GREEN build kept showing "BLOCKED". Three gates (skeleton_lane, behavioral_lane,

@@ -64,8 +64,7 @@ def main():
     _full = os.environ.get("LATHE_GATE_FULL", "") in ("1", "true")
     for name, path in CHECKS:
         if name in HEAVY and not _full:
-            print("%-22s SKIPPED :: heavy capability-proof gate — runs on `lathe gate` (LATHE_GATE_FULL=1), not per-build" % name)
-            continue
+            continue                                       # silently skip heavy gates per-build (they run on `lathe gate`)
         if not os.path.exists(path):
             # #12 (PR#7 round-3 finding): a MISSING gate file used to be silently skipped while the run
             # still printed "regression clean" — a vacuous green. A registered gate that is absent is a FAIL.
@@ -103,12 +102,19 @@ def main():
         _crashed = r.returncode != 0 and not _out_lines and ("Traceback" in (r.stderr or ""))
         tag = "PASS" if r.returncode == 0 else ("INOPERATIVE" if _crashed else "FAIL")
         last = _out_lines[-1] if _out_lines else ((r.stderr or "").strip().splitlines() or [""])[-1]
-        print("%-22s %s :: %s" % (name, tag, last[:200]))
+        # READABILITY: the per-build regression printed 23 "gate PASS" lines after every build — noise. Show
+        # each line only in the EXPLICIT full suite (`lathe gate`) or when a gate FAILS; per-build stays quiet
+        # on pass and prints a single clean summary at the end.
+        if _full or r.returncode != 0:
+            print("%-22s %s :: %s" % (name, tag, last[:200]))
         if r.returncode != 0:
             failed.append(name + ("(inoperative)" if _crashed else ""))
     if failed:
         print("REGRESSION: " + ", ".join(failed)); sys.exit(1)
-    print("regression clean (%d checks)" % len(CHECKS)); sys.exit(0)
+    _ran = sum(1 for n, _ in CHECKS if _full or n not in HEAVY)
+    print("regression clean (%d checks)" % len(CHECKS) if _full
+          else "  workspace + tree checks: clean (%d checks passed)" % _ran)
+    sys.exit(0)
 
 if __name__ == "__main__":
     main()

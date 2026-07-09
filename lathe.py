@@ -75,7 +75,7 @@ PY = sys.executable
 _RUN_TIMEOUT = int(os.environ.get("LATHE_RUN_TIMEOUT", "0")) or None   # operator ceiling for unattended runs; off by default
 
 
-def _run(cmd, cwd=ROOT, timeout=None):
+def _run(cmd, cwd=ROOT, timeout=None, env=None):
     """Run a subprocess inheriting this terminal's stdout/stderr so the user sees live output.
     timeout (seconds) bounds the call; on expiry the child is killed and 124 is returned (GNU-timeout
     convention) so a wedged rig/engine can't freeze the CLI forever — the documented '503 for minutes while
@@ -84,7 +84,7 @@ def _run(cmd, cwd=ROOT, timeout=None):
     import subprocess
     timeout = timeout or _RUN_TIMEOUT
     try:
-        return subprocess.run(cmd, cwd=cwd, timeout=timeout).returncode
+        return subprocess.run(cmd, cwd=cwd, timeout=timeout, env=env).returncode
     except subprocess.TimeoutExpired:
         sys.stderr.write("\nlathe: command exceeded %ss timeout — killed (raise LATHE_RUN_TIMEOUT or pass --timeout)\n" % timeout)
         return 124
@@ -640,7 +640,8 @@ def cmd_gate(args):
     # default: harness regression + stale gate
     rg = os.path.join(QA, "run_gates.py")
     print("> regression gate (%s)..." % rg)
-    os.environ["LATHE_GATE_FULL"] = "1"          # explicit `lathe gate` runs the FULL suite incl. heavy browser proofs
+    # Full-verbose (heavy gates + every PASS line) is driven by the TOP-LEVEL command being `gate` (set in
+    # run_spine), NOT here — so a gate step that runs as part of a `do`/build stays quiet + per-build.
     return _run([PY, rg], cwd=INNER)
 
 
@@ -2303,6 +2304,11 @@ def run_spine(cmd, rest, argv):
     """The six-phase operating contract, in deterministic code around the data (#12 Phase 1). A workflow can
     define bad steps but cannot delete a phase — phases are not in the data. Emission is unconditional."""
     routed = "table" if cmd not in ("",) and not _is_bare(cmd) else "bare-goal"
+    # FULL-verbose gate suite (heavy browser proofs + every PASS line) runs ONLY when the user's TOP-LEVEL
+    # command is `gate`. Any gate that runs inside a do/build stays quiet + per-build (skips heavy). This is
+    # the single source of truth — cmd_gate no longer mutates the env, so nothing leaks full mode into a build.
+    if cmd == "gate":
+        os.environ["LATHE_GATE_FULL"] = "1"
     mf = _manifest_begin(argv, cmd if routed == "table" else "do", routed)
     global _CURRENT_MF                                   # #19 M1: expose the run's manifest to the deciders
     _CURRENT_MF = mf                                     #         so cmd_do/cmd_review can set_goal/set_selection
