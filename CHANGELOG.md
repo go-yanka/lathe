@@ -2,6 +2,25 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.49.0 — 2026-07-08 — TWO-LAYER OUTPUT on EVERY build path (technical + plain-English), no half-wiring
+
+Operator asks, both addressed and wired EVERYWHERE (not a few paths): (1) two layers — the raw technical
+engine output AND a plain-English interpretation — in both the live output and the report; (2) EVERY build
+command gets it, via one shared runner instead of per-caller drift.
+
+- `tools/engine_runner.py` — the ONE way every path runs the engine: tee live stream + plain-English summary +
+  a BUILD_TRACE.md holding BOTH layers ("## Plain English" then "## Full engine output"). Watchdog timeout.
+- `tools/build_narrator.py` — the human layer: parses the engine's markers (metrics verdict, loop #1 spec-review
+  firings, loop #2 targeted-repair firings, per-attempt reasons) and renders layman English — "held the control,
+  it fell", "the code CRASHED", "score didn't go up", "already game over" — plus a WHAT-TO-DO. Never raises.
+- `engine_v2.py` — each failed attempt now prints its WHY to stdout ([attempt N FAILED - why: ...]) so the
+  stream, the trace, and the narrator all see the exact reason (was buried in a reason.txt subfile).
+- WIRED ON ALL PATHS: `autonomy_live.engine_build` (do/auto) and `lathe.py` `_run_engine` now used by
+  cmd_build, the repair rebuild, cmd_run, and selftest — every user-facing build streams + narrates + traces.
+  (`build --json` stays pure-capture for machine consumers.) Verified end-to-end on the `do` path.
+- `qa/build_narrator_gate.py` (regression now 26 checks) — proves the plain-English layer on success, failure,
+  loop firings, layman per-attempt reasons, inoperative-env (not blamed on the spec), and never-raises.
+
 ## v2.48.0 — 2026-07-08 — OBSERVABILITY: the engine's play-by-play is finally VISIBLE (streamed + BUILD_TRACE.md)
 
 Long-standing operator complaint, root-caused: `autonomy_live.engine_build` ran the engine with

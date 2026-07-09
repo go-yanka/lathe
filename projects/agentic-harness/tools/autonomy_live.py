@@ -65,49 +65,16 @@ def engine_build(plan_rel, model=None, tries="3", timeout=420):
     env["LATHE_VALIDATOR_PY"] = os.path.join(_TOOLS, "plan_validator.py")
     env.pop("LATHE_TRUST_PLAN", None)                    # autonomy never trusts a plan, even if the parent env set it
     env.pop("LATHE_TRUST_REMOTE_ANALYST", None)          # nor lets a parent env open the analyst SSRF guard
-    # OBSERVABILITY (operator ask, long-standing): the engine prints a rich play-by-play — spec<->test
-    # refinements, per-attempt gate results + WHY, targeted-repair firings, pins. It used to be captured and
-    # DISCARDED after parsing, so the operator never saw what happened inside. Now we TEE it: stream every line
-    # live (nested under the CLI output) AND persist the whole thing to <workspace>/BUILD_TRACE.md as a
-    # readable report. LATHE_STREAM_ENGINE=0 silences the live echo (the trace file is still written).
-    import threading
+    # OBSERVABILITY: run the engine through the shared engine_runner so this path gets exactly what every other
+    # build path gets — the live stream, the plain-English interpretation, and a persisted BUILD_TRACE.md (both
+    # layers). LATHE_STREAM_ENGINE=0 silences the live echo (the trace file is still written).
     _stream = os.environ.get("LATHE_STREAM_ENGINE", "1") not in ("0", "off", "false")
     _trace_path = os.path.join(_ROOT, os.path.dirname(plan_rel), "BUILD_TRACE.md")
-    _buf = []
-    _killed = {"v": False}
-    try:
-        proc = subprocess.Popen([sys.executable, "engine_v2.py", plan_rel, model, tries],
-                                cwd=_ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                text=True, encoding="utf-8", errors="replace", env=env, bufsize=1)
-    except Exception as e:
-        return {"ok": False, "reason": "engine spawn error: %s" % e}
-
-    def _killer():
-        _killed["v"] = True
-        try:
-            proc.kill()
-        except Exception:
-            pass
-    _timer = threading.Timer(timeout, _killer); _timer.start()
-    try:
-        for _line in proc.stdout:                         # blocks until the engine closes stdout (i.e. exits)
-            _buf.append(_line)
-            if _stream:
-                sys.stdout.write("    │ " + _line); sys.stdout.flush()   # "│ " prefix = inside the engine
-        proc.wait()
-    finally:
-        _timer.cancel()
-    out = "".join(_buf)
-    try:                                                  # persist the full trace as a readable report
-        os.makedirs(os.path.dirname(_trace_path), exist_ok=True)
-        with open(_trace_path, "w", encoding="utf-8") as _tf:
-            _tf.write("# BUILD TRACE — everything the engine did this run\n\n"
-                      "plan: `%s`  ·  model: `%s`\n\n```\n%s\n```\n" % (plan_rel, model, out.strip()))
-        if _stream:
-            sys.stdout.write("    └ full engine trace -> %s\n" % os.path.relpath(_trace_path, _ROOT)); sys.stdout.flush()
-    except Exception:
-        pass
-    if _killed["v"]:
+    _er = _load("engine_runner")
+    _rc, out = _er.run_engine([sys.executable, "engine_v2.py", plan_rel, model, tries],
+                              cwd=_ROOT, env=env, timeout=timeout, trace_path=_trace_path,
+                              stream=_stream, label="do/auto build — plan %s on %s" % (plan_rel, model))
+    if _rc == 124:
         return {"ok": False, "reason": "engine timeout"}
     # #12 U1 (whole-class close): the engine now declares a gate whose ENV broke as INOPERATIVE. That verdict
     # must survive up the stack — the analyst repair loop cannot fix a browser, so spending draft/repair
@@ -129,14 +96,14 @@ def engine_build(plan_rel, model=None, tries="3", timeout=420):
                     mx.get("functions_passed", 0), mx.get("functions_total", 0),
                     mx.get("artifacts_passed", 0), mx.get("artifacts_total", 0))}
             tail = "\n".join(out.strip().splitlines()[-4:])
-            return {"ok": False, "reason": "gate not green (rc=%s): %s" % (proc.returncode, tail[-300:])}
+            return {"ok": False, "reason": "gate not green (rc=%s): %s" % (_rc, tail[-300:])}
         except Exception:
             pass
     m = re.search(r"implemented[: ]+(\d+)\s*/\s*(\d+)", out, re.I)   # fallback: legacy scrape
     if m and int(m.group(1)) == int(m.group(2)) and int(m.group(2)) > 0:
         return {"ok": True, "reason": "%s/%s gated green" % (m.group(1), m.group(2))}
     tail = "\n".join(out.strip().splitlines()[-4:])
-    return {"ok": False, "reason": "gate not green (rc=%s): %s" % (proc.returncode, tail[-300:])}
+    return {"ok": False, "reason": "gate not green (rc=%s): %s" % (_rc, tail[-300:])}
 
 
 # The planner's scope is FOCUS-AWARE so the autonomous loop exercises more of the engine than just

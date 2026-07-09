@@ -90,6 +90,23 @@ def _run(cmd, cwd=ROOT, timeout=None):
         return 124
 
 
+def _run_engine(plan, model, tries, label=""):
+    """Run the engine through the shared engine_runner so EVERY build command (build/run/selftest) gets the
+    same three things as `do`: the live stream, the plain-English interpretation, and a BUILD_TRACE.md next to
+    the plan. Falls back to _run (inherit stdout) if engine_runner can't load."""
+    try:
+        er = _tool("engine_runner")
+        _stream = os.environ.get("LATHE_STREAM_ENGINE", "1") not in ("0", "off", "false")
+        _trace = os.path.join(os.path.dirname(os.path.abspath(plan)), "BUILD_TRACE.md")
+        rc, _out = er.run_engine([PY, ENGINE, plan, str(model), str(tries)], cwd=ROOT, env=dict(os.environ),
+                                 timeout=(_RUN_TIMEOUT or 900), trace_path=_trace, stream=_stream,
+                                 label=label or ("build — %s on %s" % (os.path.basename(plan), model)))
+        return rc
+    except Exception as _e:
+        sys.stderr.write("(engine_runner unavailable, plain run: %s)\n" % _e)
+        return _run([PY, ENGINE, plan, str(model), str(tries)])
+
+
 def _load_autonomy():
     if TOOLS not in sys.path:
         sys.path.insert(0, TOOLS)
@@ -154,7 +171,7 @@ def cmd_build(args):
         print(_json.dumps(obj))
         return 0 if obj.get("build_ok") else 1
     print("> building %s on %s (best-of-%s)..." % (os.path.basename(plan), model, tries))
-    rc = _run([PY, ENGINE, plan, model, tries])
+    rc = _run_engine(plan, model, tries)
     if rc == 0:
         return 0
     # DEFAULT FEEDBACK LOOP (owner rule): when the implementer fails, the HIGHER model adjusts the SPEC —
@@ -210,7 +227,7 @@ def cmd_build(args):
         except Exception:
             pass
     print("> repaired spec -> %s ; rebuilding on %s..." % (os.path.relpath(rplan, ROOT), model))
-    return _run([PY, ENGINE, rplan, model, tries])
+    return _run_engine(rplan, model, tries, label="repair rebuild")
 
 
 def _goal_board():
@@ -906,7 +923,7 @@ def cmd_verify(args):
     if not _validate_plan_file(plan):
         return 2
     print("> verifying reproducibility of %s (rebuild should reuse pins)..." % os.path.basename(plan))
-    rc = _run([PY, ENGINE, plan, MODEL, TRIES])
+    rc = _run_engine(plan, MODEL, TRIES)
     print("  (check the run report: pin reuse = reproducible; fresh gen = pin miss)")
     return rc
 
@@ -1229,7 +1246,7 @@ def cmd_selftest(_args):
     print("Lathe self-test\n")
 
     plan = _resolve_plan("M01_token_overlap")
-    rc = _run([PY, ENGINE, plan, MODEL, TRIES]) if os.path.isfile(plan) else 1
+    rc = _run_engine(plan, MODEL, TRIES) if os.path.isfile(plan) else 1
     rec("build + content-hash pins", rc == 0, "(pinned rebuild)")
     rec("regression / stale gate", _run([PY, os.path.join(QA, "run_gates.py")], cwd=INNER) == 0)
     try:

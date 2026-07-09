@@ -1414,6 +1414,10 @@ for art in getattr(plan, "ARTIFACTS", []):
                 print(f"    [saved failed candidate -> _artifact_fails/{stem}.html | structural_fails={len(sfails)} functional={'pass' if fok else 'fail'}]")
             except Exception:
                 pass
+            # SURFACE the WHY into stdout (not just the reason.txt file) so the live stream, the BUILD_TRACE,
+            # and the plain-English narrator all see exactly what failed this attempt.
+            _why = (fdetail if sok else ("structural: " + "; ".join(str(x) for x in sfails[:3]))) or "(no detail)"
+            print(f"    [attempt {k + 1} FAILED — why: {_why[:300]}]")
             # loop #2: remember THIS candidate + its exact reason so the NEXT attempt repairs it precisely.
             _prev_code = c
             _prev_fail = (("STRUCTURAL checks failed: " + "; ".join(str(x) for x in sfails[:5])) if not sok

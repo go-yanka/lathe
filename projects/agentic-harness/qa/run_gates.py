@@ -44,6 +44,7 @@ CHECKS = [("tree_no_stale_dups", os.path.join(QA, "stale_gate.py")),
           ("spec_test_consistency", os.path.join(QA, "spec_test_consistency_gate.py")),  # catch a behavioral test that contradicts its own spec (score-vs-grace, undeclared selector) before the build wastes attempts
           ("spec_review", os.path.join(QA, "spec_review_gate.py")),                    # the CLOSED LOOP: a contradictory spec refines ITSELF to clean before the implementer runs (converges or surfaces unresolved)
           ("repair_prompt", os.path.join(QA, "repair_prompt_gate.py")),                # loop 2 targeted repair: a retry gets its OWN failed code + the EXACT gate failure to fix (not a blind re-roll)
+          ("build_narrator", os.path.join(QA, "build_narrator_gate.py")),              # the plain-English layer over the engine's technical output (every build path routes through it)
 
           ("spine_enforced", os.path.join(QA, "spine_gate.py")),                     # #12 P1: guard-forge/skill-subprocess/bypass attacks all defeated (P1-P5)
           ("gate_tristate", os.path.join(QA, "tristate_gate.py"))]                    # #12 U1: gates fail CLOSED (INOPERATIVE), never open, on their own error
