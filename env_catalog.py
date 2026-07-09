@@ -74,7 +74,7 @@ REGISTRY = [
     ("LATHE_DECIDER_TIMEOUT", "autonomy", "seconds for a semantic-decider call", "60"),
     ("LATHE_GRADE_FEEDBACK", "autonomy", "E4: feed `lathe review` outcomes back into persona ratings (EWMA-blended); 1 to enable", "off"),
     ("LATHE_PROJECT_LAYOUT", "autonomy", "F4: physically organize a multi-file project into code/docs/scripts/config subdirs (1 to move; default writes PROJECT.md map only)", "off"),
-    ("LATHE_WORKSPACE_ROOT", "autonomy", "where per-goal build workspaces are created — OUTSIDE the repo so outputs never pollute the code tree or get checked into the hub", "C:/lathe-workspaces"),
+    ("LATHE_WORKSPACE_ROOT", "autonomy", "where per-goal build workspaces are created — OUTSIDE the repo so outputs never pollute the code tree or get checked into the hub (absolute on every OS)", "C:/lathe-workspaces (Windows) / ~/.lathe/workspaces (POSIX)"),
     ("LATHE_ADVOCATE", "autonomy", "THE ADVOCATE: the sponsor's standing representative holds the intent for the whole run and judges the delivery against it; a VETO holds certification (build stays HELD, not DONE). Set 0/off/no to overrule", "on"),
     ("LATHE_ADVOCATE_MODEL", "autonomy", "model the Advocate uses to judge intent-alignment at each checkpoint", "sonnet"),
     ("LATHE_ADVOCATE_TIMEOUT", "autonomy", "seconds for an Advocate checkpoint call", "90"),

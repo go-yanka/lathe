@@ -111,6 +111,7 @@ def run_engine(engine_args, cwd, env=None, timeout=600, trace_path=None, stream=
     _silent = (not stream) or _mode in ("0", "off", "false")
     _raw = _mode in ("raw", "1", "true", "verbose", "on")     # firehose; else CLEAN human-step view (default)
     timer = threading.Timer(timeout, _kill); timer.start()
+    _in_metrics = {"v": False}                                # the ===METRICS_JSON_BEGIN...END block
     try:
         for line in proc.stdout:
             buf.append(line)
@@ -118,7 +119,16 @@ def run_engine(engine_args, cwd, env=None, timeout=600, trace_path=None, stream=
                 continue
             if _raw:
                 _write("    | " + line)
-            else:                                             # CLEAN: only readable step lines, noise suppressed
+            else:                                             # CLEAN: readable step lines, noise suppressed —
+                # EXCEPT the METRICS_JSON block: it is a machine-readable CONTRACT that CI + tooling parse from
+                # `lathe build` stdout, so it must pass through verbatim even in the clean view (else CI breaks).
+                if "===METRICS_JSON_BEGIN===" in line:
+                    _in_metrics["v"] = True
+                if _in_metrics["v"]:
+                    _write(line if line.endswith("\n") else line + "\n")
+                    if "===METRICS_JSON_END===" in line:
+                        _in_metrics["v"] = False
+                    continue
                 cl = _clean_line(line)
                 if cl is not None:
                     _write(cl + "\n")

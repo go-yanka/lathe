@@ -2,6 +2,23 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.62.0 — 2026-07-09 — THE ADVOCATE presides over EVERY command (no exceptions) + cross-platform workspace root
+
+The Advocate is the sponsor's standing representative — the north star. It was wired only into `lathe do`;
+now **every goal-building command runs under it**, through the ONE shared pipeline (no duplicate intake/advocate
+logic):
+- `lathe chat` — each goal routes through `cmd_do` (full discovery → assumptions → Advocate), not a bare build.
+- `lathe auto` — routes through `cmd_do --assume`: autonomous (no interview/hard-stop) but the Advocate still
+  presides at discovery/assumptions/delivery (verified live: all APPROVE, green).
+- `lathe sdlc` — the Advocate now judges whether the authored layered requirements faithfully serve the
+  sponsor's goal (VETO holds).
+- Assumption-fidelity (v2.61.3) result is fed into the Advocate's delivery context.
+
+Also fixed a real cross-platform bug (found by the v2.61.1 shakedown review, PR #16): `LATHE_WORKSPACE_ROOT`
+defaulted to `C:/lathe-workspaces`, which is **relative on POSIX** — on Linux/Mac that made `do` create a stray
+`./C:/` directory INSIDE the repo. The default is now absolute per-OS (`C:/lathe-workspaces` on Windows,
+`~/.lathe/workspaces` on POSIX); the engine + `build` containment guards match. (`lathe.py`, `engine_v2.py`.)
+
 ## v2.61.1 — 2026-07-09 — per-goal build workspaces live OUTSIDE the repo
 
 Build outputs are not source and must never land in the code tree (or get checked into the hub). Per-goal

@@ -93,7 +93,8 @@ if os.environ.get("LATHE_VALIDATE_PLAN") == "1" and os.environ.get("LATHE_TRUST_
     # OUT_DIR may live under the repo OR under the SANCTIONED external workspace root (LATHE_WORKSPACE_ROOT,
     # default C:/lathe-workspaces) — per-goal build workspaces are kept outside the repo. Any OTHER path is
     # still refused: the containment guard against a hostile plan writing to arbitrary locations stands.
-    _wsroot = os.path.realpath((os.environ.get("LATHE_WORKSPACE_ROOT") or "C:/lathe-workspaces").replace("\\", "/"))
+    _ws_default = "C:/lathe-workspaces" if os.name == "nt" else os.path.join(os.path.expanduser("~"), ".lathe", "workspaces")
+    _wsroot = os.path.realpath((os.environ.get("LATHE_WORKSPACE_ROOT") or _ws_default).replace("\\", "/"))
     _od = resolve_out_dir(getattr(plan, "OUT_DIR", ""), PLAN_PATH)   # B1: default to the plan's own dir, not a placeholder
     _eod = os.path.realpath(os.path.join(_eroot, _od))
     _contained = (_eod == _eroot or _eod.startswith(_eroot + os.sep)

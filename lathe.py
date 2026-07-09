@@ -57,10 +57,18 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 INNER = os.path.join(ROOT, "projects", "agentic-harness")
 TOOLS = os.path.join(INNER, "tools")
 # Per-goal build workspaces are OUTPUTS — they must NOT live inside the repo. Default them OUTSIDE it so the
-# code tree stays clean and they can never be checked into the hub. Absolute + forward slashes so it's an
-# absolute path everywhere (os.path.join(ROOT, ws) then correctly discards ROOT) and safe inside a generated
-# plan's OUT_DIR string literal. Override with LATHE_WORKSPACE_ROOT.
-WORKSPACE_ROOT = (os.environ.get("LATHE_WORKSPACE_ROOT") or "C:/lathe-workspaces").replace("\\", "/").rstrip("/")
+# code tree stays clean and they can never be checked into the hub. The default MUST be ABSOLUTE on every OS:
+# "C:/lathe-workspaces" is absolute on Windows but RELATIVE on POSIX (no drive), which would make os.path.join
+# (ROOT, ws) resolve INSIDE the repo (a stray "./C:/" dir — the exact contamination the stale-gate exists to
+# stop). So pick per-OS. Forward slashes throughout (safe in a generated plan's OUT_DIR literal). Override with
+# LATHE_WORKSPACE_ROOT.
+def _default_workspace_root():
+    if os.name == "nt":
+        return "C:/lathe-workspaces"
+    return os.path.join(os.path.expanduser("~"), ".lathe", "workspaces").replace("\\", "/")
+
+
+WORKSPACE_ROOT = (os.environ.get("LATHE_WORKSPACE_ROOT") or _default_workspace_root()).replace("\\", "/").rstrip("/")
 PLANS = os.path.join(INNER, "plans")
 QA = os.path.join(INNER, "qa")
 ENGINE = os.path.join(ROOT, "engine_v2.py")
@@ -750,7 +758,8 @@ def cmd_do(args):
     if ws:
         try:
             _wd = _tool("workspace_docs")
-            _wd.write_workspace_docs(os.path.join(ROOT, ws.replace("/", os.sep)), goal, _assumptions, _panel, focus)
+            _wd.write_workspace_docs(os.path.join(ROOT, ws.replace("/", os.sep)), goal, _assumptions, _panel,
+                                     focus, intake_ran=(not _no_intake))
         except Exception:
             pass
     # THE ADVOCATE (default-on): seed the sponsor's standing representative with the intent BEFORE the build.
@@ -854,11 +863,24 @@ def cmd_do(args):
     # build proves the code RUNS; the Advocate proves it is the sponsor's THING. A VETO HOLDS certification: the
     # run is not reported DONE, and the route (rebuild/redraft/reassume/rediscover) says where to send it back.
     # Fail-safe: any Advocate trouble degrades to a printed CONCERN and never blocks a green build from shipping.
+    # INPUT PURITY (#69): did the CONFIRMED choices actually survive into the build? A lexical proxy — advisory,
+    # not a hard block (a reworded-but-honoured spec must not false-fail) — surfaced to the user AND fed to the
+    # Advocate so a silently-dropped agreement gets a second set of eyes.
+    _fidelity = ""
+    if greens and _assumptions and _ws_abs:
+        try:
+            _af = _tool("assumption_fidelity")
+            _conf = [a.get("text", "") for a in _assumptions]
+            _missing = _af.unhonored(_conf, _advocate_artifact_summary(_ws_abs))
+            _fidelity = _af.summary(_missing, len(_conf))
+            print("  " + _fidelity)
+        except Exception:
+            pass
     if _advocate_on and _charter and greens:
         _artifact = _advocate_artifact_summary(_ws_abs) if _ws_abs else ""
         _v = _adv_step(_charter, "delivery", _artifact, _ws_abs,
-                       context="The build finished with %d gated-green module(s). Judge the SHIPPED artifact and "
-                               "its spec/tests against the charter." % greens,
+                       context=("The build finished with %d gated-green module(s). Judge the SHIPPED artifact and "
+                                "its spec/tests against the charter. %s" % (greens, _fidelity)),
                        memory=_adv_mem)
         if _v.get("verdict") == "veto":
             return _adv_hold("delivery", _v, ws)
@@ -869,7 +891,6 @@ def cmd_do(args):
 
 
 def cmd_chat(_args):
-    live = _load_autonomy()
     print("lathe chat - type a goal (or 'build <plan>', 'status', 'quit'). Each goal is spec->build->gate->pin.\n")
     while True:
         try:
@@ -886,19 +907,13 @@ def cmd_chat(_args):
             cmd_build(line.split()[1:]); continue
         if line == "status":
             cmd_status([]); continue
-        _gdb = _goal_board()
-        tr = None
+        # Route every goal through the SAME full pipeline as `do` — discovery, assumptions, and the ADVOCATE
+        # over it — instead of a bare live.run. The Advocate is the north star; no command escapes its preview.
         try:
-            tr = live.run(line, max_plans=1, max_steps=4, build_one=True, max_repairs=2, db_path=_gdb)
-        except Exception as e:                      # a transient failure (proxy 502, rig 503, board lock) must NOT kill the REPL
+            cmd_do([line])
+        except Exception as e:                      # a transient failure must NOT kill the REPL
             print("  -> error: %s (session continues — try again)\n" % e)
-        finally:
-            try: os.remove(_gdb)
-            except OSError: pass
-        if tr is None:
-            continue
-        greens = sum(1 for r in tr if r["step"] == "ran_ok")
-        print("  -> %s (%d built)\n" % ("green" if greens else "no green build", greens))
+        print("")
     return 0
 
 
@@ -908,15 +923,11 @@ def cmd_auto(args):
         objective = open(OBJ_FILE, encoding="utf-8").read().strip()
     if not objective:
         print("usage: lathe auto \"<objective>\"  (or create _self_feed_objective.txt)"); return 2
-    live = _load_autonomy()
     print("> autonomous loop toward objective (%d chars)...\n" % len(objective))
-    tr = live.run(objective, max_plans=1, max_steps=4, max_repairs=2)
-    for i, r in enumerate(tr, 1):
-        print("  %2d. %s %s" % (i, r["step"], r.get("reason", "")))
-    greens = sum(1 for r in tr if r["step"] == "ran_ok")
-    repaired = sum(1 for r in tr if r["step"] == "spec_repaired")
-    print("\nbuilt=%d repaired=%d steps=%d" % (greens, repaired, len(tr)))
-    return 0
+    # Autonomous = no human at the keyboard, so intake runs in explicit-guess mode (--assume: surface + record,
+    # never hard-stop) — but the ADVOCATE still presides over the whole build (its checkpoints need no terminal).
+    # Same single pipeline as `do`; the north star has no exceptions, autonomy included.
+    return cmd_do(["--assume", objective])
 
 
 def cmd_gate(args):
@@ -1040,6 +1051,25 @@ def cmd_review(args):
                 print("\nreview outcomes -> ratings updated: %s" % ", ".join("%s=%.2f" % (k, v) for k, v in _upd.items()))
         except Exception as _fe:
             sys.stderr.write("review: grade-feedback skipped (%r)\n" % (_fe,))
+    # MED#4 (PR #16): the review path under-reported the manifest (personas:[], contributors:0, usage:0) while
+    # the build path recorded fully — implying nothing ran. Record who actually reviewed + that the calls
+    # happened. Tokens run in the hreview SUBPROCESS and are not metered in-process here, so record them
+    # HONESTLY as unmetered (N calls) rather than a misleading 0. Best-effort; never blocks the review.
+    try:
+        _mfr = _manifest()
+        if _mfr:
+            _engaged = [l for l, v in _lens_verdicts.items() if v == "engaged"]
+            _mfr.set_selection({"mode": "review"}, [{"id": l, "role": "reviewer"} for l in lenses], list(files))
+            _mfr.append_contributor({"id": "hreview", "role": "reviewer", "kind": "model",
+                                     "action": "%d lens review(s) over %d file(s): %s"
+                                     % (len(lenses), len(files), ", ".join(lenses)),
+                                     "status": "ok" if _engaged else "inoperative"})
+            _mfr.record_usage("analyst", 0, 0, len(_engaged), "unmetered", 0.0)   # calls happened; tokens unmetered (subprocess)
+            _mfr.add_model({"role": "analyst-reviewer",
+                            "model": os.environ.get("HARNESS_ANALYST_MODEL", os.environ.get("LATHE_DECIDER_MODEL", "sonnet")),
+                            "endpoint": os.environ.get("HARNESS_CLAUDE_URL", "?")})
+    except Exception:
+        pass
     return rc
 
 
@@ -1120,8 +1150,9 @@ def cmd_status(_args):
         else:
             print("        ^ start the implementer endpoint, or point LOCAL_OPENAI_URL at a live one")
     _strict = os.environ.get("LATHE_STRICT", "").strip().lower() in ("1", "true", "yes", "on")
+    _arm = "$env:LATHE_STRICT=1   (PowerShell)" if os.name == "nt" else "export LATHE_STRICT=1   (bash)"
     print("    gates        %s" % ("STRICT - every enforcement gate armed" if _strict
-          else "default - arm all:  $env:LATHE_STRICT=1   (PowerShell, this shell)"))
+          else "default - arm all:  %s" % _arm))
     print()
     print("  project  %s" % _project)
     print("    specs    %d plans -> %d pinned functions" % (_plans, pins))
@@ -2387,6 +2418,21 @@ def cmd_sdlc(args):
     open(os.path.join(out_dir, "rtm.json"), "w", encoding="utf-8").write(_json.dumps(layers, indent=1))
     n = sum(len(layers.get(k, [])) for k in ("UC", "BR", "FR", "TS"))
     print("RTM gate: PASS — %d traced items -> %s (+ rtm.json)" % (n, req_md))
+    # THE ADVOCATE presides here too (no command escapes its preview): do these authored requirements faithfully
+    # serve the sponsor's goal — nothing missing, nothing over-scoped, no drift — before they are built against?
+    if os.environ.get("LATHE_ADVOCATE", "on").strip().lower() not in ("0", "off", "no"):
+        try:
+            _adv = _tool("advocate")
+            _v = _adv.checkpoint(_adv.build_charter(goal), "requirements", "\n".join(lines),
+                                 context="These layered requirements were authored FROM the sponsor's goal. Judge "
+                                         "whether they serve that intent (not missing it, not over-scoped, not drifted).")
+            print("  %s" % _adv.render(_v))
+            if _v.get("verdict") == "veto":
+                print("  HELD — the Advocate judges these requirements DRIFT from the sponsor's goal; revise "
+                      "(REQUIREMENTS.md is written for reference). Set LATHE_ADVOCATE=off to overrule.")
+                return 1
+        except Exception as _ae:
+            sys.stderr.write("sdlc: advocate checkpoint skipped (%r)\n" % (_ae,))
     return 0
 
 

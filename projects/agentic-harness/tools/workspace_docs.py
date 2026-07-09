@@ -9,8 +9,10 @@ stays in dotfiles; these are the only prose. Pure string builders + a thin write
 import os
 
 
-def goal_md(goal, assumptions=None, panel=None, focus=None):
-    """The intent brief for a workspace: the goal, the resolved assumptions it was built to, the panel."""
+def goal_md(goal, assumptions=None, panel=None, focus=None, intake_ran=True):
+    """The intent brief for a workspace: the goal, the resolved assumptions it was built to, the panel.
+    `intake_ran=False` means intake was SKIPPED (e.g. `--assume`): 'no assumptions' then means 'not looked
+    for', NOT 'none found' — the doc must say so honestly instead of claiming the goal was specific."""
     lines = ["# GOAL", "", (goal or "").strip() or "(unstated)", ""]
     if focus:
         lines += ["**Focus:** %s" % focus, ""]
@@ -22,6 +24,9 @@ def goal_md(goal, assumptions=None, panel=None, focus=None):
             mat = (a.get("materiality", "") or "").upper()
             cat = a.get("category", "")
             lines.append("- [%s | %s] %s" % (mat, cat, a.get("text", "")))
+    elif not intake_ran:
+        lines.append("- (intake SKIPPED via --assume — assumptions were NOT surfaced; the build may have "
+                     "guessed unstated choices)")
     else:
         lines.append("- (none surfaced — the goal was specific)")
     lines.append("")
@@ -47,11 +52,11 @@ def readme_md(ws_name=""):
     ])
 
 
-def write_workspace_docs(ws_abs, goal, assumptions=None, panel=None, focus=None):
+def write_workspace_docs(ws_abs, goal, assumptions=None, panel=None, focus=None, intake_ran=True):
     """Write GOAL.md + README.md into an existing workspace dir. Returns the paths written. Never raises on a
     per-file error (best-effort docs must not break a build); raises only if the dir itself is unusable."""
     written = []
-    for name, text in (("GOAL.md", goal_md(goal, assumptions, panel, focus)),
+    for name, text in (("GOAL.md", goal_md(goal, assumptions, panel, focus, intake_ran)),
                        ("README.md", readme_md(os.path.basename(ws_abs.rstrip(os.sep))))):
         p = os.path.join(ws_abs, name)
         try:

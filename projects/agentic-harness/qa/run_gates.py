@@ -47,6 +47,7 @@ CHECKS = [("tree_no_stale_dups", os.path.join(QA, "stale_gate.py")),
           ("build_narrator", os.path.join(QA, "build_narrator_gate.py")),              # the plain-English layer over the engine's technical output (every build path routes through it)
 
           ("advocate", os.path.join(QA, "advocate_gate.py")),                        # THE ADVOCATE: charter carries intent; verdicts map; unknowns+outages degrade to CONCERN (never silent pass/crash)
+          ("assumption_fidelity", os.path.join(QA, "assumption_fidelity_gate.py")),  # #69 input purity: a CONFIRMED choice dropped from the build is flagged; reworded-but-honoured ones pass
           ("spine_enforced", os.path.join(QA, "spine_gate.py")),                     # #12 P1: guard-forge/skill-subprocess/bypass attacks all defeated (P1-P5)
           ("gate_tristate", os.path.join(QA, "tristate_gate.py"))]                    # #12 U1: gates fail CLOSED (INOPERATIVE), never open, on their own error
 
