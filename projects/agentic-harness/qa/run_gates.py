@@ -9,7 +9,7 @@ Currently enforces:
 
 Add more standing checks here as the harness grows (e.g. no two tools exporting the same MODULE_NAME).
 """
-import os, subprocess, sys
+import os, subprocess, sys, time
 
 # Force UTF-8 on our own stdout/stderr: the ENGINE captures this via a pipe, whose default Windows encoding is
 # cp1252 — a gate summary line containing any non-latin1 char (an arrow, em-dash) would crash `print` with
@@ -58,13 +58,29 @@ def main():
             print("%-22s FAIL :: gate file missing: %s" % (name, os.path.basename(path)))
             failed.append(name + "(missing)")
             continue
-        try:
-            r = subprocess.run([sys.executable, path], capture_output=True, text=True,
-                               encoding="utf-8", errors="replace", timeout=int(os.environ.get("GATE_TIMEOUT", "300")))
-        except Exception as e:
-            # #12 U1: a gate whose PROCESS could not run (timeout, spawn error) is INOPERATIVE — the standing
-            # regression always fails closed (a gate that can't run is never a silent pass).
-            print("%-22s INOPERATIVE :: gate could not run: %s" % (name, e))
+        # FLAKE TOLERANCE (2026-07-08): the browser-based gates (skeleton_lane, behavioral_lane, vision_lane)
+        # can flake on a transient Chromium/subprocess timing hiccup, and a single flake used to BLOCK an
+        # otherwise-green build's post-regression — masking a real success. So a FAILED gate is RETRIED: a
+        # genuine failure recurs across attempts, a flake clears. Applies to every gate (whole class). Set
+        # GATE_RETRIES=0 to disable.
+        _retries = int(os.environ.get("GATE_RETRIES", "2"))
+        r = None; _exc = None
+        for _attempt in range(_retries + 1):
+            try:
+                r = subprocess.run([sys.executable, path], capture_output=True, text=True,
+                                   encoding="utf-8", errors="replace", timeout=int(os.environ.get("GATE_TIMEOUT", "300")))
+                _exc = None
+            except Exception as e:
+                r = None; _exc = e
+            if r is not None and r.returncode == 0:
+                break                                      # passed — done
+            if _attempt < _retries:                        # failed/errored with retries left -> flake check
+                print("%-22s retry %d/%d (nonzero — flake check before condemning)" % (name, _attempt + 1, _retries))
+                time.sleep(2)                              # let a transient lock (AV scan, browser launch) clear
+        if r is None:
+            # #12 U1: a gate whose PROCESS could not run (timeout, spawn error) after retries is INOPERATIVE —
+            # the standing regression always fails closed (a gate that can't run is never a silent pass).
+            print("%-22s INOPERATIVE :: gate could not run: %s" % (name, _exc))
             failed.append(name + "(inoperative)")
             continue
         # returncode 0 -> PASS; nonzero -> FAIL/INOPERATIVE. A crashed gate (traceback, no clean summary line)

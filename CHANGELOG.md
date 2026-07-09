@@ -2,6 +2,18 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.50.0 — 2026-07-08 — FLAKE TOLERANCE: a transient gate flake can no longer BLOCK a real green build
+
+Root-caused from a live run: a helicopter build SUCCEEDED (repair loop rewrote the spec, the rebuild shipped
+copter_dodge.html gated-green) — but the post-build standing regression FAILED on `skeleton_lane`, which was a
+transient Chromium/subprocess timing flake (it passes 3/3 standalone). The standing suite gave failed gates NO
+retry, so one flake blocked an otherwise-green build and masked a real success.
+
+- `qa/run_gates.py` — a FAILED gate is now RETRIED (GATE_RETRIES, default 2) before it condemns the run: a
+  genuine failure recurs across attempts, a flake clears. Applies to every gate (whole class), with a 2s settle
+  between tries to let a transient lock (AV scan, browser launch) clear. GATE_RETRIES=0 restores old behavior.
+  Fail-closed semantics preserved (an inoperative gate after all retries still fails the regression).
+
 ## v2.49.0 — 2026-07-08 — TWO-LAYER OUTPUT on EVERY build path (technical + plain-English), no half-wiring
 
 Operator asks, both addressed and wired EVERYWHERE (not a few paths): (1) two layers — the raw technical
