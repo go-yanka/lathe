@@ -2,6 +2,28 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.47.0 — 2026-07-08 — loop #2 TARGETED REPAIR: fix the exact failure, not a blind re-roll (convergence complete)
+
+The second half of convergence. Best-of-N regenerated the whole artifact from the SAME prompt every attempt, so
+a model that ignored the spec or crashed on an edge case just failed N different ways (the helicopter's attempts
+2 & 3: undefined-variable crash; ignored the physics numbers). Now a retry is handed its OWN failed file + the
+EXACT gate failure and told to fix precisely that.
+
+- `tools/repair_prompt.py` — `build(task, failed_code, failure_reason)` composes a self-contained repair prompt:
+  the spec, the exact failure ("held Space -> craft went DOWN dy=143.8; honor the spec's numbers EXACTLY"), the
+  previous file, and a fix-ONLY / do-not-rewrite directive + raw-file output contract. Truncates to stay in
+  context; never raises. `reason_from()` turns the engine's structural/functional result into that reason string.
+- `engine_v2.py` — the whole-file artifact loop now remembers each failed candidate + its exact reason and, on
+  the next attempt, builds a targeted-repair prompt instead of re-rolling the same spec blind. Default on;
+  LATHE_TARGETED_REPAIR=0 restores blind best-of-N. Skeleton-fill artifacts keep their existing tiny-region path.
+- `qa/repair_prompt_gate.py` (regression now 25 checks) — proves the repair prompt carries the exact failure +
+  failed code + fix-only directive + output contract, that reason_from picks structural vs functional, that a
+  huge file is truncated, and that it never raises.
+
+With v2.46.0 (spec self-review before the implementer) this closes BOTH loops: the input is made consistent
+BEFORE the build (loop #1) and the implementer's specific mistakes are corrected DURING it (loop #2). Detection
+(25 gates) now has a matching convergence engine.
+
 ## v2.46.0 — 2026-07-08 — THE CLOSED LOOP: the spec refines ITSELF to consistent BEFORE the implementer runs
 
 The persistent gap named this session: gates DETECT bad output but nothing iterates the SPEC toward correct, so

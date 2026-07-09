@@ -78,6 +78,7 @@ REGISTRY = [
     ("LATHE_SPEC_REVIEW", "gates", "the closed loop: on a spec<->test contradiction, the analyst REFINES spec+test until consistent BEFORE the implementer (1=on default, deep=also LLM self-critique, 0=warn-only)", "on"),
     ("LATHE_SPEC_REVIEW_MODEL", "gates", "model for the spec-review refine loop", "sonnet"),
     ("LATHE_SPEC_REVIEW_TIMEOUT", "gates", "seconds for a spec-review analyst call", "120"),
+    ("LATHE_TARGETED_REPAIR", "gates", "loop #2: on a whole-file artifact retry, feed the model its own failed code + the exact gate failure to fix precisely (default on; 0 = blind best-of-N)", "on"),
     ("LATHE_AUTO_COMMIT", "autonomy", "let auto/do/run git-commit green builds (opt-in)", "off"),
     ("LATHE_PROJECT", "autonomy", "active project subtree under projects/", "agentic-harness"),
     ("LATHE_REMOTE", "autonomy", "git remote for checkin --push", "origin"),

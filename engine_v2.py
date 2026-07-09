@@ -1319,6 +1319,7 @@ for art in getattr(plan, "ARTIFACTS", []):
             except Exception:
                 pass
     else:
+        _prev_code = None; _prev_fail = None    # loop #2: last failed candidate + its exact reason (targeted repair)
         for k in range(N):
             use_model = amodel if (not afallback or k < afb_after) else afallback   # local-first -> escalate
             ushort = "claude" if use_model == "claude" else "local"
@@ -1341,7 +1342,21 @@ for art in getattr(plan, "ARTIFACTS", []):
                     _EMIT = ("OUTPUT CONTRACT (hard rule): your ENTIRE reply is the raw file content and NOTHING "
                              "else. The FIRST character of your reply is the first character of the file. No "
                              "preamble, no plan, no explanation, no markdown fences, no commentary after.\n\n")
-                raw = call_model(_EMIT + aprompt, min(0.2 + 0.1 * k, 1.0), use_model)
+                _prompt = _EMIT + aprompt
+                # loop #2 TARGETED REPAIR (whole-file only): on a retry, hand the model its OWN failed file + the
+                # EXACT gate failure and ask it to fix precisely that — not re-roll blind. Converges attempts that
+                # best-of-N cannot (a model that ignored the spec or crashed on an edge case). LATHE_TARGETED_REPAIR=0 disables.
+                if (not askel and k > 0 and _prev_code is not None and _prev_fail
+                        and os.environ.get("LATHE_TARGETED_REPAIR", "1") not in ("0", "off", "false")):
+                    try:
+                        _rpdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "projects", "agentic-harness", "tools")
+                        _rp = importlib.util.spec_from_file_location("repair_prompt", os.path.join(_rpdir, "repair_prompt.py"))
+                        _rpm = importlib.util.module_from_spec(_rp); _rp.loader.exec_module(_rpm)
+                        _prompt = _rpm.build(aprompt, _prev_code, _prev_fail, is_skeleton=False)
+                        print(f"    [targeted repair] attempt {k + 1}: fixing the exact failure from attempt {k}, not re-rolling blind")
+                    except Exception as _rpe:
+                        print(f"    [targeted-repair skipped: {_rpe}]")
+                raw = call_model(_prompt, min(0.2 + 0.1 * k, 1.0), use_model)
             except Exception as e:
                 print(f"    [gen ERROR attempt {k+1} ({use_model})] {e}")
                 _attempt_log.append("%d:gen-error" % (k + 1))
@@ -1399,6 +1414,10 @@ for art in getattr(plan, "ARTIFACTS", []):
                 print(f"    [saved failed candidate -> _artifact_fails/{stem}.html | structural_fails={len(sfails)} functional={'pass' if fok else 'fail'}]")
             except Exception:
                 pass
+            # loop #2: remember THIS candidate + its exact reason so the NEXT attempt repairs it precisely.
+            _prev_code = c
+            _prev_fail = (("STRUCTURAL checks failed: " + "; ".join(str(x) for x in sfails[:5])) if not sok
+                          else ("FUNCTIONAL/behavioral test failed: " + (fdetail or "(no detail)")))
     if acontent is not None:
         _acoll = _name_collision(os.path.basename(apath))     # artifacts write arbitrary paths — same infra/stdlib guard as modules
         if _acoll:
