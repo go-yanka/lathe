@@ -2,6 +2,22 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.48.0 — 2026-07-08 — OBSERVABILITY: the engine's play-by-play is finally VISIBLE (streamed + BUILD_TRACE.md)
+
+Long-standing operator complaint, root-caused: `autonomy_live.engine_build` ran the engine with
+`capture_output=True` and DISCARDED its stdout after parsing — so every rich line the engine prints (spec<->test
+refinements, per-attempt gate results + WHY, targeted-repair firings, pins, the verdict) was generated and then
+SWALLOWED. No amount of report-writing surfaced it because the detail never left the buffer.
+
+- `tools/autonomy_live.py` — the engine is now TEE'd: streamed line-by-line to the terminal live (nested under
+  the CLI with a `│` prefix so you watch it happen) AND persisted to `<workspace>/BUILD_TRACE.md` as a readable
+  report. A watchdog timer preserves the old timeout; the parse/return contract is unchanged.
+  LATHE_STREAM_ENGINE=0 silences the live echo (the trace file is still written) for quiet autonomous runs.
+- Verified on the real `do` path: a build now shows the ENGINE header, per-attempt PASS/FAIL, the metrics JSON,
+  and `└ full engine trace -> ...BUILD_TRACE.md`. This is what makes the spec-review / targeted-repair loops
+  (v2.46/2.47) actually OBSERVABLE — you see `[spec<->test REFINED]` and `[targeted repair]` fire in real time.
+- `env_catalog.py` — LATHE_STREAM_ENGINE documented.
+
 ## v2.47.0 — 2026-07-08 — loop #2 TARGETED REPAIR: fix the exact failure, not a blind re-roll (convergence complete)
 
 The second half of convergence. Best-of-N regenerated the whole artifact from the SAME prompt every attempt, so
