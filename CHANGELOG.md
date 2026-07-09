@@ -2,6 +2,52 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.61.1 — 2026-07-09 — per-goal build workspaces live OUTSIDE the repo
+
+Build outputs are not source and must never land in the code tree (or get checked into the hub). Per-goal
+workspaces now default to `C:/lathe-workspaces/` (override with `LATHE_WORKSPACE_ROOT`), not
+`projects/agentic-harness/goals/`. `goals/` is also git-ignored as a backstop. The engine + `lathe build`
+path-containment guards were extended to trust this ONE sanctioned external root while still refusing any
+other path (verified: `C:/Windows/System32`, `../../../../etc` etc. are still rejected; spine security gate
+5/5). (`lathe.py` WORKSPACE_ROOT, `engine_v2.py`, `.gitignore`, `env_catalog.py`.)
+
+## v2.61.0 — 2026-07-09 — input-first made real: hard-stop on guessed input, discovery resurrected, no-hardcoded-examples, honest logs
+
+A day of driving real games through the terminal turned up a chain of defects that all shared one theme —
+the harness was making silent assumptions instead of deriving from the actual goal. Fixed at the root, each
+verified by a live terminal run.
+
+- **Hard-stop on guessed input.** `lathe do` used to auto-accept material assumptions when there was no
+  interactive terminal (a warning, then it built anyway). It now **REFUSES** — no build on unconfirmed material
+  input. `--assume` remains the explicit, on-the-record way to build on defaults. (`lathe.py` `IntakeAbort`.)
+- **Discovery was dead code — resurrected.** `_goal_discovery` referenced `re` without importing it, so every
+  call raised `NameError` that a broad `except` swallowed → discovery silently asked ZERO questions on every
+  run. Fixed the import, made the parse fence-tolerant with one retry, and made it **loud** (it can no longer
+  vanish silently; it either asks or says why).
+- **Reconcile now FAILS CLOSED.** When the acceptance test contradicts the spec and the reconcile loop can't
+  fix it, the build no longer proceeds "anyway" — `LATHE_SPEC_TEST_STRICT` now defaults ON (refuse; fix the
+  TEST). (`engine_v2.py`.)
+- **Genre-aware behavioral gate.** The motion check tracked the whole-scene centroid, which large static
+  scenery (a Breakout brick wall) swamps. It now ALSO measures the displacement of only the pixels that
+  CHANGED (the moving element), so a paddle's motion registers. Additive — no previously-passing build
+  regresses; verified the dead-control case still fails. (`behavioral_gate.py`.)
+- **No hardcoded examples in prompts (the "sleeping bombs").** A single baked example in the drafter prompt
+  (`Example helicopter: … no input must FALL`) was being copied by the analyst as a RULE — so a wait-for-input
+  game like Snake got an impossible `idle → expect move` test. Removed it (and the hardcoded `#score` /
+  `"game over"` literals, and a CSV example in the assumption-auditor persona); the drafter now DERIVES each
+  test from THIS artifact's real start/motion model. Verified live: Snake's generated test now presses a key
+  before asserting motion — zero `idle` trials. (`autonomy_live.py`, `ce_personas/assumption-auditor.md`.)
+- **Honest logs.** The narrator branded any failure whose text merely contained "game over" as "instant
+  death" — even a no-motion failure (the "game over" was the test's own `text_absent` literal). It now matches
+  the REAL instant-death signature and reports a no-motion failure truthfully. (`build_narrator.py`.)
+- **Advocate rules at every step + evolving memory.** The Advocate now runs upstream checkpoints (discovery,
+  assumptions) as well as delivery, with a VETO holding the build; and it carries its own memory across the
+  run's steps so its understanding compounds. Assumptions are also de-duplicated before it sees them.
+  (`lathe.py`, `advocate.py`, `assumption_logic.py`.)
+
+Known-open (tracked, not faked): the Advocate does not yet review the drafted spec+tests *before* the build
+(the structural guardrail); assumption de-dup is lexical only (pure-semantic duplicates need an LLM pass).
+
 ## v2.60.0 — 2026-07-09 — THE ADVOCATE: a standing sponsor's representative, default-on, that can HOLD a green build
 
 Every other persona does one job and leaves. The **Advocate** is different: seeded with the sponsor's intent up

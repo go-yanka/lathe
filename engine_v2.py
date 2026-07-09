@@ -90,11 +90,17 @@ if os.environ.get("LATHE_VALIDATE_PLAN") == "1" and os.environ.get("LATHE_TRUST_
     # itest.py with cwd=OUT_DIR. Containment can't be a string check on the source (it's data) — enforce it
     # here on the engine itself, not only in lathe.py, so a direct `engine_v2.py <plan>` is covered too.
     _eroot = os.path.realpath(os.path.dirname(os.path.abspath(__file__)))
+    # OUT_DIR may live under the repo OR under the SANCTIONED external workspace root (LATHE_WORKSPACE_ROOT,
+    # default C:/lathe-workspaces) — per-goal build workspaces are kept outside the repo. Any OTHER path is
+    # still refused: the containment guard against a hostile plan writing to arbitrary locations stands.
+    _wsroot = os.path.realpath((os.environ.get("LATHE_WORKSPACE_ROOT") or "C:/lathe-workspaces").replace("\\", "/"))
     _od = resolve_out_dir(getattr(plan, "OUT_DIR", ""), PLAN_PATH)   # B1: default to the plan's own dir, not a placeholder
     _eod = os.path.realpath(os.path.join(_eroot, _od))
-    if not (_eod == _eroot or _eod.startswith(_eroot + os.sep)):
-        sys.exit("engine: REFUSING to build — OUT_DIR escapes the working tree (%r). Set LATHE_TRUST_PLAN=1 to override."
-                 % _od)
+    _contained = (_eod == _eroot or _eod.startswith(_eroot + os.sep)
+                  or _eod == _wsroot or _eod.startswith(_wsroot + os.sep))
+    if not _contained:
+        sys.exit("engine: REFUSING to build — OUT_DIR escapes the working tree and the sanctioned workspace root "
+                 "(%r). Set LATHE_TRUST_PLAN=1 to override." % _od)
 
 # Optional plan attrs: the validator accepts ARTIFACTS-only plans (no FUNCTIONS/HEADER/GLUE), so normalize
 # defaults once here instead of `plan.FUNCTIONS` AttributeError-ing deep in the build.
@@ -1221,8 +1227,13 @@ for art in getattr(plan, "ARTIFACTS", []):
                         print("  [spec<->test UNRESOLVED after refine]")
                 except Exception as _sre:
                     print(f"  [spec-review skipped: {_sre}]")
-            if _stc_warns and os.environ.get("LATHE_SPEC_TEST_STRICT", "") in ("1", "true"):
-                print("  [artifact REFUSED - the acceptance test contradicts the spec (fix the TEST, not the build)]")
+            # FAIL CLOSED (owner mandate: nothing bypassed): if the acceptance test still contradicts the spec
+            # after the reconcile loop, do NOT build against it — that guarantees wasted attempts and can mint a
+            # wrong 'green'. Refuse and say the test is the thing to fix. Default ON; LATHE_SPEC_TEST_STRICT=0
+            # restores the old warn-and-build-anyway behavior for anyone who explicitly wants it.
+            if _stc_warns and os.environ.get("LATHE_SPEC_TEST_STRICT", "1") not in ("0", "off", "false"):
+                print("  [artifact REFUSED - the acceptance test contradicts the spec and could not be reconciled "
+                      "(fix the TEST, not the build)]")
                 artifact_results.append(False)
                 artifact_rows.append({"path": art["path"], "ok": False, "src": None, "gate": "spec-test-inconsistent"})
                 continue

@@ -95,6 +95,20 @@ flowchart TD
   REG -- red --> RB["roll back the module<br/>(broken code never lingers)"]
 ```
 
+**Input-first — Lathe asks before it guesses.** Before any of the above, `lathe do` runs a **discovery
+interview** (it runs for real and is loud — never silently skipped) and surfaces the goal's **material
+assumptions** for you to confirm. If a material assumption is unconfirmed and the run is **non-interactive**,
+`lathe do` **refuses to build** rather than guessing — pass `--assume` (or set `LATHE_INTAKE=0`) to build on
+the recorded default assumptions instead. This is the switch autonomy uses.
+
+**The Advocate — your sponsor's representative.** Every `lathe do` runs under the **Advocate** (default on),
+which judges *intent, direction, and quality* — not code correctness (the gates own that). It writes a
+CHARTER (`ADVOCATE.md` in the run's workspace), checkpoints at discovery / assumptions / delivery
+(`ADVOCATE_LOG.md`), and returns **APPROVE / CONCERN / VETO**. A **VETO holds the build**: the run ends
+**HELD** (not DONE) with a nonzero exit, so a build that has drifted from what you actually asked for can't
+quietly ship. If the Advocate model is unreachable it fails safe to **CONCERN**. Disable it with
+`LATHE_ADVOCATE=0`.
+
 ---
 
 ## 5. The plan — the unit of work
@@ -131,7 +145,7 @@ field reference: `LATHE_CAPABILITIES.md` §2.
 
 | Command | What it does |
 |---|---|
-| `lathe "<goal>"` / `lathe do "<goal>"` | spec → build → gate → pin (one shot) |
+| `lathe "<goal>"` / `lathe do "<goal>"` | discovery interview → confirm assumptions → spec → build → gate → pin, under the **Advocate** (one shot). Non-interactive with an unconfirmed **material** assumption ⇒ **refuses to build**; pass `--assume` to build on recorded defaults |
 | `lathe chat` | interactive REPL — each line is a goal |
 | `lathe build <plan>` | run the engine on a plan file |
 | `lathe auto ["<objective>"]` | autonomous loop: plan → build → **repair on failure** → commit |
@@ -244,7 +258,9 @@ flowchart TD
 ```
 
 Unattended, resumable, git‑committed (every build is rollback‑safe). The loop self‑corrects via the
-repair arc instead of grinding.
+repair arc instead of grinding. Because it is non‑interactive, autonomy runs with **`--assume`**
+(`LATHE_INTAKE=0`) so it builds on the recorded default assumptions rather than hard‑stopping for
+confirmation — the input-first refusal is for a human at the prompt, not the loop.
 
 ---
 
@@ -323,25 +339,11 @@ push token in the file — use an env var or the git credential helper. (Parsing
 | `SKIP_REGRESSION` / `RUN_GATES_PATH` | regression gate control | — |
 | `LATHE_AUTO_COMMIT` | opt-in: let autonomy (`auto`/`do`/`run`) commit green builds to git | unset (**off** — no commits) |
 | `LATHE_REVIEW_USE_CLI` | use the `claude` CLI for `review` when present; `0` forces the `HARNESS_CLAUDE_URL` endpoint | `1` |
-
-**Gate toggles (the rigor knobs).** The gates that decide whether generated code is accepted are all
-configurable. `LATHE_STRICT=1` turns the whole rigor suite on at once; each gate is also switchable and
-tunable on its own, and an explicit var always wins over STRICT (so you can go stricter, or drop one gate):
-
-| Var | Gate | Values | STRICT default |
-|---|---|---|---|
-| `LATHE_STRICT` | composes all seven below (+ requires plan `CRITERIA`) | `1` | — |
-| `LATHE_REGRESSION_PROOF` | a bug fix must ship a failing-on-old-code test | `1`/`true`/… | `1` |
-| `LATHE_LINT_SPEC` | reject tests a trivial stub can satisfy | `warn` / `block` | `block` |
-| `LATHE_MUTATION_SCORE` | min fraction of mutants the tests must kill | float `0.0`–`1.0` | `0.5` |
-| `LATHE_TEST_ACK` | a human must ack the AI-written tests (`lathe ack`) | `1`/`true`/… | `1` |
-| `LATHE_TEST_KIND` | require declared test *kinds* (property/edge/error) | `1`/`true`/… | `1` |
-| `LATHE_GATE_GLUE` / `LATHE_GLUE_MAX` | substantive glue needs an INTEGRATION test / line threshold | `1`; int (dflt `2`) | `1` |
-| `LATHE_ASSUMPTION_GATE` / `LATHE_ASSUMPTION_POLICY` | refuse while a material assumption is unconfirmed / scrutiny | `1`; `off`/`high`/`med`/`all` | `1`, `high` |
-
-> **Every gate in full — `docs/GATES_REFERENCE.md`.** All sixteen gates (seven build-time rigor gates, seven
-> standing tree gates, the acceptance floor), each with its exact passing criteria, failure message, config
-> knobs, and implementation. This table is the summary; that doc is the reference.
+| `LATHE_ADVOCATE` | the sponsor's-representative Advocate on `lathe do`; `0`/`off` disables it | on |
+| `LATHE_ADVOCATE_MODEL` | model the Advocate reasons with | `sonnet` |
+| `LATHE_ADVOCATE_TIMEOUT` | Advocate call timeout (s); on outage it fails safe to CONCERN | `90` |
+| `LATHE_INTAKE` | input-first intake on `lathe do`; `0` (= `--assume`) opts in to building on recorded default assumptions | on |
+| `LATHE_SPEC_TEST_STRICT` | reconcile fails closed: an unreconciled spec-vs-test contradiction refuses the build | on |
 
 ---
 

@@ -56,6 +56,11 @@ import urllib.request
 ROOT = os.path.dirname(os.path.abspath(__file__))
 INNER = os.path.join(ROOT, "projects", "agentic-harness")
 TOOLS = os.path.join(INNER, "tools")
+# Per-goal build workspaces are OUTPUTS — they must NOT live inside the repo. Default them OUTSIDE it so the
+# code tree stays clean and they can never be checked into the hub. Absolute + forward slashes so it's an
+# absolute path everywhere (os.path.join(ROOT, ws) then correctly discards ROOT) and safe inside a generated
+# plan's OUT_DIR string literal. Override with LATHE_WORKSPACE_ROOT.
+WORKSPACE_ROOT = (os.environ.get("LATHE_WORKSPACE_ROOT") or "C:/lathe-workspaces").replace("\\", "/").rstrip("/")
 PLANS = os.path.join(INNER, "plans")
 QA = os.path.join(INNER, "qa")
 ENGINE = os.path.join(ROOT, "engine_v2.py")
@@ -281,6 +286,9 @@ def _goal_discovery(goal, live, panel):
     (enriched_goal, [(q,a)...])."""
     # OWNED by the dedicated requirements-liaison persona (the goal's first interrogator) — comprehensive
     # discovery across ALL dimensions, not just "why". It hands a sharp understanding to the assumption pass.
+    import re                                             # BUGFIX: was never imported here; every re.* below threw
+    #                                                        NameError that the broad except swallowed -> discovery
+    #                                                        was silently DEAD on every run. This restores it.
     _persona = ""
     try:
         _lp = os.path.join(INNER, "ce_personas", "requirements-liaison.md")
@@ -297,14 +305,38 @@ def _goal_discovery(goal, live, panel):
             "explicit NON-GOALS. Ask only what you cannot safely infer; never more than 7. Where the answer "
             "space is bounded, EMBED the choices inline as '[options: A | B | C]'. Reply with ONLY a JSON array "
             "of question strings (each may contain an [options: ...] tail), nothing else." % (_persona, _pl, goal))
-    try:
+    def _parse_qs(_raw):
         import json as _json
-        raw = live._reqspec.request_spec(_ask)
-        _m = re.search(r"\[.*\]", raw or "", re.DOTALL)
-        questions = [q.strip() for q in (_json.loads(_m.group()) if _m else []) if isinstance(q, str) and q.strip()][:5]
-    except Exception:
-        questions = []
+        import re
+        s = (_raw or "").strip()
+        s = re.sub(r"^```[a-zA-Z]*", "", s).strip()          # strip a ```json fence the analyst may wrap it in
+        s = re.sub(r"```$", "", s).strip()
+        _mm = re.search(r"\[.*\]", s, re.DOTALL)
+        if not _mm:
+            return []
+        try:
+            _arr = _json.loads(_mm.group())
+        except Exception:
+            return []
+        return [q.strip() for q in _arr if isinstance(q, str) and q.strip()][:5]
+
+    questions, raw = [], ""
+    for _try in range(2):                                    # one retry: a slow/timed-out analyst must NOT silently drop discovery
+        try:
+            raw = live._reqspec.request_spec(_ask) or ""
+        except Exception as _de:
+            sys.stderr.write("discovery: analyst call failed (%r)\n" % (_de,)); raw = ""
+        questions = _parse_qs(raw)
+        if questions:
+            break
     if not questions:
+        # NEVER a silent skip (owner mandate: nothing overlooked). Say plainly what happened.
+        if raw.strip():
+            print("  discovery: got an analyst reply but could not extract clarifying questions from it — this is "
+                  "a parse bug, NOT a clean skip. Reply head: %r" % raw.strip()[:140])
+        else:
+            print("  discovery: the analyst returned nothing for clarifying questions (call may have timed out).")
+        print("  discovery: proceeding with the goal as written — no clarifying questions were captured.")
         return goal, []
     print("\n  " + "=" * 66)
     print("  First — help me understand what you REALLY want (the WHY behind this),")
@@ -342,6 +374,12 @@ def _goal_discovery(goal, live, panel):
     _block = "\n\nWHAT THE USER ACTUALLY WANTS (from discovery — treat these as the real intent):\n" + "\n".join(
         "- Q: %s\n  A: %s" % (q, a) for q, a in qa)
     return goal + _block, qa
+
+
+class IntakeAbort(Exception):
+    """Raised when `lathe do` cannot confirm material input (no interactive terminal) and the caller did NOT
+    explicitly opt into building on defaults (--assume). The harness REFUSES to build on guessed material
+    input — the input-first guarantee is not overridable by the absence of a terminal."""
 
 
 def _goal_intake(goal, ws, live, mf, interactive=False):
@@ -425,8 +463,10 @@ def _goal_intake(goal, ws, live, mf, interactive=False):
             sys.stderr.write("intake: interview skipped (%r)\n" % (e,))
             _noninteractive["v"] = True
         if _noninteractive["v"]:
-            print("\n  ! No interactive terminal — %d material assumption(s) were AUTO-ACCEPTED. The build is "
-                  "GUESSING these; run this in a terminal to confirm the input first.\n" % len(_material))
+            # HARD STOP (owner mandate): the harness must NOT let the absence of a terminal become a silent
+            # override of its own input-first step. Building on guessed material choices is exactly the
+            # bad-input->bad-output failure the interview exists to prevent. Refuse — do not auto-accept.
+            raise IntakeAbort(len(_material))
         else:
             _did_interview = True
             print("\n  intake: %d material choice(s) confirmed — the spec will be built to THESE.\n" % len(_kept))
@@ -507,10 +547,10 @@ def _do_targeted(goal, spec_for):
 
 
 def _goal_workspace(goal):
-    """(workspace_rel, focus) for a goal — harness-built goal_router decides both. The workspace is a
-    per-goal folder (projects/<project>/goals/<slug>_<stamp>/) so a goal's plan, module, artifacts and
-    fail bank accumulate in ONE clean place instead of scattering into tools/. Falls back to (None,
-    'helper') = legacy behavior if the router is unavailable."""
+    """(workspace_abs, focus) for a goal — harness-built goal_router decides both. The workspace is a
+    per-goal folder under WORKSPACE_ROOT (OUTSIDE the repo by default, e.g. C:/lathe-workspaces/goals/
+    <slug>_<stamp>/) so a goal's plan, module, artifacts and fail bank accumulate in ONE clean place —
+    never inside the code tree. Falls back to (None, 'helper') = legacy behavior if the router is unavailable."""
     try:
         gr = _tool("goal_router")
         import datetime
@@ -521,7 +561,7 @@ def _goal_workspace(goal):
             slug = gr.short_goal(goal) + "_" + gr.model_abbrev(os.environ.get("LATHE_MODEL", "openai:local"))
         except AttributeError:                                    # pre-v2.29 goal_router build
             slug = gr.slugify_goal(goal)
-        ws = "projects/agentic-harness/" + gr.workspace_rel(slug, stamp)
+        ws = WORKSPACE_ROOT + "/" + gr.workspace_rel(slug, stamp)   # absolute, OUTSIDE the repo
         return ws, gr.pick_focus(goal)
     except Exception as e:
         print("  (goal_router unavailable - building in tools/: %s)" % e)
@@ -538,25 +578,76 @@ def _advocate_artifact_summary(ws_abs, budget=12000):
     if not ws_abs or not os.path.isdir(ws_abs):
         return ""
     exts = (".html", ".htm", ".js", ".mjs", ".css", ".py", ".ts", ".json", ".md", ".txt")
-    parts, used = [], 0
+    # Review BOTH the plan/spec+tests (top-level plan_*.py) AND the actually-shipped artifact (in _artifacts/),
+    # so the Advocate judges intent against what was really built, not just the prompt that asked for it.
+    paths = []
     try:
-        names = sorted(n for n in os.listdir(ws_abs)
-                       if os.path.isfile(os.path.join(ws_abs, n)) and not n.startswith(".")
-                       and n not in _ADV_DOC_FILES and n.lower().endswith(exts))
+        for n in sorted(os.listdir(ws_abs)):
+            if os.path.isfile(os.path.join(ws_abs, n)) and not n.startswith(".") and n not in _ADV_DOC_FILES \
+                    and n.lower().endswith(exts):
+                paths.append((n, os.path.join(ws_abs, n)))
+        _art = os.path.join(ws_abs, "_artifacts")
+        if os.path.isdir(_art):
+            for n in sorted(os.listdir(_art)):
+                if os.path.isfile(os.path.join(_art, n)) and n.lower().endswith(exts):
+                    paths.append(("_artifacts/" + n, os.path.join(_art, n)))
     except OSError:
         return ""
-    for n in names:
+    parts, used = [], 0
+    for label, p in paths:
         if used >= budget:
-            parts.append("... (%d more file(s) not shown)" % (len(names) - len([p for p in parts if p.startswith("=== ")])))
+            parts.append("... (%d more file(s) not shown)" % (len(paths) - len([x for x in parts if x.startswith("=== ")])))
             break
         try:
-            body = open(os.path.join(ws_abs, n), encoding="utf-8", errors="replace").read()
+            body = open(p, encoding="utf-8", errors="replace").read()
         except Exception as e:
-            parts.append("=== %s === (unreadable: %s)" % (n, e)); continue
+            parts.append("=== %s === (unreadable: %s)" % (label, e)); continue
         chunk = body[: max(600, budget - used)]
-        parts.append("=== %s (%d bytes) ===\n%s" % (n, len(body), chunk))
+        parts.append("=== %s (%d bytes) ===\n%s" % (label, len(body), chunk))
         used += len(chunk)
     return "\n\n".join(parts) if parts else "(workspace produced no reviewable artifact files)"
+
+
+def _adv_step(charter, stage, summary, ws_abs, context="", memory=None):
+    """One Advocate checkpoint at a stage boundary: consult, PRINT the verdict, and LOG it to ADVOCATE_LOG.md
+    so every call the Advocate makes across the run is on the record. Returns the verdict dict. Never raises.
+
+    EVOLVING CONTEXT (owner mandate): the Advocate carries forward what it has already seen this run — each
+    checkpoint is given its own prior observations, so its understanding compounds across steps like a user's
+    would, instead of judging each stage cold."""
+    prior = ""
+    if memory:
+        prior = ("\n\n=== WHAT YOU (the Advocate) HAVE ALREADY OBSERVED THIS RUN (carry it forward) ===\n" +
+                 "\n".join("- [%s -> %s] %s" % (m["stage"], m["verdict"], (m["note"] or "")[:180]) for m in memory))
+    try:
+        _adv = _tool("advocate")
+        v = _adv.checkpoint(charter, stage, summary, context=(context or "") + prior)
+        line = _adv.render(v)
+    except Exception as e:
+        v = {"verdict": "concern", "note": "advocate step error: %s" % e, "route": ""}
+        line = "[ADVOCATE: CONCERN] advocate step error: %s" % e
+    print("  %-16s %s" % (stage + ":", line))
+    if ws_abs:
+        try:
+            with open(os.path.join(ws_abs, "ADVOCATE_LOG.md"), "a", encoding="utf-8") as f:
+                f.write("## checkpoint: %s\n%s\n\n" % (stage, line))
+        except Exception:
+            pass
+    if memory is not None:
+        memory.append({"stage": stage, "verdict": v.get("verdict", "?"), "note": v.get("note", "")})
+    return v
+
+
+def _adv_hold(stage, verdict, ws):
+    """A VETO at any checkpoint HOLDS the run — not certified, non-zero exit, routed back."""
+    print("\nHELD at '%s' - the Advocate VETOED as not serving the sponsor's intent:" % stage)
+    print("  %s" % verdict.get("note", ""))
+    if verdict.get("route"):
+        print("  -> route it back to: %s" % verdict["route"])
+    print("Not certified. Address the veto (or set LATHE_ADVOCATE=off to overrule) and re-run.")
+    if ws:
+        print("work-in-progress is in: %s" % ws)
+    return 1
 
 
 def cmd_do(args):
@@ -613,7 +704,20 @@ def cmd_do(args):
     # (assume-and-record default; --interactive to confirm; --assume or LATHE_INTAKE=0 to skip).
     _build_goal, _assumptions, _panel = (goal, [], [])
     if not _no_intake:
-        _build_goal, _assumptions, _panel = _goal_intake(goal, ws, live, _mf, interactive=_interactive)
+        try:
+            _build_goal, _assumptions, _panel = _goal_intake(goal, ws, live, _mf, interactive=_interactive)
+        except IntakeAbort as _ab:
+            _n = _ab.args[0] if _ab.args else "several"
+            print("\n  " + "=" * 66)
+            print("  REFUSED — %s material choice(s) need your confirmation and there is no" % _n)
+            print("  interactive terminal to ask. The harness will not build on guessed input;")
+            print("  that is the bad-input->bad-output failure the interview exists to stop.")
+            print("  " + "=" * 66)
+            print("  Do one of:")
+            print("    - run `lathe do \"<goal>\"` in a real terminal and answer the questions, or")
+            print("    - pass --assume to CONSCIOUSLY build on the recorded defaults (you own the guess).")
+            print("\nno build — input was not confirmed.")
+            return 2
         # A6: intake wrote the goal-scope ledger next to the plan → ARM the (now artifact-lane-covering)
         # assumption gate so the build reads + enforces it. assume-and-record auto-confirms, so it passes but
         # is recorded + enforceable; under STRICT or unconfirmed HIGH it blocks. setdefault: an explicit
@@ -661,12 +765,35 @@ def cmd_do(args):
             if ws:
                 _ap = os.path.join(ROOT, ws.replace("/", os.sep), "ADVOCATE.md")
                 open(_ap, "w", encoding="utf-8").write(_charter)
+                open(os.path.join(ROOT, ws.replace("/", os.sep), "ADVOCATE_LOG.md"), "w",
+                     encoding="utf-8").write("# Advocate log — every call the Advocate made this run\n\n")
             print("  advocate: seeded - I hold the sponsor's intent for this run.")
         except Exception as e:
             sys.stderr.write("advocate: seeding skipped (%r)\n" % (e,))
             _advocate_on = False
-    _gdb = _goal_board()
     _ws_abs = os.path.join(ROOT, ws.replace("/", os.sep)) if ws else None
+    # UPSTREAM Advocate checkpoints (owner mandate: rule at EVERY step, not just delivery). The Advocate judges
+    # the INPUT before a single line is built — a VETO here HOLDS the build, so bad intent/assumptions never
+    # reach the model. This is where the leverage is: catching a wrong choice now beats vetoing a wrong build.
+    _adv_mem = []                                            # the Advocate's evolving memory across this run's steps
+    if _advocate_on and _charter:
+        _disc = ""
+        if "WHAT THE USER ACTUALLY WANTS" in _build_goal:
+            _disc = _build_goal.split("WHAT THE USER ACTUALLY WANTS", 1)[1].strip()
+        _v = _adv_step(_charter, "discovery", _disc or "(no discovery answers were captured)", _ws_abs,
+                       context="Does the captured intent genuinely reflect the sponsor's goal, or is it thin/guessed/off-target?",
+                       memory=_adv_mem)
+        if _v.get("verdict") == "veto":
+            return _adv_hold("discovery", _v, ws)
+        _asum = "\n".join("- [%s|%s] %s" % ((a.get("materiality") or "").upper(), a.get("category", ""), a.get("text", ""))
+                          for a in _assumptions) or "(no material assumptions)"
+        _v = _adv_step(_charter, "assumptions", _asum, _ws_abs,
+                       context="Are these the RIGHT choices for the sponsor's intent? Flag any that contradict the goal, "
+                               "contradict each other, or that a sponsor would likely reject.",
+                       memory=_adv_mem)
+        if _v.get("verdict") == "veto":
+            return _adv_hold("assumptions", _v, ws)
+    _gdb = _goal_board()
     try:
         tr = live.run(_build_goal, max_plans=1, max_steps=4, build_one=True, max_repairs=2, db_path=_gdb,
                       focus=focus, out_dir=ws)
@@ -727,24 +854,14 @@ def cmd_do(args):
     # build proves the code RUNS; the Advocate proves it is the sponsor's THING. A VETO HOLDS certification: the
     # run is not reported DONE, and the route (rebuild/redraft/reassume/rediscover) says where to send it back.
     # Fail-safe: any Advocate trouble degrades to a printed CONCERN and never blocks a green build from shipping.
-    _held = False
     if _advocate_on and _charter and greens:
-        try:
-            _adv = _tool("advocate")
-            _artifact = _advocate_artifact_summary(_ws_abs) if _ws_abs else ""
-            _v = _adv.checkpoint(_charter, "delivery", _artifact,
-                                 context="The build finished with %d gated-green module(s)." % greens)
-            print("\n%s" % _adv.render(_v))
-            if _v.get("verdict") == "veto":
-                _held = True
-        except Exception as e:
-            sys.stderr.write("advocate: delivery checkpoint skipped (%r)\n" % (e,))
-    if _held:
-        print("\nHELD - the build is green but the Advocate VETOED it as not serving the sponsor's intent.")
-        print("Not certified DONE. Address the verdict above (or set LATHE_ADVOCATE=off to overrule) and re-run.")
-        if ws:
-            print("work-in-progress is in: %s" % ws)
-        return 1
+        _artifact = _advocate_artifact_summary(_ws_abs) if _ws_abs else ""
+        _v = _adv_step(_charter, "delivery", _artifact, _ws_abs,
+                       context="The build finished with %d gated-green module(s). Judge the SHIPPED artifact and "
+                               "its spec/tests against the charter." % greens,
+                       memory=_adv_mem)
+        if _v.get("verdict") == "veto":
+            return _adv_hold("delivery", _v, ws)
     print("\n%s - %d module(s) built gated-green." % ("DONE" if greens else "no green build this run", greens))
     if greens and ws:
         print("everything for this goal is in: %s" % ws)
@@ -1135,8 +1252,12 @@ def _validate_plan_file(plan_path):
                 od = n.value.value
                 full = od if os.path.isabs(od) else os.path.join(os.path.dirname(os.path.abspath(plan_path)), od)
                 root = os.path.realpath(ROOT)            # the harness root, not cwd (lathe may be run from anywhere)
-                if not (os.path.realpath(full) == root or os.path.realpath(full).startswith(root + os.sep)):
-                    print("REFUSING to build: OUT_DIR escapes the working tree (%s). Set LATHE_TRUST_PLAN=1 to override." % od)
+                wsroot = os.path.realpath(WORKSPACE_ROOT.replace("/", os.sep))   # the sanctioned external workspace root
+                _rf = os.path.realpath(full)
+                # allow the repo OR the sanctioned workspace root; refuse any other (arbitrary-write) path
+                if not (_rf == root or _rf.startswith(root + os.sep) or _rf == wsroot or _rf.startswith(wsroot + os.sep)):
+                    print("REFUSING to build: OUT_DIR escapes the working tree and the sanctioned workspace root (%s). "
+                          "Set LATHE_TRUST_PLAN=1 to override." % od)
                     return False
     except Exception:
         pass

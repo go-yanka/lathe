@@ -18,13 +18,14 @@ A persona is prompt text — **LLM-independent**: it injects into whatever endpo
 
 ## Purpose-built workflow personas (not part of the 143-reviewer market)
 
-Two personas are authored by Lathe for specific pipeline stages rather than selected by the decider — they
-run at fixed points, not by match score:
+Three personas are authored by Lathe and wired into the pipeline directly rather than selected by the
+decider (no match score). Two run at a fixed stage and leave; **the Advocate stands for the whole run**:
 
 | Persona | Runs at | Job |
 |---|---|---|
-| **`requirements-liaison`** (`ce_personas/requirements-liaison.md`) | `lathe clarify` / step 0 of `sdlc` | *Interrogates the user* for clarity before any design — inputs/outputs/success/constraints/edge/non-goals — offering selectable options with a default. Writes `CLARIFIED_GOAL.md`. Does not design or implement. |
+| **`requirements-liaison`** (`ce_personas/requirements-liaison.md`) | the **DISCOVERY** stage — `lathe clarify` / step 0 of `sdlc` | *Interrogates the goal's real intent* before any assumptions or design — inputs/outputs/success/constraints/edge/non-goals — offering selectable options with a default. Writes `CLARIFIED_GOAL.md`. Discovery is now live (previously non-functional); does not design or implement. |
 | **`assumption-auditor`** (`ce_personas/assumption-auditor.md`) | `lathe assume` (pre-build gate) + advisory at `clarify` | *Adversarially* re-reads the spec against the goal and emits a materiality-ranked ledger of the choices the goal never specified (optionally offering alternatives to pick from); the gate blocks the build until each blocking one is **resolved** by an explicit per-item decision (recorded in `<plan>.decisions.md`). Scrutiny is user-governed. Does not design or implement. |
+| **`advocate`** (`ce_personas/advocate.md`) — **THE ADVOCATE** | **standing, default-on for the whole run** — judges at each checkpoint (discovery, assumptions, delivery) | The **sponsor's standing representative**: holds a charter (goal + discovery + confirmed assumptions) and at each checkpoint judges whether the work still serves the sponsor's *intent, direction, and quality* (**not** code correctness), returning **APPROVE / CONCERN / VETO** (+ route: `rediscover \| reassume \| redraft \| rebuild`). A **VETO holds the build** (stays HELD, not DONE). Loyalty is to the intent, never to "the build finished". Disable with `LATHE_ADVOCATE=0`. |
 
 ## Buckets — when to invoke which (organized library)
 

@@ -24,11 +24,20 @@ def _metrics(raw):
 def _layman(why):
     """Translate one technical failure reason into plain English."""
     w = (why or "").lower()
-    if "game over" in w or "instant" in w:
+    # INSTANT-DEATH only on the REAL signature: the early-death gate fired ("already over"/"instant-death") or the
+    # game-over text actually APPEARED ("forbidden text ... appeared"). Do NOT trigger merely because a trial's
+    # own `text_absent: 'game over'` literal is echoed in the failure string — that mislabeled a no-motion failure
+    # as instant death and sent the whole diagnosis down the wrong path.
+    if "already over" in w or "instant-death" in w or "forbidden text" in w or "instant game-over" in w:
         return "the game was already OVER right after it started (instant death)"
-    if "move up" in w and "dy=" in w:
+    # A generic-move-verb check that measured no motion. This is NOT instant death. Common real cause: the game
+    # waits for an input (e.g. a keypress to start) that this particular trial never sent. Match ONLY the generic
+    # "expected motion" signal — the directional "move UP/DOWN..." cases fall through to the physics messages below.
+    if "expected motion" in w or "did not move" in w:
+        return "nothing moved when the test expected movement — often the game waits for an input this trial never sent"
+    if ("move up" in w or "expected up" in w) and "dy=" in w:
         return "holding the control did NOT lift it — it fell instead (controls/physics wrong)"
-    if "move down" in w and "dy=" in w:
+    if ("move down" in w or "expected down" in w) and "dy=" in w:
         return "with no input it didn't fall as expected (physics off, or it measured a paused screen)"
     if "did not increase" in w or ("score" in w and "increase" in w):
         return "the score didn't go up when it should have"

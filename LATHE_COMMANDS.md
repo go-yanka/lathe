@@ -19,6 +19,11 @@ $ python lathe.py do "a function that parses a duration like '2h30m' into second
   parse_duration   PASS (qwen)   1 tries  (5 tests)
   -> built 1 function, pinned. module: projects/agentic-harness/tools/parse_duration.py
 ```
+**Unconfirmed assumptions refuse a non-interactive build:** `lathe do` surfaces the goal's material
+assumptions before drafting (the intake step); when any remain unconfirmed **and** there's no interactive
+terminal to resolve them, it **refuses** (non-zero exit) rather than silently guessing. Pass **`--assume`** to
+build on the recorded defaults explicitly — an owned decision, not a silent one. The env vars governing this
+(intake, the Advocate, spec/test strictness) live in `lathe env` / `env_catalog.py`.
 
 ### `lathe build <plan.py>`
 Build an explicit plan file (you wrote the spec). Reproducible: an unchanged plan reuses its pins instantly.

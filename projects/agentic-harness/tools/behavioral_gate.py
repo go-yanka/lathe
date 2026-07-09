@@ -108,6 +108,32 @@ c => {
 }
 """
 
+# Stash the canvas pixels right before the drive so the after-drive pass can isolate what MOVED.
+_STASH_JS = ("() => { const c = document.querySelector('canvas'); if (c) { const x = c.getContext('2d'); "
+             "if (x) window.__latheBefore = x.getImageData(0,0,c.width,c.height).data; } }")
+
+# Genre-robust MOTION measure: the whole-scene centroid is swamped by large STATIC regions (e.g. Breakout's
+# brick wall), so a moving paddle barely shifts it. Instead, look ONLY at pixels that CHANGED vs the stashed
+# 'before' frame — that is the moving element(s) — and measure how their non-bg mass shifted (from-position in
+# 'before' -> to-position in 'after'). Static scenery drops out; the controlled element's displacement shows.
+_MOTION_JS = r"""
+c => {
+  const ctx = c.getContext('2d'); if (!ctx) return {dx:0,dy:0,n:0};
+  const w=c.width, h=c.height, cur=ctx.getImageData(0,0,w,h).data, bef=window.__latheBefore;
+  if (!bef) return {dx:0,dy:0,n:0};
+  const br=cur[0], bg=cur[1], bb=cur[2];
+  let fx=0,fy=0,fn=0, tx=0,ty=0,tn=0;
+  for (let y=0; y<h; y+=3){ for (let x=0; x<w; x+=3){ const i=(y*w+x)*4;
+    const chg = Math.abs(cur[i]-bef[i])+Math.abs(cur[i+1]-bef[i+1])+Math.abs(cur[i+2]-bef[i+2]);
+    if (chg > 60){                                            // this pixel is part of something that moved
+      if (Math.abs(bef[i]-br)+Math.abs(bef[i+1]-bg)+Math.abs(bef[i+2]-bb) > 60){ fx+=x; fy+=y; fn++; }  // FROM
+      if (Math.abs(cur[i]-br)+Math.abs(cur[i+1]-bg)+Math.abs(cur[i+2]-bb) > 60){ tx+=x; ty+=y; tn++; }  // TO
+    } } }
+  if (fn===0 || tn===0) return {dx:0,dy:0,n:fn+tn};
+  return {dx: tx/tn - fx/fn, dy: ty/tn - fy/fn, n: Math.min(fn,tn)};
+}
+"""
+
 # JS reading a selector's text (null if the element is absent) and the whole visible body text.
 _SEL_TEXT_JS = "s => { const e = document.querySelector(s); return e ? (e.textContent || '') : null; }"
 _BODY_TEXT_JS = "() => document.body ? (document.body.innerText || '') : ''"
@@ -124,6 +150,8 @@ def build_script(behavior):
         "TRIALS = " + repr(trials) + "\n"   # Python literal (trials contain None) — NOT json (json emits `null`)
         "MIN_FRAC = " + repr(MIN_FRAC) + "\n"
         "CENTROID = " + json.dumps(_CENTROID_JS) + "\n"
+        "STASH = " + json.dumps(_STASH_JS) + "\n"
+        "MOTION = " + json.dumps(_MOTION_JS) + "\n"
         "SEL_TEXT = " + json.dumps(_SEL_TEXT_JS) + "\n"
         "BODY_TEXT = " + json.dumps(_BODY_TEXT_JS) + "\n"
         "def _num(s):\n"
@@ -153,6 +181,9 @@ def build_script(behavior):
         "        s0 = page.evaluate(SEL_TEXT, st['selector']) if (st and st['kind'] == 'selector') else None\n"
         "        if st and st['kind'] == 'selector' and s0 is None:\n"
         "            fails.append(repr(t) + ' -> state selector %r not found on the page' % st['selector']); page.close(); continue\n"
+        "        if need_canvas:\n"
+        "            try: page.evaluate(STASH)          # snapshot the canvas right before the drive (for the motion measure)\n"
+        "            except Exception: pass\n"
         "        v = t['verb']\n"
         "        if v == 'hold':\n"
         "            page.keyboard.down(t['key']); page.wait_for_timeout(t['ms']); page.keyboard.up(t['key'])\n"
@@ -170,12 +201,19 @@ def build_script(behavior):
         "                fails.append(repr(t) + ' -> foreground vanished after the drive (blank canvas)'); page.close(); continue\n"
         "            dx = c1['x'] - c0['x']; dy = c1['y'] - c0['y']\n"
         "            tx = MIN_FRAC * c0['w']; ty = MIN_FRAC * c0['h']\n"
+        "            try: mo = page.eval_on_selector('canvas', MOTION)\n"      # displacement of ONLY the moving element(s)
+        "            except Exception: mo = {'dx':0,'dy':0,'n':0}\n"
+        "            mn = mo.get('n',0); mdx = mo.get('dx',0); mdy = mo.get('dy',0)\n"
+        "            MMIN = 8   # need a few changed sample-pixels for the motion signal to count (else it's noise)\n"
         "            exp = t['expect']; ok = True; why = ''\n"
-        "            if exp == 'up':      ok = dy < -ty; why = 'expected foreground to move UP (dy=%.1f, need<%.1f)' % (dy, -ty)\n"
-        "            elif exp == 'down':  ok = dy >  ty; why = 'expected foreground to move DOWN (dy=%.1f, need>%.1f)' % (dy, ty)\n"
-        "            elif exp == 'left':  ok = dx < -tx; why = 'expected foreground to move LEFT (dx=%.1f, need<%.1f)' % (dx, -tx)\n"
-        "            elif exp == 'right': ok = dx >  tx; why = 'expected foreground to move RIGHT (dx=%.1f, need>%.1f)' % (dx, tx)\n"
-        "            elif exp == 'move':  ok = (abs(dx) > tx or abs(dy) > ty); why = 'expected motion (dx=%.1f dy=%.1f)' % (dx, dy)\n"
+        # A direction passes if EITHER the whole-scene centroid OR the moving-element motion clears the bar in
+        # that direction. Additive: nothing that passed before fails now; games with big static scenery (paddle
+        # games) that the whole-scene measure could never satisfy now pass on the controlled element's motion.
+        "            if exp == 'up':      ok = (dy < -ty) or (mn>=MMIN and mdy < -ty); why = 'expected UP (scene dy=%.1f, moving-part dy=%.1f, need<%.1f)' % (dy, mdy, -ty)\n"
+        "            elif exp == 'down':  ok = (dy >  ty) or (mn>=MMIN and mdy >  ty); why = 'expected DOWN (scene dy=%.1f, moving-part dy=%.1f, need>%.1f)' % (dy, mdy, ty)\n"
+        "            elif exp == 'left':  ok = (dx < -tx) or (mn>=MMIN and mdx < -tx); why = 'expected LEFT (scene dx=%.1f, moving-part dx=%.1f, need<%.1f)' % (dx, mdx, -tx)\n"
+        "            elif exp == 'right': ok = (dx >  tx) or (mn>=MMIN and mdx >  tx); why = 'expected RIGHT (scene dx=%.1f, moving-part dx=%.1f, need>%.1f)' % (dx, mdx, tx)\n"
+        "            elif exp == 'move':  ok = (abs(dx) > tx or abs(dy) > ty) or (mn>=MMIN and (abs(mdx)>tx or abs(mdy)>ty)); why = 'expected motion (scene dx=%.1f dy=%.1f, moving-part dx=%.1f dy=%.1f)' % (dx, dy, mdx, mdy)\n"
         "            elif exp == 'still': ok = (abs(dx) <= tx and abs(dy) <= ty); why = 'expected NO motion (dx=%.1f dy=%.1f)' % (dx, dy)\n"
         "            if not ok:\n"
         "                fails.append(repr(t) + ' -> ' + why)\n"

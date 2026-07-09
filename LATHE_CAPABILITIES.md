@@ -15,11 +15,14 @@ this catalog describes capabilities, not point-in-time state.)
 ## 0. Current capabilities (2026-07 — the real, shipped state)
 
 The catalog below (§1+) is the original design map; these are the capabilities added since, now live in
-canonical `2026-07-01q`. Project-facing how-to-use: **`FOR_PROJECTS.md`**; every command with an example:
+canonical **v2.61.0**. Project-facing how-to-use: **`FOR_PROJECTS.md`**; every command with an example:
 **`LATHE_COMMANDS.md`**.
 
 | Capability | What it is | Entry point |
 |---|---|---|
+| **The Advocate** | default-on "sponsor's representative" on every `lathe do`: holds a CHARTER, checkpoints at discovery/assumptions/delivery, returns APPROVE/CONCERN/VETO(+route) — a VETO **HOLDS** the build (HELD, not DONE, nonzero exit) | `lathe do` (default on), `LATHE_ADVOCATE`, workspace `ADVOCATE.md`/`ADVOCATE_LOG.md` |
+| **Input-first hard-stop** | `lathe do` **REFUSES** to build on unconfirmed MATERIAL assumptions when non-interactive; `--assume` (or `LATHE_INTAKE=0`) is the explicit opt-in to build on recorded defaults | `lathe do`, `--assume` |
+| **Reconcile fails closed** | an unreconciled spec-vs-test contradiction refuses the build (fix the TEST) — `LATHE_SPEC_TEST_STRICT` defaults **ON** | `LATHE_SPEC_TEST_STRICT` |
 | **Test-quality linter** | mutation probe — flags tests a trivial impl could pass | `lathe lint-spec`, `tools/spec_lint.py` |
 | **Docker-SSH sandbox** | untrusted code in a network-less read-only container on a remote host | `LATHE_SANDBOX=docker-ssh`, `tools/sandbox.py` |
 | **Structured logging** | per-run `runs/<id>.jsonl`, secrets redacted | `lathe logs`, `tools/run_logger.py` |
@@ -50,6 +53,30 @@ plus **traceability** (`CRITERIA` mapped to named tests). Honest scope: these bo
 **Gates fail CLOSED, not open (#12 U1).** Every gate carries a tri-state verdict `{PASS, FAIL, INOPERATIVE}` (`tools/gate_tristate.py`, pinned): a gate whose own probe *cannot run* (broken sandbox, timeout, OOM) is INOPERATIVE — never a silent pass — and under STRICT that refuses the build. Probes run a positive+negative **canary** before trusting a result. This closed real fail-opens (spec-lint's `except: return False`-as-pass; glue/mutation error paths; run_gates on a missing/crashed gate file).
 
 **The operating contract (#12).** Every `lathe` invocation runs through an enforced spine and emits a per-invocation **manifest** (`docs/ce/<run_id>.manifest.{json,md}`): intake + resolved workflow, persona selection, contributors with role-attributed tokens + imputed cost, gate verdicts, outcome, tamper-evident self-hash. Bare commands are **promoted** to their named workflow (`tools/workflows.py`), can't bypass the contract (guard-forge-proof), and a direct `python engine_v2.py` is flagged `spine_bypassed` (U3). Pins record the **gate regime** they were verified under; a pin from a weaker regime is re-gated, not trusted (H1).
+
+**The Advocate (v2.60.0) — the sponsor's representative.** Default-on for every `lathe do`, the Advocate
+judges **intent / direction / quality** (not code correctness — the gates own that). It holds a **CHARTER**
+(the goal + what discovery surfaced + the confirmed assumptions → workspace `ADVOCATE.md`), **checkpoints**
+at discovery, assumptions, and delivery (→ workspace `ADVOCATE_LOG.md`), and at each checkpoint returns
+**APPROVE / CONCERN / VETO** (a VETO also carries a route for where to send the work). A **VETO holds the
+build** — the run ends **HELD**, not DONE, with a nonzero exit — so a build that drifts from what the
+sponsor actually wanted can't quietly ship. It carries evolving memory across steps of a run. **Fail-safe:**
+if the Advocate model is unreachable it degrades to **CONCERN** (never a silent APPROVE). Env:
+`LATHE_ADVOCATE` (default on; `0`/`off` disables), `LATHE_ADVOCATE_MODEL` (default `sonnet`),
+`LATHE_ADVOCATE_TIMEOUT` (default `90`s). *Known-open:* the Advocate does not yet review the drafted
+spec+tests **before** the build (pending).
+
+**Input-first (v2.61.0) — refuse to build on a guess.** `lathe do` now **hard-stops** rather than guessing
+your intent: when a MATERIAL assumption is unconfirmed and the run is **non-interactive**, it **refuses to
+build** (the old behavior *warned and built anyway*). `--assume` (or `LATHE_INTAKE=0`) is the explicit
+opt-in to build on the recorded default assumptions — this is the switch autonomy uses. The **discovery
+interview** now genuinely runs (it was silently dead) and is **loud** — it is never silently skipped.
+**Reconcile fails closed:** `LATHE_SPEC_TEST_STRICT` defaults **ON**, so an unreconciled spec-vs-test
+contradiction **refuses the build** (fix the TEST). The **behavioral gate is genre-aware** — it tracks the
+moving/controlled element (the changed pixels), not just the whole-scene centroid, so paddle and
+large-static-scenery games pass; the drafter derives behavioral tests from the **specific artifact** (no
+hardcoded example copied in as a rule); and failure logs are **honest** (a no-motion result is no longer
+mislabeled "instant death"). *Known-open:* assumption de-dup is **lexical only**.
 
 Also since the original catalog: engine hardening (atomic writes, pin rollback, prelude fail-loud), a
 MODULE_NAME path-traversal guard, cross-platform fixes, and a full self-review pass (Lathe reviewing its own code).

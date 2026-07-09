@@ -82,6 +82,11 @@ asks the fewest, sharpest questions (inputs, outputs, success criteria, constrai
 takes your answers, and writes a `CLARIFIED_GOAL.md` brief with **testable acceptance criteria** — *before*
 the harness designs anything. It's step 0 of the `sdlc` workflow; a clear goal is passed straight through.
 
+Even without `clarify`, `lathe do` now **refuses to build on guessed material input**: when it can't ask
+(no interactive terminal) it stops rather than assuming a default and building anyway — pass `--assume` to
+build on documented defaults on the record. The short discovery interview that gathers those answers is run
+**loudly** and can never be silently skipped.
+
 ## Expert agents on demand (the decider)
 
 Lathe starts with **thinking**: a *decider* selects the right expert personas for the task before any code is
@@ -91,6 +96,18 @@ reliability for network code). Beyond the vendored personas, `lathe agent "<need
 **on demand** from permissively-licensed open-source catalogs (license-gated, mirrored locally with their LICENSE)
 — "load the program" for whatever capability a problem needs. All model-agnostic: a persona is just prompt text
 injected into whatever endpoint you configured.
+
+## A standing advocate (the sponsor's representative)
+
+Beyond the reviewers, every `lathe do` runs a default-on **Advocate** — a persona that represents *your*
+interest, not the code's. Seeded with your goal, the discovery answers, and the confirmed assumptions as a
+**charter** (written to `ADVOCATE.md` in each workspace), it watches each step — discovery, assumptions,
+delivery — carrying evolving memory across them, and judges **intent, direction, and quality** (not
+correctness — the gates own that), returning APPROVE / CONCERN / VETO. A **VETO holds certification**: the
+build prints `HELD`, not `DONE`, and exits nonzero, so a technically-green result that drifted from what you
+asked for doesn't ship silently. Any Advocate outage is recorded as a CONCERN, never a silent pass. Off with
+`LATHE_ADVOCATE=0`. *(Scope, honestly: it reviews intent at each step but does not yet vet the drafted
+spec+tests **before** the build — that structural guardrail is pending.)*
 
 ## Ways to run it
 
@@ -166,7 +183,7 @@ so it's model- and host-agnostic and drops into several setups:
 - [SECURITY.md](SECURITY.md) — the threat model and isolation tiers
 - [DATA_QUALITY.md](DATA_QUALITY.md) — gating "unit-green but wrong on real data"
 - [VENDORING.md](VENDORING.md) — one canonical copy; projects vendor, don't fork
-- [CHANGELOG.md](CHANGELOG.md) — release notes (current: v2.16.0)
+- [CHANGELOG.md](CHANGELOG.md) — release notes (current: v2.61.0)
 - [PERSONAS.md](PERSONAS.md) — the expert market: sources, the decider pipeline, ratings, your controls
 - [REPRODUCIBILITY.md](REPRODUCIBILITY.md) — what's guaranteed (pinned rebuilds) vs what isn't (regeneration), measured
 - [BENCHMARK.md](BENCHMARK.md) — an honest (warts-included) benchmark vs Aider/raw-Claude

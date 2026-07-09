@@ -162,11 +162,21 @@ _SCOPE = {
         "work (not just that pixels move). Each item is one trial: a drive keyed to its argument "
         '(`{"hold": "<KeyboardEvent.code>", "ms": 900}` | `{"press": "<code>"}` | `{"idle": 900}` | '
         '`{"click": [x, y]}`) plus `"expect"` in up|down|left|right|move|still (how the FOREGROUND should move). '
-        'Example helicopter: [{"hold":"Space","ms":900,"expect":"up"}, {"idle":900,"expect":"down"}] - holding '
-        "thrust must RISE, no input must FALL. A trial may ALSO/instead assert STATE via "
-        '`"state"`: `{"selector":"#score","op":"increases"|"changes"|"stable"}` (a DOM element progresses, e.g. '
-        'score ticks up on a scoring input) or `{"text_absent":"game over"}` (the game must NOT be over after '
-        "correct play). Author 1-4 trials that encode the goal's core control->response and any score/end state. "
+        # DERIVE every trial from THIS artifact's OWN rules — never copy a generic game shape. (A single baked
+        # example here once got treated as a rule: an `idle->expect move` trial was emitted for a game that only
+        # moves on a keypress, so a correct build could never pass. Do not reintroduce that.)
+        "Author each trial to match how THIS specific artifact actually behaves — do NOT assume a generic game:\n"
+        "  * Movement model: does it keep moving with NO input, or only when the user acts? Use an "
+        '`{"idle":N,"expect":"move"|"down"|...}` trial ONLY if THIS artifact keeps moving on its own with no '
+        "input. If it waits for a key/click to start or to move, the trial MUST perform that input FIRST (press "
+        "the start/direction key or click) and only THEN assert motion — never assert motion while idle for an "
+        "input-driven artifact.\n"
+        "  * State assertions use the artifact's OWN ids/text from the features you specified, not fixed names: "
+        '`"state": {"selector":"<the real element id>","op":"increases"|"changes"|"stable"}` (a DOM value '
+        'progresses) or `{"text_absent":"<the real end/over text>"}` (that state must NOT show after correct '
+        "play). Add these ONLY if THIS artifact actually has such an element/state.\n"
+        "Author 1-4 trials encoding the goal's core control->response and any score/end state, each CONSISTENT "
+        "with the artifact's real start + motion model. "
         'If you cannot state a concrete input->response, fall back to "web_canvas_game" (liveness only). '
         'These are trusted-registry NAMES / DATA - NEVER write a "functional" field with code.\n'
     ),

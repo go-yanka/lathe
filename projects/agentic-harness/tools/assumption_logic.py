@@ -1,6 +1,46 @@
 # lathe-generated module — do not edit by hand
 
 
+def _dedup_assumptions(results):
+    """Collapse near-duplicate assumptions (the analyst often emits the same choice several times under
+    different materiality/category labels — the Advocate flagged 'speed listed 3-4x'). Keep the highest-
+    materiality wording of each cluster. Token-overlap based; conservative so distinct choices survive."""
+    import re as _re
+    _rank = {"high": 2, "med": 1, "low": 0}
+    _stop = {"the", "a", "an", "at", "of", "to", "in", "on", "per", "no", "not", "does", "do", "is", "are",
+             "it", "its", "and", "or", "with", "without", "about", "around", "up", "then", "than", "as", "by",
+             "for", "be", "so", "that", "this", "each", "any", "will", "would", "should", "rather", "instead",
+             "moves", "move", "game", "player", "user", "default", "e.g", "eg", "etc"}
+
+    def _toks(s):
+        return {t for t in _re.sub(r"[^a-z0-9 ]", " ", (s or "").lower()).split()
+                if t and t not in _stop and len(t) > 1}
+    kept = []
+    for a in results:
+        at = _toks(a.get("text", ""))
+        if not at:
+            kept.append(a); continue
+        dup = -1
+        for i, k in enumerate(kept):
+            kt = _toks(k.get("text", ""))
+            if not kt:
+                continue
+            inter = len(at & kt)
+            jac = inter / (len(at | kt) or 1)
+            contain = inter / (min(len(at), len(kt)) or 1)
+            # merge when clearly the same choice reworded; category agreement lets a looser overlap count so
+            # HIGH+MED near-duplicates of one choice collapse, while unrelated choices (near-zero overlap) never do.
+            same_cat = (a.get("category") or "") == (k.get("category") or "") and inter >= 3
+            if jac >= 0.55 or contain >= 0.8 or (same_cat and jac >= 0.4):
+                dup = i; break
+        if dup >= 0:
+            if _rank.get(a.get("materiality"), 0) > _rank.get(kept[dup].get("materiality"), 0):
+                kept[dup] = a                          # keep the higher-materiality copy, not a second row
+        else:
+            kept.append(a)
+    return kept
+
+
 def parse_assumptions(text):
     try:
         import re
@@ -33,7 +73,7 @@ def parse_assumptions(text):
             if not body:
                 continue
             results.append({'materiality': materiality, 'category': category, 'text': body})
-        return results
+        return _dedup_assumptions(results)
     except Exception:
         return []
 

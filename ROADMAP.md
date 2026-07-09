@@ -56,6 +56,25 @@ Audit found docs are thin on *examples*: `LATHE_COMMANDS.md` 0 runnable examples
   "why it's built this way," so a new reader (or skeptic) understands the design, not just the commands.
 - **Exit:** a newcomer can learn every skill from one example each, and the architecture from one doc.
 
+## Phase 1d — The Advocate (sponsor's representative in the loop)  ✅ CORE DELIVERED v2.60.0
+The complement to Phase 1's test-quality lens: not "are the tests good?" but "does the whole run stay true to
+what the user actually wanted?" A default-on ADVOCATE persona speaks for the sponsor's real interest across
+the run.
+- Delivered (v2.60.0): the Advocate persona (`tools/advocate.py` + `qa/advocate_gate.py`) with checkpoints at
+  DISCOVERY, ASSUMPTIONS, and DELIVERY; a VETO holds the build; evolving memory across steps. Plus the
+  hard-stop on guessed input (`lathe do` refuses to build on unconfirmed material assumptions when
+  non-interactive), the resurrected + loud discovery interview, reconcile-fails-closed
+  (`LATHE_SPEC_TEST_STRICT` on by default), the genre-aware behavioral gate (tracks the controlled element),
+  removal of the sleeping-bomb prompt examples (drafter derives tests from the artifact), honest failure logs
+  (no-motion no longer mislabeled "instant death"), and lexical assumption de-duplication.
+- **NEXT (highest-value remaining):** the **structural guardrail** — the Advocate reviews the drafted
+  SPEC + TESTS *before* the build runs, not only at the discovery/assumptions/delivery checkpoints. This is
+  where a wrong spec gets caught before a single token is spent building it.
+- **Also open:** semantic-level assumption de-dup (needs an LLM pass; lexical done); high-severity Advocate
+  CONCERN should be able to hold/route a build (today only a VETO holds).
+- **Exit:** a run whose drafted spec drifts from the confirmed intent is held by the Advocate *before* build,
+  with the divergence named.
+
 ## Phase 2 — Execution trust (Docker)  ✅ UNBLOCKED via the rig's Docker over SSH
 Both reviews' #1 risk: the engine runs model-written code; `LATHE_SANDBOX=docker` exists but is UNTESTED.
 - Local Docker is a dead end here (no admin, virtualization firmware disabled, no WSL distro). **Resolved**
@@ -74,7 +93,7 @@ Both reviews' #1 risk: the engine runs model-written code; `LATHE_SANDBOX=docker
   compared on pass rate, cost, human-edits-needed. Published with methodology, warts included.
 - **Impediment:** needs Aider installed + API budget + an agreed *fair* task set (a biased benchmark is worse
   than none). I'll propose the task set; you approve budget + fairness.
-- **Record/replay cassette layer** (accepted from a downstream project issue, 2026-06-30): record `{request-hash ->
+- **Record/replay cassette layer** (accepted from reading_buddy issue, 2026-06-30): record `{request-hash ->
   response}` for model calls on first run, replay offline by hash after, re-record via `LATHE_GATE_RECORD=1`;
   plus a saved real-world fixture convention. Makes expensive *nondeterministic* LLM-pipeline e2e invariants
   cheap + deterministic as build gates (the class of bug — a multi-batch off-by-one — that slipped past a tiny

@@ -33,12 +33,12 @@ costs a rewrite.
 ## Output format — one assumption per line, exactly:
 `[ASSUMPTION | <high|med|low> | <category>] <the assumption, stated as the concrete choice that was made>`
 
-Example:
+Format only (shows the SHAPE, not the content — derive your actual assumptions from THIS goal, never copy the
+wording below):
 ```
-[ASSUMPTION | high | data] Input CSV is UTF-8 encoded; other encodings will raise.
-[ASSUMPTION | high | behavior] The first row is treated as a header and skipped.
-[ASSUMPTION | med | scope] Only two files are merged at a time, not N.
-[ASSUMPTION | low | behavior] Output rows preserve the input order.
+[ASSUMPTION | high | <category>] <a consequential choice the goal left open, stated as the decision taken>
+[ASSUMPTION | med | scope] <a scope boundary the goal did not pin down>
+[ASSUMPTION | low | <category>] <a minor default the goal did not specify>
 ```
 State each as a **falsifiable choice** (so the user can confirm or correct it), not a question. If, after an
 honest adversarial read, the artifact genuinely makes no consequential unstated choice, output the single

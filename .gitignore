@@ -6,6 +6,10 @@ runs/
 _fn_fails/
 _artifact_fails/
 docs/ce/
+# per-goal build workspaces are OUTPUTS, not source — never checked into the hub. They belong OUTSIDE the
+# repo (LATHE_WORKSPACE_ROOT); these patterns are a backstop for any created in-tree.
+projects/agentic-harness/goals/
+goals/
 *.tmp
 *.lock
 _wp.txt

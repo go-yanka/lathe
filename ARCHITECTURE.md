@@ -54,6 +54,9 @@ if it's wrong, you fix the spec and rebuild.
   **mutation probe** runs trivial stub impls (`return None`/`0`/identity) against the tests; if a stub passes
   them all, the tests don't pin behavior and the spec is flagged (or blocked). Closes the "green build, wrong
   code" gap.
+- **Spec↔test consistency** (`LATHE_SPEC_TEST_STRICT`, default **on** in `engine_v2`) — if the drafted spec
+  and its tests contradict each other and the contradiction is left unreconciled, the build is **refused**
+  rather than silently resolving it one way.
 - **Cleanliness gates** (`qa/run_gates.py`, run every build) — the tree must stay pristine *intrinsically*, not
   via git: no stale/backup/duplicate files, one canonical DB, one `live` implementation per capability
   (registry), no corrupt files, no real-bug lint, every CLI command documented (docs-drift), and every env var
@@ -96,6 +99,12 @@ in `tools/`) with its own acceptance test in `review_tests/`, and `LATHE_STRICT=
 
 ## Thinking first: clarify → decide → build
 
+- **Goal intake in `lathe do`** (`cmd_do` → `_goal_intake`) — every `do` now runs a live intake *before*
+  drafting: STAGE 0 **DISCOVERY** (a `requirements-liaison` persona interrogates the goal's real intent) →
+  **ASSUMPTIONS** (an `assumption-auditor` persona surfaces the unstated choices, now de-duplicated in
+  `assumption_logic.py`) → interactive **CONFIRM** → draft spec. If material assumptions stay unconfirmed and
+  there is no interactive terminal, the build is **refused** (`IntakeAbort`) instead of auto-accepting the
+  guesses. (Discovery was previously dead code — a swallowed `NameError` — and is now functional and loud.)
 - **Requirements liaison** (`lathe clarify`) — before any design, a liaison persona *interrogates the user*
   to remove ambiguity (inputs, outputs, success criteria, constraints, edge cases, non-goals) and writes a
   `CLARIFIED_GOAL.md` brief with testable acceptance criteria. It's step 0 of the `sdlc` workflow.
@@ -106,6 +115,20 @@ in `tools/`) with its own acceptance test in `review_tests/`, and `LATHE_STRICT=
   fetched license-gated and their body injected. See `PERSONAS.md`.
 - **SDLC authoring** (`lathe sdlc`) — the analyst writes layered, ID-traced requirements (UC→BR→FR→TS) and an
   RTM gate refuses orphans/dangling refs, emitting `REQUIREMENTS.md` + a criteria-mapped plan.
+
+## The Advocate — the sponsor's standing proxy
+
+Default-on (`LATHE_ADVOCATE`), the **Advocate** (`ce_personas/advocate.md` + `tools/advocate.py`) is a single
+standing persona that represents the sponsor across the *whole* run — not a per-file reviewer. In `lathe do`
+it is seeded with a **CHARTER** (the goal + discovery answers + confirmed assumptions, written to `ADVOCATE.md`
+in the workspace) and runs checkpoints at **DISCOVERY**, **ASSUMPTIONS**, and **DELIVERY**, each logged to
+`ADVOCATE_LOG.md` with evolving memory carried between them. It judges *intent, direction, and quality* — not
+code correctness — and returns **APPROVE / CONCERN / VETO** (a VETO carries a route:
+`rediscover | reassume | redraft | rebuild`). A VETO **holds** the run: it prints `HELD`, not `DONE`, and exits
+nonzero. It is enforced as a standing gate (`qa/advocate_gate.py`, registered in `qa/run_gates.py`). Fail-safe
+by design: an Advocate outage degrades to **CONCERN**, never a silent pass or a crash. Tunables:
+`LATHE_ADVOCATE_MODEL`, `LATHE_ADVOCATE_TIMEOUT`. *Known-open: the Advocate does not yet checkpoint the drafted
+SPEC+TESTS before the build — that guardrail is pending.*
 
 ## Autonomy
 
