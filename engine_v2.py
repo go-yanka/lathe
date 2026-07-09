@@ -1415,8 +1415,16 @@ for art in getattr(plan, "ARTIFACTS", []):
             except Exception:
                 pass
             # SURFACE the WHY into stdout (not just the reason.txt file) so the live stream, the BUILD_TRACE,
-            # and the plain-English narrator all see exactly what failed this attempt.
-            _why = (fdetail if sok else ("structural: " + "; ".join(str(x) for x in sfails[:3]))) or "(no detail)"
+            # and the plain-English narrator all see exactly what failed this attempt. Extract the MEANINGFUL
+            # line (the AssertionError/BEHAVIORAL FAIL message) — NOT the useless "Traceback (most recent...)"
+            # header, which made the narrator report "Traceback" instead of the real reason.
+            if sok:
+                _dlines = [l.strip() for l in (fdetail or "").splitlines() if l.strip()]
+                _why = next((l for l in reversed(_dlines) if ("Error:" in l or "FAIL" in l.upper() or "assert" in l.lower())),
+                            (_dlines[-1] if _dlines else "(no detail)"))
+                _why = _why.split("AssertionError:", 1)[-1].strip() or _why   # drop the exception-class prefix
+            else:
+                _why = "structural: " + "; ".join(str(x) for x in sfails[:3])
             print(f"    [attempt {k + 1} FAILED — why: {_why[:300]}]")
             # loop #2: remember THIS candidate + its exact reason so the NEXT attempt repairs it precisely.
             _prev_code = c

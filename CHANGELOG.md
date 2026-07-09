@@ -2,6 +2,17 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.53.0 — 2026-07-08 — fix the narrator's per-attempt reason (was showing "Traceback", not the real failure)
+
+The plain-English layer (v2.49) reported each failed attempt's reason as "Traceback (most recent call last):"
+— the first line of the Python traceback — instead of the meaningful AssertionError/BEHAVIORAL FAIL message. A
+bug in the observability I'd just shipped.
+
+- `engine_v2.py` — the `[attempt N FAILED - why: ...]` surface now extracts the MEANINGFUL error line (the
+  assertion/behavioral message), stripping the exception-class prefix, not the traceback header. Verified on the
+  ACTUAL failure text from a real run: "Traceback" -> "expected foreground to move UP (dy=125.8)" -> narrator
+  renders "holding the control did NOT lift it - it fell instead".
+
 ## v2.52.0 — 2026-07-08 — HEARTBEAT: the silent analyst phase (drafting/repair) is no longer a black hole
 
 The other silent gap: after "assumptions", the analyst DRAFTS the whole spec — a single BLOCKING call that
