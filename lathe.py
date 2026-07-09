@@ -1069,7 +1069,7 @@ def cmd_review(args):
         _mfr = _manifest()
         if _mfr:
             _engaged = [l for l, v in _lens_verdicts.items() if v == "engaged"]
-            _mfr.set_selection({"mode": "review"}, [{"id": l, "role": "reviewer"} for l in lenses], list(files))
+            _mfr.set_selection({"mode": "review"}, [{"id": l, "role": "reviewer"} for l in lenses], list(lenses))
             _mfr.append_contributor({"id": "hreview", "role": "reviewer", "kind": "model",
                                      "action": "%d lens review(s) over %d file(s): %s"
                                      % (len(lenses), len(files), ", ".join(lenses)),
