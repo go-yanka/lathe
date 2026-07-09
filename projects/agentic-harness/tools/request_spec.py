@@ -71,8 +71,29 @@ def request_spec(prompt, url=None, timeout=None, retries=None, images=None, mode
     body = json.dumps({"model": _model,
                        "messages": [{"role": "user", "content": _content}],
                        "stream": False}).encode()
+    # HEARTBEAT (observability whole-class fix): an analyst call is a single BLOCKING request that can take
+    # minutes (drafting a whole webapp spec, a repair rewrite) with ZERO output — which reads as "stuck after
+    # assumptions for 5 minutes, no idea what it's doing". A daemon thread prints an alive-signal every N
+    # seconds while the call blocks, so a slow phase is never silent. Short calls (<N s) print nothing.
+    # LATHE_HEARTBEAT=0 disables; LATHE_HEARTBEAT_SECS sets the interval. `label` names the phase.
+    import threading
+    _hb_stop = threading.Event()
+    _hb_t0 = time.time()
+    _hb_label = os.environ.get("LATHE_PHASE", "analyst")
+
+    def _heartbeat():
+        _iv = float(os.environ.get("LATHE_HEARTBEAT_SECS", "15"))
+        while not _hb_stop.wait(_iv):
+            try:
+                sys.stderr.write("    .. %s still working (%ds) ..\n" % (_hb_label, int(time.time() - _hb_t0)))
+                sys.stderr.flush()
+            except Exception:
+                pass
+    if os.environ.get("LATHE_HEARTBEAT", "1") not in ("0", "off", "false"):
+        threading.Thread(target=_heartbeat, daemon=True).start()
     last_err = None
-    for attempt in range(retries):
+    try:
+      for attempt in range(retries):
         _orig_gai = None
         try:
             req = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
@@ -98,5 +119,7 @@ def request_spec(prompt, url=None, timeout=None, retries=None, images=None, mode
         finally:
             if _orig_gai is not None:                # always restore the global resolver
                 _sock.getaddrinfo = _orig_gai
-    sys.stderr.write("request_spec: Claude proxy unreachable after %d tries: %s\n" % (retries, last_err))
-    return ""
+      sys.stderr.write("request_spec: Claude proxy unreachable after %d tries: %s\n" % (retries, last_err))
+      return ""
+    finally:
+        _hb_stop.set()                               # stop the heartbeat however we exit (return or error)

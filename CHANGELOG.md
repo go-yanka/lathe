@@ -2,6 +2,19 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.52.0 — 2026-07-08 — HEARTBEAT: the silent analyst phase (drafting/repair) is no longer a black hole
+
+The other silent gap: after "assumptions", the analyst DRAFTS the whole spec — a single BLOCKING call that
+takes minutes for a webapp, with ZERO output. It reads as "stuck for 5 minutes, no idea what it's doing". The
+engine-streaming fix (v2.49-2.51) covered the engine phase but NOT this drafting phase — a half-fix.
+
+- `tools/request_spec.py` — a daemon HEARTBEAT now prints an alive-signal every N seconds during ANY analyst
+  call while it blocks: `.. analyst still working (30s) ..`. Whole-class fix — every analyst call everywhere
+  (intake, drafting, repair, red-team, spec-review, vision) gets it; short calls (<N s) stay silent.
+  LATHE_HEARTBEAT=0 disables, LATHE_HEARTBEAT_SECS sets the interval (default 15), LATHE_PHASE labels the phase.
+- VERIFIED ON THE REAL PATH (the new rule): a live 16-second analyst call emitted the heartbeat every 2s.
+- `env_catalog.py` — LATHE_HEARTBEAT / _SECS / LATHE_PHASE documented.
+
 ## v2.51.0 — 2026-07-08 — LIVE streaming actually live: fix block-buffering + a Windows encoding crash
 
 v2.49 tee'd the engine but two bugs made it invisible on a real (slow) build:
