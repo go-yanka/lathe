@@ -29,7 +29,8 @@ def capture(html_path, out_png=None, width=900, height=650, settle_ms=700):
     from playwright.sync_api import sync_playwright
     url = "file:///" + os.path.abspath(html_path).replace(os.sep, "/")
     with sync_playwright() as p:
-        browser = p.chromium.launch()
+        _exe = os.environ.get("LATHE_CHROMIUM")           # optional: pre-provisioned chromium at a non-default path
+        browser = p.chromium.launch(executable_path=_exe) if _exe else p.chromium.launch()
         page = browser.new_page(viewport={"width": width, "height": height})
         page.goto(url)
         page.wait_for_timeout(settle_ms)          # let first paint / initial animation settle
