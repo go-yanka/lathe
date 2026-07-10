@@ -789,22 +789,37 @@ def cmd_do(args):
     # reach the model. This is where the leverage is: catching a wrong choice now beats vetoing a wrong build.
     _adv_mem = []                                            # the Advocate's evolving memory across this run's steps
     if _advocate_on and _charter:
+        # --assume / LATHE_INTAKE=0 = the sponsor CONSCIOUSLY waived intake (discovery + assumption surfacing).
+        # The Advocate's loyalty is to the sponsor's INTENT, and that intent here is an explicit "build on the
+        # defaults, I own the guess." So at the UPSTREAM INPUT checkpoints it still judges + records, but a VETO
+        # degrades to a recorded CONCERN instead of HOLDing — overriding the sponsor's conscious opt-in would
+        # betray intent, and it left the non-interactive path a dead end (--assume then Advocate-vetoed on the
+        # very discovery --assume skipped). The DELIVERY checkpoint below is UNCHANGED: a wrong build is held.
         _disc = ""
         if "WHAT THE USER ACTUALLY WANTS" in _build_goal:
             _disc = _build_goal.split("WHAT THE USER ACTUALLY WANTS", 1)[1].strip()
-        _v = _adv_step(_charter, "discovery", _disc or "(no discovery answers were captured)", _ws_abs,
+        _disc_summary = _disc or (("(discovery CONSCIOUSLY WAIVED by the sponsor via --assume — building on the "
+                                   "defaults at the sponsor's stated acceptance of the risk)") if _no_intake
+                                  else "(no discovery answers were captured)")
+        _v = _adv_step(_charter, "discovery", _disc_summary, _ws_abs,
                        context="Does the captured intent genuinely reflect the sponsor's goal, or is it thin/guessed/off-target?",
                        memory=_adv_mem)
         if _v.get("verdict") == "veto":
-            return _adv_hold("discovery", _v, ws)
+            if not _no_intake:
+                return _adv_hold("discovery", _v, ws)
+            print("  advocate: discovery VETO recorded as a CONCERN — intake was consciously waived via --assume, "
+                  "so the sponsor's own choice stands (the delivery is still judged).")
         _asum = "\n".join("- [%s|%s] %s" % ((a.get("materiality") or "").upper(), a.get("category", ""), a.get("text", ""))
-                          for a in _assumptions) or "(no material assumptions)"
+                          for a in _assumptions) or (("(assumption surfacing consciously waived via --assume)")
+                          if _no_intake else "(no material assumptions)")
         _v = _adv_step(_charter, "assumptions", _asum, _ws_abs,
                        context="Are these the RIGHT choices for the sponsor's intent? Flag any that contradict the goal, "
                                "contradict each other, or that a sponsor would likely reject.",
                        memory=_adv_mem)
         if _v.get("verdict") == "veto":
-            return _adv_hold("assumptions", _v, ws)
+            if not _no_intake:
+                return _adv_hold("assumptions", _v, ws)
+            print("  advocate: assumptions VETO recorded as a CONCERN — choices were consciously waived via --assume.")
     _gdb = _goal_board()
     try:
         tr = live.run(_build_goal, max_plans=1, max_steps=4, build_one=True, max_repairs=2, db_path=_gdb,
