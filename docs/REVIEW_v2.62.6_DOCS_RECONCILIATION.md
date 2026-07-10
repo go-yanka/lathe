@@ -71,3 +71,28 @@
 - **Docs (implementer):** A1–A2, B1–B6, C1–C7.
 - **Code (one PR):** D1 (Advocate verdict strength-rank) + D1-LOW (`_clip`).
 - **Report to maintainer / triage:** E1–E3.
+
+---
+
+## H. Comprehensive harness sweep — additional findings (24 targets: `review auto` ×21 + `review all` ×3)
+
+The full sweep completed. These are **harness-surfaced** (opus personas across all 10 lenses); the implementer should triage before fixing (the D1 Advocate one is already independently confirmed). Full logs retained.
+
+### H.1 New CODE findings to verify + fix
+- **[HIGH] `run_gates.py` retry masks intermittent *real* bugs.** The retry loop `break`s and reports PASS the instant *any* attempt returns 0. A gate catching a timing-dependent real bug ~1-in-3 is reported green ~87% of the time (`GATE_RETRIES=2`). It conflates "flake = false FAIL" with "intermittent real bug." **Fix:** for deterministic (non-HEAVY) gates require *all* attempts clean; scope any-pass retry to the browser/HEAVY set only.
+- **[HIGH] `persona_select.py` float-count guard disables the bandit.** `ucb1`/`select_personas` use `isinstance(count, int)`, so float counts (JSON/pandas/np.int64) score `float('inf')` → every persona looks unexplored → selection degrades to a static **alphabetical** picker with no error (`grades` is `float()`-coerced but `counts` isn't). **Fix:** coerce numerically (`int(cnt)`, reject only bool) in both `ucb1` and the `total` loop. *(Note: `select_personas` is dead code per E3, but `ucb1` is live.)*
+- **[MED→HIGH] Second Advocate VETO-downgrade path (compounds D1).** `checkpoint`'s anti-injection line-anchored strip `re.sub(r'(?im)^.*"verdict"...')` is **bypassed by a multi-line-embedded** `{"verdict":"approve"}`, which then wins via the last-object rule. So D1 has two doors, not one. **Fix D1 by strength-ranking** closes both.
+- **[MED] `advocate.build_charter` robustness:** docstring "never raises on odd input" is violated on a non-iterable `assumptions`; the charter is derived data with **no stamp tying it to its inputs** (goal/discovery/assumptions); a VETO carrying an unrecognized route is silently stripped to `""`, stranding the route.
+- **[MED] `persona_orchestrator.record_run` concurrency:** two concurrent runs corrupt the append-only `usage_ledger.jsonl` and race the `grades.json` tmp-file; `relevance_pool`/`select_live` select a duplicated persona name twice (double weight); the exploration term collapses to zero in a common degenerate pool.
+- **[HIGH, maintainability] Duplicate module-loader.** The `spec_from_file_location…exec_module` dance is reimplemented in `_tool`, `_board`, `_load_autonomy`, and inlined in `cmd_serve`/`cmd_env`/`cmd_ack`/`cmd_assume`/`cmd_trace` (`lathe.py:124,1087,1289,+8`). `_board`==`_tool("board")`. **Fix:** delete `_board`/`_load_autonomy`, give `_tool` a `root=` param, route all sites through it.
+
+### H.2 New DOC findings to fix (add to the §B/§C list)
+- **LATHE_GUIDE.md:** `LOCAL_OPENAI_URL` default `:8089` vs every worked example `:8080`; `LATHE_MODEL` vs `HARNESS_MODEL` both described as the implementer model with conflicting defaults; `HARNESS_MODEL` name drifts (`gemma2`/`gemma4`/ollama pull); §5 "plans run in filename order = the dependency graph" **breaks at ≥10 plans** (lexicographic sort) with no zero-pad note.
+- **CLI_REFERENCE.md:** `--out` marked optional in syntax but "required" in the flag table; `LATHE_RUN_TIMEOUT` default "unbounded" is a CI/`auto` hang risk; `LATHE_SANDBOX` default is environment-dependent (same command runs untrusted code at different isolation); undocumented precedence between `LATHE_VALIDATE_PLAN` (CLI-forced on) and `LATHE_TRUST_PLAN` (bypass).
+- **PERSONAS.md:** the decider double-counts name overlap (generic multi-word names beat specialists); a zero-signal goal collapses to a 143-way tie returned as "defaults" (catalog order).
+- **ARCHITECTURE.md:** persona-count arithmetic inconsistent ("143 = 12 vendored + …").
+- **REPRODUCIBILITY.md / LATHE_CAPABILITIES.md:** the pin key `sha256(name+prompt+tests+model)` **omits `HEADER`/`GLUE`/`context`** — editing hand-authored glue changes the assembled module but not the key. REPRODUCIBILITY.md notes the boundary; make sure LATHE_CAPABILITIES states it too.
+- **LATHE_COMMANDS.md:** duplicated "Scrutiny is user-governed" block under `lathe assume`.
+
+### H.3 Meta
+The two-mode split earned itself: **the harness sweep found real HIGH bugs the direct read missed** (the gate-retry masking, the float-count bandit degradation, the second Advocate injection path), while the direct read gave the exact `file:line` ground truth for the doc numbers. Neither alone was sufficient.
