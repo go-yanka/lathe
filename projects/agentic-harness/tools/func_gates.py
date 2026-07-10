@@ -22,7 +22,8 @@ path = os.environ["ARTIFACT_FILE"]
 url = "file:///" + path.replace(os.sep, "/")
 errors = []
 with sync_playwright() as p:
-    browser = p.chromium.launch()
+    _exe = os.environ.get("LATHE_CHROMIUM")
+    browser = p.chromium.launch(executable_path=_exe) if _exe else p.chromium.launch()
     page = browser.new_page()
     page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     page.on("pageerror", lambda e: errors.append(str(e)))
@@ -44,7 +45,8 @@ path = os.environ["ARTIFACT_FILE"]
 url = "file:///" + path.replace(os.sep, "/")
 errors = []
 with sync_playwright() as p:
-    browser = p.chromium.launch()
+    _exe = os.environ.get("LATHE_CHROMIUM")
+    browser = p.chromium.launch(executable_path=_exe) if _exe else p.chromium.launch()
     page = browser.new_page()
     page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
     page.on("pageerror", lambda e: errors.append(str(e)))

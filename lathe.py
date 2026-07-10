@@ -21,6 +21,7 @@ Usage:
   lathe checkpoint [list|snapshot [reason]|restore <sha>]   safe git rollback points
   lathe metrics [N]            summarize the last N engine runs (tokens, pass-rate)
   lathe plans                  list available plan files
+  lathe flow [name] [--run T]  show a named workflow's steps (end-to-end recipe); --run <targets> executes them
   lathe dups [--min N]         advisory: functions sharing an AST shape (duplicate logic, renamed-var safe)
   lathe whatis [capability]    source-of-truth: which artifact is LIVE for a capability (lookup, not grep)
   lathe clean [--dry]          janitor: quarantine corrupt/half-written files; keep the tree pristine (no git)
@@ -1258,7 +1259,30 @@ def cmd_verify(args):
         return 2
     print("> verifying reproducibility of %s (rebuild should reuse pins)..." % os.path.basename(plan))
     rc = _run_engine(plan, MODEL, TRIES)
-    print("  (check the run report: pin reuse = reproducible; fresh gen = pin miss)")
+    # Clear PASS/FAIL verdict from the run this build just appended to metrics/runs.jsonl (matched by plan).
+    try:
+        import json as _json
+        _base = os.path.basename(plan)
+        _rec = None
+        with open(os.path.join(ROOT, "metrics", "runs.jsonl"), encoding="utf-8") as _mf:
+            for _line in _mf:
+                if _line.strip() and _json.loads(_line).get("plan") == _base:
+                    _rec = _json.loads(_line)                # keep the LAST record for this plan = this run
+        if _rec is None:
+            raise ValueError("no metrics record for %s" % _base)
+        _total = (_rec.get("functions_total", 0) or 0) + (_rec.get("artifacts_total", 0) or 0)
+        _pinned = _rec.get("by_pinned", 0) or 0
+        _fresh = (_rec.get("by_local", 0) or 0) + (_rec.get("by_claude", 0) or 0)
+        if _rec.get("build_ok") and _fresh == 0 and _pinned >= 1:
+            print("  REPRODUCIBLE — %d/%d unit(s) reused from pins (byte-stable, 0 model calls)." % (_pinned, _total))
+        elif _rec.get("build_ok"):
+            print("  NOT byte-stable — %d unit(s) regenerated fresh (pin miss). Rebuild once to pin, then re-verify." % _fresh)
+            rc = rc or 1
+        else:
+            print("  BUILD FAILED — cannot confirm reproducibility."); rc = rc or 1
+    except Exception as _ve:
+        sys.stderr.write("verify: could not read metrics for a verdict (%r)\n" % (_ve,))
+        print("  (check the run report: pin reuse = reproducible; fresh gen = pin miss)")
     return rc
 
 
