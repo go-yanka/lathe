@@ -69,7 +69,7 @@ spec = importlib.util.spec_from_file_location("lathe_mod", os.path.join(ROOT, "l
 lathe = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(lathe)
 calls = []
-lathe._run = lambda cmd, cwd=None: calls.append(cmd) or 0
+lathe._run = lambda cmd, *a, **k: calls.append(cmd) or 0   # tolerate _run's real signature (cwd/timeout/env)
 target = os.path.join(tmp, "backend_service.py")
 open(target, "w", encoding="utf-8").write(
     "# backend api microservices scalability distributed systems architecture rest grpc\n"
