@@ -142,6 +142,14 @@ decider selected lenses for this code: correctness, adversarial, security, relia
   ... findings by severity ...
 ```
 
+**Enforce it as a GATE — `lathe review --gate [--release] <files...>` (#51).** By default `review` is advisory
+(it prints findings, exit code reflects only whether the reviewers ran). With **`--gate`** it becomes a
+**conditional-mandatory, severity-routed GATE that fails closed**: the *applicable* panel — the always-core
+lenses plus the conditionals the code triggers (e.g. `api-contract` for API code, `data-migration` for a
+migration) — **must** have run and **must** be free of P0/P1 findings, else the review blocks (non-zero). A
+mandatory lens that didn't run also blocks (a missing check is not a silent pass). `--release` adds
+project-standards to the mandatory set for a pre-release bar.
+
 ### `lathe verify <plan.py>`
 Rebuild a plan and confirm it still passes its gates (a targeted regression for one plan).
 
@@ -334,6 +342,12 @@ for scripted runs), and it synthesizes a `CLARIFIED_GOAL.md` brief — a refined
 A goal that already states its inputs+outputs is passed through with a note (no busywork questions). It is
 step 0 of the `sdlc` workflow. Enforceable for teams via a require-clarify policy.
 
+**Project framing round first (#48).** Before the functional questions, `clarify` asks the high-leverage
+**framing** questions that determine the architecture and what "done" means — purpose, users, scope,
+deliverable, stack, hosting — skipping any dimension the goal already states. The answers are recorded in a
+`## Framing` section of the brief. In scripted `--answers` runs, the framing answers come **first** (one line
+per asked dimension, blank = skip), then the functional answers.
+
 **Pick, don't type.** When a question has a small bounded set of likely answers, the liaison attaches
 selectable **options with a recommended default** — you answer with the option's number (or just hit Enter
 for the default), and free-text is always allowed. Only genuinely open-ended questions have no options.
@@ -409,6 +423,29 @@ Bulk accept is available but never the default — it's an explicit choice, logg
 $ python lathe.py assume projects/agentic-harness/plans/H_importer.py --resolve --accept-all
 === ACCEPT-ALL: 2 blocking assumption(s) accepted as-stated WITHOUT individual review (your explicit choice) ===
 # each is recorded in H_importer.decisions.md as "accepted in bulk (not individually reviewed)"
+```
+
+### `lathe architect "<goal>" [--out <dir>] [--framing <CLARIFIED_GOAL.md>] [--assume]`
+**Architecture / decomposition step (#49) — the front half Lathe used to lack.** A plan builds one file;
+turning a whole goal into modules was manual, the root of scope-collapse. `lathe architect` has the **standing
+Application Architect** (a permanent, charter-holding persona — #50) propose a **decomposition**: modules,
+each module's public API, `DEPENDS_ON` edges, and a stack-appropriate file/folder layout. The decomposition is
+**validated** (identifier names, no dependency cycles, no dangling deps, every module has a public API); the
+Architect then reviews **its own** decomposition against the project charter and **blocks** a scope-collapsed
+or badly-bounded design (P0/P1) unless you pass `--assume`. On accept it writes `ARCHITECTURE.md` and **seeds
+one plan per module** in dependency (build) order. A single-module goal falls through with a note — just
+`lathe do` it. Pass `--framing <CLARIFIED_GOAL.md>` to shape the layout from a clarified brief.
+```
+$ python lathe.py architect "a calculator: tokenizer, parser, evaluator, and a CLI"
+  architect: proposing a decomposition (frontier analyst)...
+  ## Modules
+   - tokenizer.py   (public: tokenize)     depends: —
+   - parser.py      (public: parse)        depends: tokenizer.py
+   - evaluator.py   (public: evaluate)     depends: parser.py
+   - cli.py         (public: main)         depends: evaluator.py
+  Build order: tokenizer -> parser -> evaluator -> cli
+  [standing architect] approve (P3) — boundaries are clean; APIs are minimal.
+architect: wrote ARCHITECTURE.md + seeded 4 plan(s). next: sharpen each plan's tests, then build in order.
 ```
 
 ### `lathe sdlc "<goal>" [--out <dir>]`
