@@ -408,7 +408,10 @@ def _sandbox():
     global _SB
     if _SB is None:
         mode = os.environ.get("LATHE_SANDBOX", "").lower()
-        if mode not in ("subprocess", "docker"):
+        # docker-ssh IS a documented isolation mode (sandbox.run_unit routes it to a remote container over SSH,
+        # fail-closed). It must NOT be silently dropped to the trusted in-proc path — that was false security:
+        # LATHE_SANDBOX=docker-ssh previously ran plans UNSANDBOXED (issue #35).
+        if mode not in ("subprocess", "docker", "docker-ssh", "docker_ssh"):
             _SB = False
             return None
         spp = os.environ.get("LATHE_SANDBOX_PY", "")
