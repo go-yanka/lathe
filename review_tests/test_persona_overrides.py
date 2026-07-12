@@ -52,7 +52,7 @@ def review_calls(target):
     lathe = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(lathe)
     calls = []
-    lathe._run = lambda cmd, cwd=None: calls.append(cmd) or 0
+    lathe._run = lambda cmd, *a, **k: calls.append(cmd) or 0   # tolerate _run's real signature (cwd/timeout/env)
     lathe.cmd_review(["auto", target])
     return [str(c[2]) for c in calls if len(c) > 2]
 
