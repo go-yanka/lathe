@@ -1295,9 +1295,13 @@ def _tool(name):
     return m
 
 
-def _validate_plan_file(plan_path):
+def _validate_plan_file(plan_path, check_outdir=True):
     """A plan is EXECUTED when built, so refuse to build one that isn't data-safe (closes 'lathe build
-    any.py = RCE') and whose OUT_DIR escapes the working tree. Bypass with LATHE_TRUST_PLAN=1."""
+    any.py = RCE') and whose OUT_DIR escapes the working tree. Bypass with LATHE_TRUST_PLAN=1.
+
+    check_outdir=False keeps ONLY the data-safety (RCE) guard and skips the OUT_DIR-escape check: the
+    read-only exec paths (ack/assume/trace, issue #36) exec the plan module but never WRITE to OUT_DIR,
+    so an out-of-tree OUT_DIR is not a threat there — refusing it would false-reject legitimate plans."""
     if os.environ.get("LATHE_TRUST_PLAN") == "1":
         return True
     try:
@@ -1309,23 +1313,24 @@ def _validate_plan_file(plan_path):
     if not v["ok"]:
         print("REFUSING to build: plan is not data-safe (%s). Plans are executed — build only TRUSTED plans, "
               "or set LATHE_TRUST_PLAN=1." % v["reason"]); return False
-    import ast                                            # OUT_DIR must stay inside the working tree
-    try:
-        for n in ast.parse(text).body:
-            if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "OUT_DIR" for t in n.targets) \
-                    and isinstance(n.value, ast.Constant) and isinstance(n.value.value, str):
-                od = n.value.value
-                full = od if os.path.isabs(od) else os.path.join(os.path.dirname(os.path.abspath(plan_path)), od)
-                root = os.path.realpath(ROOT)            # the harness root, not cwd (lathe may be run from anywhere)
-                wsroot = os.path.realpath(WORKSPACE_ROOT.replace("/", os.sep))   # the sanctioned external workspace root
-                _rf = os.path.realpath(full)
-                # allow the repo OR the sanctioned workspace root; refuse any other (arbitrary-write) path
-                if not (_rf == root or _rf.startswith(root + os.sep) or _rf == wsroot or _rf.startswith(wsroot + os.sep)):
-                    print("REFUSING to build: OUT_DIR escapes the working tree and the sanctioned workspace root (%s). "
-                          "Set LATHE_TRUST_PLAN=1 to override." % od)
-                    return False
-    except Exception:
-        pass
+    if check_outdir:
+        import ast                                            # OUT_DIR must stay inside the working tree
+        try:
+            for n in ast.parse(text).body:
+                if isinstance(n, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "OUT_DIR" for t in n.targets) \
+                        and isinstance(n.value, ast.Constant) and isinstance(n.value.value, str):
+                    od = n.value.value
+                    full = od if os.path.isabs(od) else os.path.join(os.path.dirname(os.path.abspath(plan_path)), od)
+                    root = os.path.realpath(ROOT)            # the harness root, not cwd (lathe may be run from anywhere)
+                    wsroot = os.path.realpath(WORKSPACE_ROOT.replace("/", os.sep))   # the sanctioned external workspace root
+                    _rf = os.path.realpath(full)
+                    # allow the repo OR the sanctioned workspace root; refuse any other (arbitrary-write) path
+                    if not (_rf == root or _rf.startswith(root + os.sep) or _rf == wsroot or _rf.startswith(wsroot + os.sep)):
+                        print("REFUSING to build: OUT_DIR escapes the working tree and the sanctioned workspace root (%s). "
+                              "Set LATHE_TRUST_PLAN=1 to override." % od)
+                        return False
+        except Exception:
+            pass
     return True
 
 
@@ -2023,6 +2028,8 @@ def cmd_ack(args):
     plan_path = os.path.abspath(paths[0])
     if not os.path.exists(plan_path):
         print("ack: no such plan: %s" % plan_path); return 2
+    if not _validate_plan_file(plan_path, check_outdir=False):   # exec_module RCE guard (issue #36); read-only path never writes OUT_DIR
+        return 2
     spec = importlib.util.spec_from_file_location("plan", plan_path)
     plan = importlib.util.module_from_spec(spec)
     try:
@@ -2142,6 +2149,8 @@ def cmd_assume(args):
     plan_path = os.path.abspath(pos[0])
     if not os.path.exists(plan_path):
         print("assume: no such plan: %s" % plan_path); return 2
+    if not _validate_plan_file(plan_path, check_outdir=False):   # exec_module RCE guard (issue #36); read-only path never writes OUT_DIR
+        return 2
     spec = importlib.util.spec_from_file_location("plan", plan_path)
     plan = importlib.util.module_from_spec(spec)
     try:
@@ -2481,6 +2490,8 @@ def cmd_trace(args):
     plan_path = _resolve_plan(paths[0])      # #17: resolve a bare stem (H_x) like cmd_build, not os.path.abspath
     if not os.path.exists(plan_path):
         print("trace: no such plan: %s" % paths[0]); return 2
+    if not _validate_plan_file(plan_path, check_outdir=False):   # exec_module RCE guard (issue #36); read-only path never writes OUT_DIR
+        return 2
     spec = importlib.util.spec_from_file_location("plan", plan_path)
     plan = importlib.util.module_from_spec(spec)
     try:
