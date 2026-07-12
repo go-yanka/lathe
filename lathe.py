@@ -781,6 +781,8 @@ def cmd_do(args):
             print("  Do one of:")
             print("    - run `lathe do \"<goal>\"` in a real terminal and answer the questions, or")
             print("    - pass --assume to CONSCIOUSLY build on the recorded defaults (you own the guess).")
+            print("      NOTE: --assume still runs THE ADVOCATE, which can HOLD a thin/guessed goal — add")
+            print("      LATHE_ADVOCATE=off to also waive that review for a fully non-interactive run (issue #27).")
             print("\nno build — input was not confirmed.")
             return 2
         # A6: intake wrote the goal-scope ledger next to the plan → ARM the (now artifact-lane-covering)
