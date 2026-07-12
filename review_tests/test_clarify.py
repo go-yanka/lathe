@@ -53,7 +53,11 @@ spec.loader.exec_module(lathe)
 
 tmp = tempfile.mkdtemp(prefix="clar_")
 ans = os.path.join(tmp, "ans.txt")
-open(ans, "w", encoding="utf-8").write("two CSV files\none merged CSV\nno limit\n")
+# #48: the PROJECT FRAMING round asks the un-prefilled framing dimensions FIRST; a vague goal prefills none,
+# so scripted answers begin with one line per framing dimension (blank = skip) before the functional answers.
+from framing import FRAMING as _FR
+_fr_skip = "\n" * len(_FR)
+open(ans, "w", encoding="utf-8").write(_fr_skip + "two CSV files\none merged CSV\nno limit\n")
 rc = lathe.cmd_clarify(["combine some data files", "--answers", ans, "--out", tmp])
 check("clarify exits 0", rc == 0, "rc=%r" % rc)
 brief_path = os.path.join(tmp, "CLARIFIED_GOAL.md")
@@ -75,7 +79,7 @@ def _mock2(p):
 fake.request_spec = _mock2
 tmp3 = tempfile.mkdtemp(prefix="clar3_")
 ans3 = os.path.join(tmp3, "ans.txt")
-open(ans3, "w", encoding="utf-8").write("2\n\n")     # Q1 -> pick option 2 (JSON); Q2 -> Enter => default (no)
+open(ans3, "w", encoding="utf-8").write(_fr_skip + "2\n\n")   # framing skipped; then Q1 -> pick option 2 (JSON); Q2 -> Enter => default (no)
 rc = lathe.cmd_clarify(["import records from a feed", "--answers", ans3, "--out", tmp3])
 check("options path exits 0", rc == 0, "rc=%r" % rc)
 brief_prompt = next((p for k, p in capd if k == "brief"), "")
