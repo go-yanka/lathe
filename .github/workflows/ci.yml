@@ -58,6 +58,14 @@ jobs:
           python review_tests/test_persona_overrides.py
           python review_tests/test_persona_ratings.py
           python review_tests/test_sdlc.py
+          python review_tests/test_security_exec_guards.py
+          python review_tests/test_gate_hardening.py
+          python review_tests/test_framing.py
+          python review_tests/test_architect.py
+          python review_tests/test_standing_team.py
+          python review_tests/test_review_gate.py
+          python review_tests/test_bandit_grades.py
+          python review_tests/test_persona_select_dedup.py
           # test_pin_deps_e2e.py needs a live local model endpoint - run locally, not in CI
 
       - name: Reproducibility — pinned demo rebuilds offline, zero model calls
