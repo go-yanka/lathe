@@ -1134,6 +1134,17 @@ def cmd_review(args):
                 print("\nreview outcomes -> ratings updated: %s" % ", ".join("%s=%.2f" % (k, v) for k, v in _upd.items()))
         except Exception as _fe:
             sys.stderr.write("review: grade-feedback skipped (%r)\n" % (_fe,))
+        try:
+            # #37: ALSO feed the outcomes into the UCB1 BANDIT grades (grades.json), not just the EWMA ratings —
+            # an engaged lens produced verifiable findings, so it scores. Without this the exploit signal never
+            # forms (record_run only ever wrote contributions={} at selection time) and the bandit only explores.
+            import persona_orchestrator as _po_g
+            _outcomes = {l: (1 if v == "engaged" else 0) for l, v in _lens_verdicts.items()}
+            _g = _po_g.record_outcomes(_outcomes, os.environ.get("LATHE_RUN_ID", "adhoc"))
+            if _g:
+                print("review outcomes -> bandit grades updated: %d persona(s)" % len(_g))
+        except Exception as _ge2:
+            sys.stderr.write("review: bandit-grade feedback skipped (%r)\n" % (_ge2,))
     # MED#4 (PR #16): the review path under-reported the manifest (personas:[], contributors:0, usage:0) while
     # the build path recorded fully — implying nothing ran. Record who actually reviewed + that the calls
     # happened. Tokens run in the hreview SUBPROCESS and are not metered in-process here, so record them
