@@ -18,6 +18,7 @@ import asyncio
 import base64
 import json
 import os
+import shutil
 import subprocess
 import time
 import uuid
@@ -31,11 +32,22 @@ import uvicorn
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 log = logging.getLogger("claude-proxy")
 
-# Resolve the Windows claude launcher (the npm .cmd shim).
-CLAUDE_BIN = os.environ.get(
-    "CLAUDE_BIN",
-    os.path.expandvars(r"%APPDATA%\npm\claude.cmd"),
-)
+# Resolve the claude launcher. #46: the old default was a hardcoded Windows path
+# (%APPDATA%\npm\claude.cmd) that doesn't exist off-Windows, so on Linux/macOS the proxy
+# looked "up" (/health echoed the string) while every completion failed. Resolve from PATH
+# first, so it works out-of-the-box cross-platform; keep the Windows shim as a last resort.
+CLAUDE_BIN = (os.environ.get("CLAUDE_BIN")
+              or shutil.which("claude")
+              or os.path.expandvars(r"%APPDATA%\npm\claude.cmd"))
+
+
+def _bin_healthy():
+    """#46: does CLAUDE_BIN actually resolve to something runnable? A real probe, not an echo — so /health
+    reports the truth (a missing binary => unhealthy) instead of always saying 'ok'."""
+    b = CLAUDE_BIN
+    if not b:
+        return False
+    return bool(os.path.isfile(b) or shutil.which(b))
 DEFAULT_MODEL = os.environ.get("CLAUDE_PROXY_MODEL", "sonnet")  # haiku|sonnet|opus
 TIMEOUT = float(os.environ.get("CLAUDE_PROXY_TIMEOUT", "600"))
 
@@ -141,7 +153,12 @@ async def list_models():
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "bin": CLAUDE_BIN, "default_model": DEFAULT_MODEL}
+    # #46: PROBE the binary rather than echo the configured path. A broken/absent claude bin now reports
+    # unhealthy (503) so callers see the endpoint is down instead of a false "up".
+    _ok = _bin_healthy()
+    return JSONResponse(
+        {"status": "ok" if _ok else "unhealthy", "bin": CLAUDE_BIN, "bin_found": _ok, "default_model": DEFAULT_MODEL},
+        status_code=200 if _ok else 503)
 
 
 @app.post("/v1/chat/completions")
