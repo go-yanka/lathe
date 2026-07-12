@@ -173,6 +173,38 @@ def record_run(goal, considered, selected, contributions, run_id):
     return manifest
 
 
+def record_outcomes(outcomes, run_id):
+    """#37: turn per-persona review OUTCOMES into ledger rows with raised/confirmed so update_grades() forms
+    real bandit grades — the exploit signal that never populated because the only ledger writer (record_run,
+    at SELECTION time) can't know outcomes yet (the review hasn't run). This is the missing post-review
+    feedback. `outcomes` maps a persona/lens name to either an engaged flag (bool — an ENGAGED lens produced
+    verifiable findings, so it scores 1/1) or a {"raised":int, "confirmed":int} dict for a richer signal.
+    A lens that did not engage contributes nothing (raised=0). Returns the grades dict written (or {})."""
+    try:
+        _tools_on_path()
+        from usage_ledger import usage_record
+        rows = []
+        for name, o in (outcomes or {}).items():
+            if not name:
+                continue
+            if isinstance(o, dict):
+                raised = int(o.get("raised", 0) or 0)
+                confirmed = int(o.get("confirmed", 0) or 0)
+            else:
+                raised = confirmed = 1 if o else 0
+            if raised <= 0:                               # a lens that didn't engage produced no verifiable work
+                continue
+            rows.append(usage_record(name, run_id, True, True, raised, confirmed, ""))
+        if rows:
+            os.makedirs(os.path.dirname(ledger_path()), exist_ok=True)
+            with open(ledger_path(), "a", encoding="utf-8") as f:
+                for r in rows:
+                    f.write(json.dumps(r) + "\n")
+        return update_grades()
+    except Exception:
+        return {}
+
+
 def update_grades(prior=0.5, prior_weight=2.0, min_conf=0.5):
     """#18 H2 — turn the usage ledger into work-based grades so grade_update/finding_score are LIVE (not dead
     code) and grades.json is written. A persona's grade is the smoothed mean of its VERIFIED findings: for
