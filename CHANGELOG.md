@@ -2,6 +2,34 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.63.1 — 2026-07-12 — independent-review hardening (the shakedown fixes, verified deeper)
+
+An independent adversarial review of the v2.63.0 shakedown found that some fixes shipped green while a test
+was too weak to catch a regression. This release makes each one behaviorally sound (every fix now has a test
+that FAILS when the fix line is reverted):
+
+- **#51 review gate was BOTH fail-open and over-blocking.** `review_gate.max_severity` read only `P0–P3`
+  literals, but `hreview` emits **word** severities (`critical/high/medium/low`) — so real findings read as
+  clean and the gate passed a P0 (fail-OPEN). And the CONDITIONAL panel used **persona** names
+  (`api-contract`, …) that map to `review_<persona>.txt` files `hreview` never writes → a mandatory lens that
+  can never be satisfied → permanent unclearable BLOCK. Fixed: word→P-code mapping (kept P-codes); CONDITIONAL
+  aligned to real lens tokens (`api`/`data`/`ui`/`perf`); new **`LATHE_REVIEW_WAIVE`** operator override to
+  clear a genuinely-stuck mandatory lens on purpose.
+- **#48 `lathe clarify` could hang CI.** The project-framing round called `input()` on the no-`--answers`
+  branch, blocking forever when stdin was held open. Both interactive reads are now guarded by
+  `sys.stdin.isatty()` — a non-interactive run skips them instead of hanging.
+- **#37 the persona bandit graded engagement, not value.** Review outcomes fed a binary "the lens ran" signal.
+  Now each engaged lens's findings file is parsed for the finding **count** and how many were P0/P1
+  (`review_gate.count_findings`), so a lens that surfaces real issues out-grades one that emits low-severity
+  noise.
+- **#42/#41** the green-build predicate is now a pure `_compute_build_ok` (a hung integration TIMEOUT is not a
+  silent green unless the plan opted its itest optional); **#44** the itest import-prelude is a pure
+  `_make_itest_prelude`; **#39/#40** the gate-retry scoping is exercised through `run_gates.main()` with a stub
+  gate. **#45** under-delivery now HOLDS deterministically under `LATHE_STRICT=1` (independent of the Advocate),
+  not just advisory.
+- **Test coverage:** the offline suite now actually runs the harness's own acceptance tests, and every fix
+  above ships a model-free behavioral test.
+
 ## v2.63.0 — 2026-07-12 — v2.62.6 shakedown: 14 fixes + the Senior Team operating model
 
 The independent v2.62.6 terminal shakedown filed real bugs and design gaps as issues; this release closes
