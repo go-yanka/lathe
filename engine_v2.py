@@ -954,7 +954,20 @@ for f in plan.FUNCTIONS:
         _req = f.get("kinds") or getattr(plan, "TEST_KINDS", None)
         _kg = _kind_gaps(os.environ.get("LATHE_TEST_KIND"), _req, _detect_kinds(tests) if _detect_kinds else set())
         if _kg:
-            print(f"  {name:16} TEST-KIND GATE — {'; '.join(_kg)}")
+            # #47: this refusal happens BEFORE generation (no model call). Historically it banked NO evidence, so
+            # the auto-repair loop then SKIPPED ("no banked failures found") — a gate-CONFIG refusal was a dead
+            # end, not a self-healing one. Make it actionable: emit guidance distinct from a build failure AND
+            # bank a synthetic record so the analyst-repair loop engages and can propose the missing test KIND
+            # (the kind detector is a heuristic and can false-refuse genuinely-thorough tests).
+            _kmsg = ("TEST-KIND GATE refused BEFORE generation: %s. The declared kind(s) aren't recognized in "
+                     "this unit's tests by the (heuristic) detector — this is a spec/test-SHAPE fix, not a failed "
+                     "implementation (no code was generated). ADD a test whose INTENT is the missing kind "
+                     "(edge = empty/boundary/degenerate input; error = asserts a raise; property = a for-all/"
+                     "invariant; roundtrip = encode∘decode), or drop the 'kinds' declaration if it doesn't apply."
+                     % "; ".join(_kg))
+            print(f"  {name:16} TEST-KIND GATE — {'; '.join(_kg)}  [banked for analyst repair — add the missing kind]")
+            _save_fn_fail(name, "test-kind-gate", 0,
+                          "# refused before generation by the TEST-KIND gate — no implementation was attempted\n", _kmsg)
             solved_src[name] = None
             report.append((name, False, 0, None))
             continue
@@ -1629,7 +1642,16 @@ if _intg and (not plan.FUNCTIONS or passed == len(plan.FUNCTIONS)):
     _itest_name = "_itest_%s.py" % (_mn or "plan")
     _itestpath = os.path.join(out_dir, _itest_name)
     _refuse_if_foreign(_itestpath)
-    _atomic_write(_itestpath, _LATHE_MARK + "\n" + _intg)
+    # #44: the itest runs STANDALONE, so it must see the module's GLUE/function symbols — but the plan validator
+    # (correctly) bans `import` inside the plan's INTEGRATION, a catch-22 that made GLUE+INTEGRATION unbuildable
+    # except via LATHE_TRUST_PLAN=1 (a full security downgrade). Resolve it HERE: auto-prepend the module import
+    # (the module already sits in out_dir). INTEGRATION references `evaluate(...)` with NO import and the
+    # validator stays strict. Only when a real module was written (artifact-only itests get no prelude).
+    _itest_prelude = ""
+    if module and os.path.exists(os.path.join(out_dir, module + ".py")):
+        _itest_prelude = ("from %s import *  # lathe #44: auto-imported so INTEGRATION needs no "
+                          "(validator-banned) import\n" % module)
+    _atomic_write(_itestpath, _LATHE_MARK + "\n" + _itest_prelude + _intg)
     try:
         # PR#1 v2.8.0 #2: the INTEGRATION test is plan-authored code too — scrub the harness's secrets from its
         # env, same denylist as _func_test above (previously this path inherited the full parent env).
