@@ -150,6 +150,15 @@ def workflows_matrix():
 
 
 def main():
+    # Orphan guard (2026-07-12): this phase drives many real lathe builds (-> run_gates -> lane gates ->
+    # Playwright -> Chromium). Enroll in a Windows kill-on-close Job Object so that if cli_matrix dies for any
+    # reason, the OS reaps the whole build tree — even when run standalone, not just as a child of run_all.
+    try:
+        sys.path.insert(0, ROOT)
+        import procguard
+        procguard.arm()
+    except Exception:
+        pass
     commands_matrix()
     fix_repros()
     workflows_matrix()
