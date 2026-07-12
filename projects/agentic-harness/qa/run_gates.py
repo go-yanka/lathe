@@ -11,6 +11,21 @@ Add more standing checks here as the harness grows (e.g. no two tools exporting 
 """
 import os, subprocess, sys, time
 
+
+def _int_env(name, default):
+    """A blank or typo'd env var (GATE_RETRIES='', GATE_TIMEOUT='foo') must NOT crash the whole regression
+    (bare int() -> ValueError -> the standing gate goes INOPERATIVE/RED for every build). Fall back to the
+    default and warn instead of taking the tree down (issue #40)."""
+    raw = os.environ.get(name)
+    if raw is None or raw.strip() == "":
+        return default
+    try:
+        v = int(raw)
+    except ValueError:
+        print("  [run_gates] %s=%r is not an int — using %d" % (name, raw, default))
+        return default
+    return v if v >= 0 else default          # a negative (e.g. -1) would break range()/timeout — reject it
+
 # Force UTF-8 on our own stdout/stderr: the ENGINE captures this via a pipe, whose default Windows encoding is
 # cp1252 — a gate summary line containing any non-latin1 char (an arrow, em-dash) would crash `print` with
 # UnicodeEncodeError, kill the regression mid-run, and read as a spurious FAIL (which rolled back a green build).
@@ -73,17 +88,17 @@ def main():
             print("%-22s FAIL :: gate file missing: %s" % (name, os.path.basename(path)))
             failed.append(name + "(missing)")
             continue
-        # FLAKE TOLERANCE (2026-07-08): the browser-based gates (skeleton_lane, behavioral_lane, vision_lane)
-        # can flake on a transient Chromium/subprocess timing hiccup, and a single flake used to BLOCK an
-        # otherwise-green build's post-regression — masking a real success. So a FAILED gate is RETRIED: a
-        # genuine failure recurs across attempts, a flake clears. Applies to every gate (whole class). Set
-        # GATE_RETRIES=0 to disable.
-        _retries = int(os.environ.get("GATE_RETRIES", "2"))
+        # FLAKE TOLERANCE (2026-07-08, scoped 2026-07-10): ONLY the browser-based HEAVY gates (skeleton_lane,
+        # behavioral_lane, vision_lane) flake on a transient Chromium/subprocess timing hiccup, so ONLY they are
+        # retried. Retrying EVERY gate was fail-OPEN: an intermittently-REAL bug in a deterministic gate would
+        # clear on a re-run and ship green (a genuine failure masked as a flake). Deterministic gates now fail
+        # CLOSED on the first failure (issue #39). Set GATE_RETRIES=0 to disable even the browser retries.
+        _retries = _int_env("GATE_RETRIES", 2) if name in HEAVY else 0
         r = None; _exc = None
         for _attempt in range(_retries + 1):
             try:
                 r = subprocess.run([sys.executable, path], capture_output=True, text=True,
-                                   encoding="utf-8", errors="replace", timeout=int(os.environ.get("GATE_TIMEOUT", "300")))
+                                   encoding="utf-8", errors="replace", timeout=_int_env("GATE_TIMEOUT", 300))
                 _exc = None
             except Exception as e:
                 r = None; _exc = e
