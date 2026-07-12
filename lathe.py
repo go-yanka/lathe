@@ -961,6 +961,9 @@ def cmd_review(args):
         sys.stdout.reconfigure(line_buffering=True)      # #68: progress (decider picks, lens headers) flushes
     except Exception:                                    # live even when stdout is a file redirect (block-buffered)
         pass
+    _gate = "--gate" in args                             # #51: enforce as a GATE — fail-closed on P0/P1 findings
+    _release = "--release" in args                       # #51: pre-release adds project-standards to the mandatory set
+    args = [a for a in args if a not in ("--gate", "--release")]
     if not args:
         print("usage: lathe review [lens|all] <file> [file...]")
         print("  default lenses: %s ; or one of: %s ; or 'all'" % (", ".join(_DEFAULT_LENSES), ", ".join(_ALL_LENSES)))
@@ -1081,6 +1084,36 @@ def cmd_review(args):
                             "endpoint": os.environ.get("HARNESS_CLAUDE_URL", "?")})
     except Exception:
         pass
+    # #51: CONDITIONAL-MANDATORY, SEVERITY-ROUTED GATE. Advisory by default (rc = engaged/inoperative); with
+    # --gate it FAILS CLOSED — the applicable panel (always-core + triggered conditionals) MUST have run and MUST
+    # be free of P0/P1 findings, else the review blocks (non-zero). A mandatory lens that didn't run also blocks
+    # (a missing check is not a silent pass — same honesty as the tri-state build gates).
+    if _gate:
+        try:
+            import review_gate as _RG
+            _code = ""
+            for _f in files:
+                try:
+                    _code += open(_f, encoding="utf-8", errors="replace").read() + "\n"
+                except OSError:
+                    pass
+            _must = _RG.applicable(_code, release=_release)
+            _ce_dir = os.path.join(INNER, "docs", "ce")
+            _found = _RG.scan_findings_dir(_ce_dir, _must)
+            _v = _RG.verdict(_found, applicable_lenses=_must)
+            print("\n========== review GATE (#51) ==========")
+            print("  mandatory panel: %s" % ", ".join(_must))
+            if _v["missing"]:
+                print("  BLOCK — mandatory lens(es) did not run: %s" % ", ".join(_v["missing"]))
+            if _v["blockers"]:
+                print("  BLOCK — P0/P1 finding(s): %s" % ", ".join("%s(%s)" % (l, s) for l, s in _v["blockers"]))
+            if _v["blocked"]:
+                print("  review gate: FAIL-CLOSED — fold the P0/P1 findings into the spec/tests and rebuild (CE never edits code).")
+                return 1
+            print("  review gate: PASS — applicable panel ran, no P0/P1.")
+        except Exception as _ge:
+            sys.stderr.write("review --gate: gate error (%r) — failing closed\n" % (_ge,))
+            return 1
     return rc
 
 
@@ -2338,6 +2371,40 @@ def cmd_clarify(args):
             scripted = [l.rstrip("\n") for l in open(ans_file, encoding="utf-8")]
         except OSError as e:
             print("clarify: --answers file unreadable: %s" % e); return 2
+    # #48: PROJECT FRAMING round — the high-leverage questions (purpose/users/scope/deliverable/stack/hosting)
+    # that determine the architecture and what "done" means. Skip any dimension the goal already states; ask the
+    # rest FIRST (scripted --answers give framing answers before the functional ones). These feed the brief and
+    # the CLARIFIED_GOAL.md 'Framing' section.
+    from framing import FRAMING as _FR, prefill as _fr_prefill, render_md as _fr_md, framing_summary as _fr_sum
+    _framing = dict(_fr_prefill(goal))
+    if _framing:
+        print("  (framing pre-filled from your goal: %s)" % _fr_sum(_framing))
+    _fr_ask = [d for d in _FR if d["key"] not in _framing]
+    _fr_off = 0
+    if _fr_ask:
+        print("\n=== PROJECT FRAMING — %d question(s) (Enter to skip a dimension) ===" % len(_fr_ask))
+        for _fi, _dim in enumerate(_fr_ask, 1):
+            print("  F%d. %s" % (_fi, _dim["question"]))
+            _fopts = _dim.get("options") or []
+            if _fopts:
+                for _j, _opt in enumerate(_fopts, 1):
+                    print("       %d) %s" % (_j, _opt))
+                print("       (pick a number, type your own, or Enter to skip)")
+            if scripted is not None:
+                _fraw = (scripted[_fi - 1] if _fi - 1 < len(scripted) else "").strip()
+                print("     > %s" % _fraw)
+            else:
+                try:
+                    _fraw = input("     > ").strip()
+                except (EOFError, KeyboardInterrupt):
+                    _fraw = ""
+            _fchosen = _fraw
+            if _fopts and _fraw.isdigit() and 1 <= int(_fraw) <= len(_fopts):
+                _fchosen = _fopts[int(_fraw) - 1]
+                print("       => %s" % _fchosen)
+            if _fchosen and str(_fchosen).strip():
+                _framing[_dim["key"]] = _fchosen
+        _fr_off = len(_fr_ask)                            # scripted offset: functional answers come AFTER framing
     for i, q in enumerate(questions, 1):
         clean, opts, default = parse_options(q)          # the liaison may attach selectable options + a default
         print("  Q%d. %s" % (i, clean))
@@ -2347,7 +2414,8 @@ def cmd_clarify(args):
             print("       (pick a number, type your own answer, or Enter for the default)")
         # gather the RAW reply — a scripted line, or interactive input
         if scripted is not None:
-            raw = (scripted[i - 1] if i - 1 < len(scripted) else "").strip()
+            _si = _fr_off + i - 1                         # #48: framing answers consumed the first _fr_off scripted lines
+            raw = (scripted[_si] if _si < len(scripted) else "").strip()
             print("     > %s" % raw)
         else:
             try:
@@ -2390,11 +2458,89 @@ def cmd_clarify(args):
                 print("  [%s | %s] %s" % (b.get("materiality"), b.get("category"), b.get("text")))
     except Exception:
         pass                                   # auditor is best-effort at clarify time; the pre-build gate is the enforcer
+    _framing_section = ("\n\n" + _fr_md(_framing)) if _framing else ""   # #48: record the project framing in the brief
     os.makedirs(out_dir, exist_ok=True)
     path = os.path.join(out_dir, "CLARIFIED_GOAL.md")
-    open(path, "w", encoding="utf-8").write("# Clarified goal (requirements liaison)\n\n> Original: %s\n\n%s%s\n"
-                                            % (goal, brief.strip(), _asm_section))
+    open(path, "w", encoding="utf-8").write("# Clarified goal (requirements liaison)\n\n> Original: %s\n\n%s%s%s\n"
+                                            % (goal, brief.strip(), _framing_section, _asm_section))
     print("\nbrief -> %s  (feed it to: lathe do / lathe sdlc)" % path)
+    return 0
+
+
+def cmd_architect(args):
+    """ARCHITECTURE step (#49): turn a goal into a module -> file -> folder plan BEFORE building — the front half
+    Lathe lacked (a plan builds one file; decomposition was manual, the root of scope-collapse #45). The architect
+    persona proposes a decomposition (modules, public APIs, DEPENDS_ON, a stack-appropriate layout); you confirm
+    it (or --assume); it writes ARCHITECTURE.md and SEEDS one plan per module for the build path. A single-module
+    goal falls through with a note. Optionally pass --framing <CLARIFIED_GOAL.md> (#48) to shape the layout."""
+    _VALUE = {"--out", "--framing"}
+    parts, _i = [], 0
+    while _i < len(args):
+        _a = args[_i]
+        if _a in _VALUE:
+            _i += 2; continue
+        if _a.startswith("-"):
+            _i += 1; continue
+        parts.append(_a); _i += 1
+    goal = " ".join(parts).strip()
+    if not goal:
+        print('usage: lathe architect "<goal>" [--out <dir>] [--framing <CLARIFIED_GOAL.md>] [--assume]'); return 2
+    out_dir = os.path.abspath(args[args.index("--out") + 1]) if "--out" in args else INNER
+    _assume = "--assume" in args
+    framing = ""
+    if "--framing" in args:
+        try:
+            framing = open(args[args.index("--framing") + 1], encoding="utf-8").read()[:2000]
+        except OSError:
+            pass
+    if TOOLS not in sys.path:
+        sys.path.insert(0, TOOLS)
+    import architect as _A
+    from request_spec import request_spec
+    print("  architect: proposing a decomposition (frontier analyst)...")
+    raw = request_spec(_A.decomposition_prompt(goal, framing)) or ""
+    if not raw.strip() or "API Error" in raw:
+        print("architect: the analyst endpoint returned nothing (frontier unavailable)."); return 1
+    try:
+        d = _A.parse_decomposition(raw)
+    except Exception as e:
+        print("architect: could not parse the decomposition (%s). Raw head:\n%s" % (e, raw[:300])); return 1
+    ok, why = _A.validate_decomposition(d)
+    if not ok:
+        print("architect: decomposition invalid (%s) — not seeding." % why); return 1
+    if not _A.should_decompose(d):
+        _nm = ((d.get("modules") or [{}])[0] or {}).get("name", "?")
+        print("architect: this goal is a SINGLE module (%s) — no decomposition needed; build it with `lathe do`." % _nm)
+        return 0
+    md = _A.render_architecture_md(goal, d)
+    print("\n" + md + "\n")
+    # #50: the STANDING Application Architect (a permanent, charter-holding persona, not a one-shot lens) reviews
+    # its OWN decomposition using its soul + the project charter — catching scope-collapse / bad boundaries before
+    # anything is seeded. A P0/P1 block halts unless overridden.
+    try:
+        import standing_team as _ST
+        _sv, _ = _ST.engage("application-architect", "architecture", md, _ST.seed(goal, framing), analyst_fn=request_spec)
+        print("  [standing architect] %s (%s) — %s" % (_sv["verdict"], _sv["severity"], _sv["note"]))
+        if _ST.blocks(_sv) and not _assume:
+            print("  architect: the standing Architect BLOCKED this decomposition (%s). Revise the goal, or pass "
+                  "--assume to override." % _sv["severity"])
+            return 1
+    except Exception:
+        pass
+    if not _assume:
+        try:
+            _r = input("  Accept this architecture and seed the plans? [Enter=yes / n=abort]: ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            _r = "n"
+        if _r in ("n", "no", "q", "abort"):
+            print("architect: aborted — nothing written."); return 1
+    os.makedirs(out_dir, exist_ok=True)
+    open(os.path.join(out_dir, "ARCHITECTURE.md"), "w", encoding="utf-8").write(md + "\n")
+    plans = _A.seed_plans(d, out_dir)
+    print("architect: wrote ARCHITECTURE.md + seeded %d plan(s) (build order):" % len(plans))
+    for p in plans:
+        print("   - %s" % os.path.relpath(p, out_dir))
+    print("  next: sharpen each plan's placeholder tests (the SPEC step), then `lathe build <plan>` in order.")
     return 0
 
 
@@ -2640,7 +2786,7 @@ def _dispatch(cmd, rest, argv):
         "metrics": cmd_metrics, "plans": cmd_plans, "dups": cmd_dups, "whatis": cmd_whatis,
         "clean": cmd_clean, "wait": cmd_wait, "resume": cmd_resume, "waiting": cmd_waiting,
         "report": cmd_report, "issues": cmd_issues, "logs": cmd_logs, "lint-spec": cmd_lint_spec,
-        "flow": cmd_flow, "map": cmd_map, "env": cmd_env, "serve": cmd_serve, "checkin": cmd_checkin, "agent": cmd_agent, "ack": cmd_ack, "trace": cmd_trace, "sdlc": cmd_sdlc, "clarify": cmd_clarify, "assume": cmd_assume,
+        "flow": cmd_flow, "map": cmd_map, "env": cmd_env, "serve": cmd_serve, "checkin": cmd_checkin, "agent": cmd_agent, "ack": cmd_ack, "trace": cmd_trace, "sdlc": cmd_sdlc, "architect": cmd_architect, "clarify": cmd_clarify, "assume": cmd_assume,
     }
     if cmd in table:
         return table[cmd](rest)
