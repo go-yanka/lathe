@@ -17,6 +17,16 @@ try:
 except Exception:
     BeautifulSoup = None
 
+# Orphan guard (2026-07-12): the engine spawns a build tree (run_gates -> lane gates -> Playwright -> Chromium)
+# and runs it at import. Enroll in a Windows kill-on-close Job Object so no part of that tree can outlive the
+# engine process — if it dies for any reason, the OS reaps every descendant. No-op off Windows.
+try:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import procguard
+    procguard.arm()
+except Exception:
+    pass
+
 PLAN_PATH = sys.argv[1]
 MODEL = sys.argv[2] if len(sys.argv) > 2 else os.environ.get("HARNESS_MODEL", "gemma4:12b")
 N = int(sys.argv[3]) if len(sys.argv) > 3 else 12

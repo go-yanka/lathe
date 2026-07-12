@@ -2909,6 +2909,14 @@ def _dispatch(cmd, rest, argv):
 
 
 def main(argv):
+    # Orphan guard (2026-07-12): every `lathe` command can spawn a build tree (engine -> run_gates -> lane
+    # gates -> Playwright -> Chromium). Enroll this process in a Windows kill-on-close Job Object so that tree
+    # can never outlive the CLI — if lathe dies for any reason, the OS reaps every descendant. No-op off Windows.
+    try:
+        import procguard
+        procguard.arm()
+    except Exception:
+        pass
     # Windows-safe stdout: the CLI prints unicode (→, box chars) in several commands (trace, review). The
     # default Windows console codec is cp1252, which raises UnicodeEncodeError on those and crashes mid-command
     # (e.g. a build workflow's trailing trace step). Force UTF-8 on our own streams; harmless on POSIX.

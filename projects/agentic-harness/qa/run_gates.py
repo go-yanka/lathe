@@ -11,6 +11,17 @@ Add more standing checks here as the harness grows (e.g. no two tools exporting 
 """
 import os, subprocess, sys, time
 
+# Orphan guard (2026-07-12): run_gates spawns the HEAVY browser gates (skeleton/behavioral/vision -> Playwright
+# -> Chromium). Two failure modes bit us: (1) a per-gate timeout below killed only the DIRECT child, leaking the
+# Playwright+Chromium grandchildren; (2) if run_gates itself died, all of it orphaned. procguard fixes both:
+# arm() puts run_gates in a Windows kill-on-close Job Object (whole tree dies with it), and procguard.run()
+# tree-kills a gate's entire subtree on timeout instead of just the direct child. Best-effort import.
+try:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))))
+    import procguard
+except Exception:
+    procguard = None
+
 
 def _int_env(name, default):
     """A blank or typo'd env var (GATE_RETRIES='', GATE_TIMEOUT='foo') must NOT crash the whole regression
@@ -77,6 +88,8 @@ HEAVY = {"skeleton_lane", "behavioral_lane", "vision_lane"}
 
 
 def main():
+    if procguard is not None:
+        procguard.arm()                                # whole gate/build tree dies if run_gates dies
     failed = []
     _full = os.environ.get("LATHE_GATE_FULL", "") in ("1", "true")
     for name, path in CHECKS:
@@ -97,8 +110,11 @@ def main():
         r = None; _exc = None
         for _attempt in range(_retries + 1):
             try:
-                r = subprocess.run([sys.executable, path], capture_output=True, text=True,
-                                   encoding="utf-8", errors="replace", timeout=_int_env("GATE_TIMEOUT", 300))
+                # procguard.run tree-kills the gate's WHOLE subtree on timeout (a hung vision_lane_gate would
+                # otherwise leave its Playwright+Chromium grandchildren running). Falls back to subprocess.run.
+                _runner = procguard.run if procguard is not None else subprocess.run
+                r = _runner([sys.executable, path], capture_output=True, text=True,
+                            encoding="utf-8", errors="replace", timeout=_int_env("GATE_TIMEOUT", 300))
                 _exc = None
             except Exception as e:
                 r = None; _exc = e
