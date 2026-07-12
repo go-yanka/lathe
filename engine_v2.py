@@ -1636,6 +1636,16 @@ if module_ok and _js_parts:
     _atomic_write(_jspath, _LATHE_MARK_JS + "\n\n" + "\n\n".join(_js_parts) + "\n")
     print(f"  [js module] {os.path.basename(_jspath)} ({len(_js_parts)} function(s))")
 # INTEGRATION runs whenever present and the plan's functions (if any) all passed — incl. artifact-only plans.
+def _make_itest_prelude(module, module_exists):
+    """#44: the INTEGRATION test is exec'd standalone, but the plan validator (correctly) BANS `import` inside
+    the plan's INTEGRATION -> a GLUE+INTEGRATION plan was unbuildable except via LATHE_TRUST_PLAN=1. Auto-prepend
+    `from <module> import *` to the GENERATED itest so INTEGRATION references the module's functions with NO
+    import and the validator stays strict. Only when a real module was written (artifact-only itests: none). Pure."""
+    if module and module_exists:
+        return "from %s import *  # lathe #44: auto-imported so INTEGRATION needs no (validator-banned) import\n" % module
+    return ""
+
+
 _intg = getattr(plan, "INTEGRATION", "")
 if _intg and (not plan.FUNCTIONS or passed == len(plan.FUNCTIONS)):
     os.makedirs(out_dir, exist_ok=True)
@@ -1650,10 +1660,7 @@ if _intg and (not plan.FUNCTIONS or passed == len(plan.FUNCTIONS)):
     # except via LATHE_TRUST_PLAN=1 (a full security downgrade). Resolve it HERE: auto-prepend the module import
     # (the module already sits in out_dir). INTEGRATION references `evaluate(...)` with NO import and the
     # validator stays strict. Only when a real module was written (artifact-only itests get no prelude).
-    _itest_prelude = ""
-    if module and os.path.exists(os.path.join(out_dir, module + ".py")):
-        _itest_prelude = ("from %s import *  # lathe #44: auto-imported so INTEGRATION needs no "
-                          "(validator-banned) import\n" % module)
+    _itest_prelude = _make_itest_prelude(module, os.path.exists(os.path.join(out_dir, module + ".py")))
     _atomic_write(_itestpath, _LATHE_MARK + "\n" + _itest_prelude + _intg)
     try:
         # PR#1 v2.8.0 #2: the INTEGRATION test is plan-authored code too — scrub the harness's secrets from its
@@ -1790,12 +1797,20 @@ elapsed = time.time() - t0
 # An integration TIMEOUT is a green build ONLY if the plan explicitly declares its itest optional (external/slow
 # GLUE that can't finish in CI). Otherwise a hung integration is NOT a pass — same honesty as the regression gate (issue #42).
 _itest_optional = bool(getattr(plan, "INTEGRATION_OPTIONAL", False)) or os.environ.get("LATHE_ITEST_OPTIONAL") == "1"
-build_ok = ((passed == len(plan.FUNCTIONS)) and (artifacts_passed == artifacts_total)
-            and (len(plan.FUNCTIONS) + artifacts_total > 0)
-            and not _glue_unverified                                 # #6: refused ungated GLUE is NOT a green build
-            and not str(integration).startswith("FAIL")              # an INTEGRATION failure is NOT a green build
-            and not (str(integration).startswith("TIMEOUT") and not _itest_optional)   # a hung itest is NOT a silent green (#42)
-            and not (regression or "").startswith(("REGRESSION", "TIMEOUT")))   # a timeout is not a green gate
+def _compute_build_ok(passed, n_functions, artifacts_passed, artifacts_total, glue_unverified, integration, regression, itest_optional):
+    """#41/#42: the single robust green-build predicate — PURE so it is behaviorally testable WITHOUT a model
+    build. A TIMEOUT integration is green ONLY when the plan opted its itest optional (#42); an INTEGRATION FAIL
+    or a REGRESSION/TIMEOUT gate is never green; a build with no units is not green."""
+    return ((passed == n_functions) and (artifacts_passed == artifacts_total)
+            and (n_functions + artifacts_total > 0)
+            and not glue_unverified
+            and not str(integration).startswith("FAIL")
+            and not (str(integration).startswith("TIMEOUT") and not itest_optional)
+            and not str(regression or "").startswith(("REGRESSION", "TIMEOUT")))
+
+
+build_ok = _compute_build_ok(passed, len(plan.FUNCTIONS), artifacts_passed, artifacts_total,
+                             _glue_unverified, integration, regression, _itest_optional)
 print("\n===== RESULT =====")
 print(f"functions implemented: {passed}/{len(plan.FUNCTIONS)}  (generated: local={by_local}, claude={by_claude}; pinned-reused={by_pinned})")
 if artifacts_total:

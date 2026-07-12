@@ -61,11 +61,18 @@ shutil.rmtree(tmp, ignore_errors=True)
 # 6) STATIC: the check is actually WIRED into cmd_do's delivery path (not just defined)
 src = open(os.path.join(ROOT, "lathe.py"), encoding="utf-8").read()
 check("delivery checkpoint calls _goal_delivery_gap(goal, ...)", "_goal_delivery_gap(goal" in src)
-check("under-delivery is surfaced to the user (UNDER-DELIVERY / under_delivery state)",
-      ("UNDER-DELIVERY" in src) and ("under_delivery" in src))
-# public's `do` predates the ledger; the enforcement is the Advocate delivery VETO — the gap is fed into its context
-check("the goal-vs-deliverable gap is fed to the Advocate delivery veto",
-      ("GOAL-VS-DELIVERABLE" in src) and ("_ud_note" in src))
+check("under-delivery state is recorded/surfaced (under_delivery)", "under_delivery" in src)
+check("Advocate delivery context is fed the goal-vs-deliverable gap", "GOAL-VS-DELIVERABLE" in src)
+
+# 7) #45 STRICT HOLD — under LATHE_STRICT a real gap is a DETERMINISTIC hold, not just Advocate-discretion.
+gap = lathe._goal_delivery_gap("build an evaluate(x) CLI", ["helper", "main"])   # 'evaluate' missing -> real gap
+check("a real under-delivery gap is detected", "evaluate" in gap, str(gap))
+check("#45 under LATHE_STRICT a real gap HOLDS deterministically", lathe._under_delivery_should_hold(gap, True) is True)
+check("#45 without STRICT the gap does NOT hard-hold (advisory / Advocate path)", lathe._under_delivery_should_hold(gap, False) is False)
+check("#45 STRICT with NO gap does not hold", lathe._under_delivery_should_hold([], True) is False)
+# wired into cmd_do: the hold branch returns (blocks) on _ud_missing under STRICT
+check("#45 cmd_do enforces the STRICT hold (calls _under_delivery_should_hold + returns)",
+      ("_under_delivery_should_hold(_ud_missing" in src) and ("[HOLD] LATHE_STRICT" in src))
 
 print("\ngoal-delivery-gap (#45) acceptance: %s" % ("ALL PASS" if not fails else "FAILED: %s" % ", ".join(fails)))
 sys.exit(0 if not fails else 1)

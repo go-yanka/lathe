@@ -42,13 +42,17 @@ def _touches_hot_path(code):
     return bool(re.search(r"for .+:\s*\n(\s+.*\n)*?\s+for .+:", code) or re.search(r"while .+:\s*\n(\s+.*\n)*?\s+for", code))
 
 
-# persona -> predicate(code_text) -> is it mandatory for this code?
+# domain -> predicate(code_text) -> which LENS is mandatory for this code.
+# Names MUST be real lens tokens (the decider/hreview vocabulary), because scan_findings_dir looks for
+# review_<lens>.txt and hreview only writes a file for a lens it actually ran. A conditional named for a PERSONA
+# ("api-contract") would demand review_api-contract.txt that is never written -> the mandatory lens is forever
+# "missing" -> a permanent, unclearable BLOCK (#51). So each domain maps to the lens the decider really runs.
 CONDITIONAL = [
-    ("api-contract", _touches_api),
-    ("data-migration", _touches_migration),
-    ("data-integrity-guardian", _touches_persistence),
-    ("julik-frontend-races", _touches_async_ui),
-    ("performance", _touches_hot_path),
+    ("api", _touches_api),                 # was api-contract
+    ("data", _touches_migration),          # was data-migration
+    ("data", _touches_persistence),        # was data-integrity-guardian (same lens; dedup handles the repeat)
+    ("ui", _touches_async_ui),             # was julik-frontend-races
+    ("perf", _touches_hot_path),           # was performance
 ]
 
 
@@ -72,30 +76,61 @@ def applicable(code, release=False):
 
 
 _SEV_ORDER = {"P0": 0, "P1": 1, "P2": 2, "P3": 3}
+# hreview forces every finding to `SEVERITY (critical/high/medium/low) | file | issue | fix` — WORD severities,
+# not P-codes. A P-code-only scan therefore reads real reviewer output as CLEAN and the gate FAILS OPEN (#51).
+_WORD_TO_P = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 
 
 def max_severity(text):
-    """The most-severe P-level mentioned in a lens's findings text (P0 highest), or None if it flagged nothing."""
-    found = re.findall(r"\bP([0-3])\b", str(text or ""))
-    if not found:
+    """The most-severe level in a lens's findings text as a P-code (P0 highest), or None if it flagged nothing.
+    Reads BOTH P0-P3 literals AND the word severities the live reviewer actually emits (critical/high/medium/
+    low), case-insensitively. A word only counts as a finding LABEL — immediately followed by the `<sev> | file
+    | ...` pipe (allowing markdown `**`/`]`) or introduced by `SEVERITY` — so prose like 'high latency' or
+    'critical path' does NOT false-trigger the gate."""
+    s = str(text or "")
+    nums = [int(x) for x in re.findall(r"\bP([0-3])\b", s)]
+    for m in re.finditer(r"(?i)\b(critical|high|medium|low)\b[\s*\]\)]*\|", s):          # `<sev> | file | issue | fix`
+        nums.append(_WORD_TO_P[m.group(1).lower()])
+    for m in re.finditer(r"(?i)\bseverity\b[\s:=|\-*\[\(]*\b(critical|high|medium|low)\b", s):   # `SEVERITY: high`
+        nums.append(_WORD_TO_P[m.group(1).lower()])
+    if not nums:
         return None
-    return "P%d" % min(int(x) for x in found)
+    return "P%d" % min(nums)
 
 
-def verdict(findings_by_lens, applicable_lenses=None):
+def count_findings(text):
+    """(#37) Count the gradeable findings in a lens's output so the bandit can grade on VALUE FOUND, not just
+    'the lens ran': `raised` = lines carrying a real severity label (a P-code or `<word> | …`), `confirmed` =
+    those at P0/P1 (the high-value ones). Prose/headers with no severity label don't count. Returns (raised,
+    confirmed) with confirmed <= raised."""
+    raised = confirmed = 0
+    for line in str(text or "").splitlines():
+        sev = max_severity(line)
+        if sev is not None:
+            raised += 1
+            if sev in ("P0", "P1"):
+                confirmed += 1
+    return raised, confirmed
+
+
+def verdict(findings_by_lens, applicable_lenses=None, waive=None):
     """Severity-routed gate verdict over {lens: findings_text}. Fail-closed on P0/P1.
-    Returns {blocked, blockers, missing, by_lens}: `blockers` = lenses at P0/P1; `missing` = mandatory lenses that
-    did not run (a mandatory lens that couldn't run is NOT a silent pass — it blocks, like the tri-state gates)."""
+    Returns {blocked, blockers, missing, by_lens, waived}: `blockers` = lenses at P0/P1; `missing` = mandatory
+    lenses that did not run (a mandatory lens that couldn't run is NOT a silent pass — it blocks, like the
+    tri-state gates). `waive` is the OPERATOR OVERRIDE — a set/list of lens names the operator CONSCIOUSLY
+    accepts (so a genuinely-stuck gate can be cleared on purpose); a waived lens can neither block nor count as
+    missing. Pure: the caller reads the env (LATHE_REVIEW_WAIVE) and passes it in."""
+    _waive = set(waive or [])
     by = {}
     blockers = []
     for lens, text in (findings_by_lens or {}).items():
         sev = max_severity(text)
         by[lens] = sev or "clean"
-        if sev in ("P0", "P1"):
+        if sev in ("P0", "P1") and lens not in _waive:
             blockers.append((lens, sev))
-    missing = [l for l in (applicable_lenses or []) if l not in (findings_by_lens or {})]
+    missing = [l for l in (applicable_lenses or []) if l not in (findings_by_lens or {}) and l not in _waive]
     blocked = bool(blockers) or bool(missing)
-    return {"blocked": blocked, "blockers": blockers, "missing": missing, "by_lens": by}
+    return {"blocked": blocked, "blockers": blockers, "missing": missing, "by_lens": by, "waived": sorted(_waive)}
 
 
 def scan_findings_dir(ce_dir, lenses):

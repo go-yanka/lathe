@@ -174,12 +174,12 @@ def record_run(goal, considered, selected, contributions, run_id):
 
 
 def record_outcomes(outcomes, run_id):
-    """#37: turn per-persona review OUTCOMES into ledger rows with raised/confirmed so update_grades() forms
-    real bandit grades — the exploit signal that never populated because the only ledger writer (record_run,
-    at SELECTION time) can't know outcomes yet (the review hasn't run). This is the missing post-review
-    feedback. `outcomes` maps a persona/lens name to either an engaged flag (bool — an ENGAGED lens produced
-    verifiable findings, so it scores 1/1) or a {"raised":int, "confirmed":int} dict for a richer signal.
-    A lens that did not engage contributes nothing (raised=0). Returns the grades dict written (or {})."""
+    """#37: turn per-lens review OUTCOMES into ledger rows with raised/confirmed so update_grades() forms REAL
+    bandit grades — the exploit signal that never populated (record_run, the only writer, ran at SELECTION time
+    with contributions={}). `outcomes` maps a lens/persona name to either an engaged flag (bool) OR a
+    {"raised": int, "confirmed": int} dict. The DICT form lets the caller grade on VALUE FOUND — the finding
+    count, and how many were high-severity — instead of 'the lens ran without crashing'. A lens with raised<=0
+    contributes nothing. confirmed is clamped to [0, raised]. Returns the grades dict written (or {})."""
     try:
         _tools_on_path()
         from usage_ledger import usage_record
@@ -192,8 +192,9 @@ def record_outcomes(outcomes, run_id):
                 confirmed = int(o.get("confirmed", 0) or 0)
             else:
                 raised = confirmed = 1 if o else 0
-            if raised <= 0:                               # a lens that didn't engage produced no verifiable work
+            if raised <= 0:                                # a lens that surfaced nothing produced no gradeable work
                 continue
+            confirmed = max(0, min(confirmed, raised))
             rows.append(usage_record(name, run_id, True, True, raised, confirmed, ""))
         if rows:
             os.makedirs(os.path.dirname(ledger_path()), exist_ok=True)

@@ -29,17 +29,20 @@ must_plain = RG.applicable(plain)
 check("always-core always applies", set(RG.ALWAYS_CORE) <= set(must_plain), str(must_plain))
 check("plain code triggers NO conditionals (no noise)", set(must_plain) == set(RG.ALWAYS_CORE), str(must_plain))
 
+# CONDITIONAL lenses are named for the decider's ACTUAL lens vocabulary (api/data/ui/perf) — a mandatory lens
+# must match a lens hreview really emits findings for, else scan_findings_dir can never satisfy it. So API code
+# makes the 'api' lens mandatory, migration + persistence both make 'data' mandatory, async UI makes 'ui'.
 api = "from fastapi import FastAPI\napp = FastAPI()\n@app.get('/x')\ndef handler():\n    return 1\n"
-check("API code triggers api-contract (mandatory here)", "api-contract" in RG.applicable(api), str(RG.applicable(api)))
+check("API code makes the 'api' lens mandatory", "api" in RG.applicable(api), str(RG.applicable(api)))
 
 mig = "def up():\n    op.execute('ALTER TABLE users ADD COLUMN age int')\n"
-check("migration code triggers data-migration", "data-migration" in RG.applicable(mig), str(RG.applicable(mig)))
+check("migration code makes the 'data' lens mandatory", "data" in RG.applicable(mig), str(RG.applicable(mig)))
 
 db = "import sqlite3\nc = sqlite3.connect('x'); c.cursor().execute('INSERT INTO t VALUES (1)'); c.commit()\n"
-check("persistence code triggers data-integrity-guardian", "data-integrity-guardian" in RG.applicable(db))
+check("persistence code makes the 'data' lens mandatory", "data" in RG.applicable(db), str(RG.applicable(db)))
 
 ui = "el.addEventListener('click', async () => { await fetch('/x'); })\n"
-check("async UI triggers julik-frontend-races", "julik-frontend-races" in RG.applicable(ui))
+check("async UI makes the 'ui' lens mandatory", "ui" in RG.applicable(ui), str(RG.applicable(ui)))
 
 check("release adds project-standards to the mandatory set", "project-standards" in RG.applicable(plain, release=True))
 
@@ -75,6 +78,37 @@ src = open(os.path.join(ROOT, "lathe.py"), encoding="utf-8").read()
 check("cmd_review has a --gate mode", '_gate = "--gate" in args' in src)
 check("cmd_review uses review_gate (applicable + verdict, fail-closed)",
       ("import review_gate" in src) and ("_RG.applicable(" in src) and ("_RG.verdict(" in src))
+
+# 6) BEHAVIORAL (#51 core): REAL hreview-format findings files (WORD severities, not P-codes) driven through
+#    scan_findings_dir -> max_severity -> verdict. This is the path the live gate runs; the OLD gate (P-code-only
+#    max_severity + persona-named CONDITIONAL) fails EVERY assertion here.
+_panel = list(RG.ALWAYS_CORE)
+# (a) a real 'high | file | issue | fix' finding must BLOCK (word severity parsed)
+_tb = tempfile.mkdtemp(prefix="rgb_")
+for _l in _panel:
+    _txt = ("high | auth.py:login | unsanitized input reaches exec() | parameterize\n"
+            if _l == "security" else "no findings — clean\n")
+    open(os.path.join(_tb, "review_%s.txt" % _l), "w", encoding="utf-8").write(_txt)
+_vb = RG.verdict(RG.scan_findings_dir(_tb, _panel), applicable_lenses=_panel)
+check("a real 'high | …' finding BLOCKS the gate (word severity parsed, not just P-codes)",
+      _vb["blocked"] and ("security", "P1") in _vb["blockers"], str(_vb))
+# (b) all-clean word-format findings PASS
+_tp = tempfile.mkdtemp(prefix="rgp_")
+for _l in _panel:
+    open(os.path.join(_tp, "review_%s.txt" % _l), "w", encoding="utf-8").write("no findings — clean\n")
+_vp = RG.verdict(RG.scan_findings_dir(_tp, _panel), applicable_lenses=_panel)
+check("all-clean findings PASS the gate", not _vp["blocked"], str(_vp))
+# (c) a mandatory lens whose file is absent BLOCKS (missing) — and the operator override clears it
+_vm = RG.verdict(RG.scan_findings_dir(_tp, _panel + ["api"]), applicable_lenses=_panel + ["api"])
+check("a mandatory lens with no findings file BLOCKS (missing)", _vm["blocked"] and "api" in _vm["missing"], str(_vm))
+_vw = RG.verdict(RG.scan_findings_dir(_tp, _panel + ["api"]), applicable_lenses=_panel + ["api"], waive=["api"])
+check("LATHE_REVIEW_WAIVE operator override clears a stuck mandatory lens", not _vw["blocked"], str(_vw))
+# (d) the lens an API build makes mandatory is a REAL token, so review_<lens>.txt is actually writable (no over-block)
+_api_extra = [l for l in RG.applicable(api) if l not in RG.ALWAYS_CORE]
+check("API build's mandatory lens is a real lens token ('api') hreview can write a file for",
+      _api_extra == ["api"], str(_api_extra))
+for _d in (_tb, _tp):
+    shutil.rmtree(_d, ignore_errors=True)
 
 print("\nreview-gate (#51) acceptance: %s" % ("ALL PASS" if not fails else "FAILED: %s" % ", ".join(fails)))
 sys.exit(0 if not fails else 1)
