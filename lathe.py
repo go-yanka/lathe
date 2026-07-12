@@ -661,6 +661,60 @@ def _adv_hold(stage, verdict, ws):
     return 1
 
 
+_GOAL_STOP = {"the", "and", "for", "with", "that", "this", "then", "when", "your", "you", "from", "into", "each",
+              "all", "any", "etc", "such", "like", "only", "also", "not", "use", "using", "via", "per", "its",
+              "are", "was", "def", "return", "print", "int", "str", "len", "list", "dict", "set", "func", "function",
+              "call", "calls", "e.g", "i.e", "test", "tests", "assert"}
+
+
+def _goal_named_callables(goal):
+    """The function/capability names the ORIGINAL goal EXPLICITLY requests, e.g. 'evaluate(expr)' -> {'evaluate'}.
+    Lowercased, >=3 chars, minus a stoplist so ordinary prose ('use (the)') isn't mistaken for a capability. This
+    is what the sponsor literally asked to be BUILT — the yardstick #45 needs (goal-vs-deliverable, not spec)."""
+    import re as _re
+    out = set()
+    for m in _re.finditer(r"\b([a-z_][a-z0-9_]{2,})\s*\(", str(goal or "").lower()):
+        n = m.group(1)
+        if n not in _GOAL_STOP:
+            out.add(n)
+    return out
+
+
+def _built_surface_names(ws_abs):
+    """Names actually DELIVERED in the workspace: every top-level `def <name>` in the built module(s) plus the
+    module stems. (Skips the generated itest and the drafted plan.) Used to tell if the goal's requested
+    capability was really built, or the run silently collapsed to a trivial subset."""
+    import glob as _g
+    import re as _re
+    names = set()
+    if not ws_abs or not os.path.isdir(ws_abs):
+        return names
+    for _pyf in _g.glob(os.path.join(ws_abs, "*.py")):
+        base = os.path.basename(_pyf)
+        if base.startswith(("_itest_", "plan_", "plan_auto")):
+            continue
+        names.add(os.path.splitext(base)[0].lower())
+        try:
+            _txt = open(_pyf, encoding="utf-8", errors="replace").read()
+        except OSError:
+            continue
+        for m in _re.finditer(r"^\s*def\s+([a-z_][a-z0-9_]*)", _txt, _re.M):
+            names.add(m.group(1).lower())
+    return names
+
+
+def _goal_delivery_gap(goal, built_names):
+    """#45: the goal-named callables ABSENT from the built surface — the trivial-subset / under-delivery signal.
+    Matches by name-substring both ways, so 'evaluate' counts as delivered by 'evaluate_expr' (and vice versa),
+    keeping the check conservative (it only fires when NOTHING built resembles the requested capability)."""
+    have = {str(b).lower() for b in (built_names or [])}
+    missing = []
+    for w in sorted(_goal_named_callables(goal)):
+        if not any(w in h or h in w for h in have):
+            missing.append(w)
+    return missing
+
+
 def cmd_do(args):
     # owner design (draft-time targeting): --for <frontier|local-large|local-small|all> drafts the spec(s)
     # FOR a chosen model class up front (not post-failure adaptation). 'all' saves all three variants in
@@ -879,11 +933,26 @@ def cmd_do(args):
             print("  " + _fidelity)
         except Exception:
             pass
+    # #45: GOAL-VS-DELIVERABLE. The gates verify the DRAFTED spec, never the goal-vs-deliverable gap — so a run
+    # can silently collapse a complex ask ("evaluate() + parser") into trivial helpers and still ship "gated-green".
+    # Compare the built surface against the ORIGINAL goal (not the spec) and flag when a requested capability was
+    # never built. Runs REGARDLESS of the Advocate (so autonomous --assume runs are guarded too); when the Advocate
+    # IS on, the gap is fed into the delivery context so it VETOES an under-delivery instead of shipping it.
+    _ud_missing = _goal_delivery_gap(goal, _built_surface_names(_ws_abs)) if (greens and _ws_abs) else []
+    _ud_note = ""
+    if _ud_missing:
+        _ud_note = ("  UNDER-DELIVERY (state: under_delivery): the goal named %s but the build never delivered them."
+                    % ", ".join("%s()" % m for m in _ud_missing[:5]))
+        print("  [UNDER-DELIVERY] your goal named %s but the build did not deliver it — the shipped surface looks "
+              "like a trivial subset of the ask.%s"
+              % (", ".join("%s()" % m for m in _ud_missing[:5]),
+                 "" if (_advocate_on and _charter) else
+                 " (Re-run with the Advocate on — drop --assume / LATHE_ADVOCATE=off — to HOLD under-delivery.)"))
     if _advocate_on and _charter and greens:
         _artifact = _advocate_artifact_summary(_ws_abs) if _ws_abs else ""
         _v = _adv_step(_charter, "delivery", _artifact, _ws_abs,
                        context=("The build finished with %d gated-green module(s). Judge the SHIPPED artifact and "
-                                "its spec/tests against the charter. %s" % (greens, _fidelity)),
+                                "its spec/tests against the charter.%s %s" % (greens, _ud_note, _fidelity)),
                        memory=_adv_mem)
         if _v.get("verdict") == "veto":
             return _adv_hold("delivery", _v, ws)
