@@ -51,6 +51,7 @@ REGISTRY = [
     # --- regression / gate control ---
     ("FUNC_GATE_TIMEOUT", "gate-control", "per-function gate timeout (s)", "360"),
     ("ITEST_TIMEOUT", "gate-control", "integration-test timeout (s)", "360"),
+    ("LATHE_ITEST_OPTIONAL", "gate-control", "treat an integration-test TIMEOUT as a green build (external/slow GLUE itest; 1 = optional). Also settable per-plan via INTEGRATION_OPTIONAL", "off"),
     ("REGRESSION_TIMEOUT", "gate-control", "regression gate timeout (s)", "300"),
     ("SKIP_REGRESSION", "gate-control", "skip the standing regression gate (1 = skip)", "off"),
     ("RUN_GATES_PATH", "gate-control", "override path to qa/run_gates.py", "—"),

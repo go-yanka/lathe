@@ -1664,8 +1664,10 @@ if _intg and (not plan.FUNCTIONS or passed == len(plan.FUNCTIONS)):
                            capture_output=True, text=True, timeout=int(os.environ.get("ITEST_TIMEOUT","360")))
         integration = ("PASS  :: " + r.stdout.strip()) if r.returncode == 0 \
                       else ("FAIL\n" + (r.stdout + r.stderr)[:800])
-    except subprocess.TimeoutExpired:   # P0-1: a slow itest is NOT a spec failure (the module is already written above) — report it distinctly instead of crashing the engine
-        integration = "TIMEOUT (%ss) — module written before the itest ran; benign for GLUE plans (verify live)" % os.environ.get("ITEST_TIMEOUT", "360")
+    except subprocess.TimeoutExpired:   # P0-1: a slow itest is reported DISTINCTLY (not crashed) — but it is NOT a silent
+        # green: build_ok treats a TIMEOUT as non-passing UNLESS the plan opts in (INTEGRATION_OPTIONAL / LATHE_ITEST_OPTIONAL),
+        # so a genuinely-hung integration can no longer ship GREEN unnoticed (issue #42).
+        integration = "TIMEOUT (%ss) — itest did not complete (blocks the build unless INTEGRATION_OPTIONAL)" % os.environ.get("ITEST_TIMEOUT", "360")
 
 # --- ANALYST-DIRECTED RETIREMENT (owner 2026-06-25): the PLAN (the bigger/analyst model) declares files this
 #     build SUPERSEDES via `RETIRE = [...]`; the engine (the build step) ARCHIVES them to _archive/<date>-<plan>/
@@ -1726,7 +1728,11 @@ if module_ok and _RETIRE and not str(integration).startswith("FAIL"):
 regression = "SKIPPED"
 _proj_root = os.path.dirname(os.path.dirname(os.path.abspath(PLAN_PATH)))  # projects/<proj> — plan lives in .../plans/<plan>.py; generic, NOT tied to any one project
 _RG = os.environ.get("RUN_GATES_PATH") or os.path.join(_proj_root, "qa", "run_gates.py")
-if module_ok and os.environ.get("SKIP_REGRESSION") != "1" and os.path.exists(_RG):
+# The regression must run for ANY build that produced something — an artifact/web-only build (module_ok=False
+# because it has no FUNCTIONS/GLUE) used to SKIP it entirely and still ship green (build_ok never saw a
+# REGRESSION). Gate on "did this build produce output" instead of module_ok so artifact builds are covered too (issue #41).
+_produced = module_ok or artifacts_total > 0
+if _produced and os.environ.get("SKIP_REGRESSION") != "1" and os.path.exists(_RG):
     try:
         _rg = subprocess.run([sys.executable, _RG], cwd=os.path.dirname(_RG),
                              capture_output=True, text=True, encoding="utf-8", errors="replace",
@@ -1781,10 +1787,14 @@ if module_ok and os.environ.get("SKIP_REGRESSION") != "1" and os.path.exists(_RG
 elapsed = time.time() - t0
 # build_ok = the ROBUST overall success signal (functions AND artifacts green, with at least one unit,
 # regression not failed). engine_build parses this from METRICS_JSON instead of scraping a 0/0 line.
+# An integration TIMEOUT is a green build ONLY if the plan explicitly declares its itest optional (external/slow
+# GLUE that can't finish in CI). Otherwise a hung integration is NOT a pass — same honesty as the regression gate (issue #42).
+_itest_optional = bool(getattr(plan, "INTEGRATION_OPTIONAL", False)) or os.environ.get("LATHE_ITEST_OPTIONAL") == "1"
 build_ok = ((passed == len(plan.FUNCTIONS)) and (artifacts_passed == artifacts_total)
             and (len(plan.FUNCTIONS) + artifacts_total > 0)
             and not _glue_unverified                                 # #6: refused ungated GLUE is NOT a green build
             and not str(integration).startswith("FAIL")              # an INTEGRATION failure is NOT a green build
+            and not (str(integration).startswith("TIMEOUT") and not _itest_optional)   # a hung itest is NOT a silent green (#42)
             and not (regression or "").startswith(("REGRESSION", "TIMEOUT")))   # a timeout is not a green gate
 print("\n===== RESULT =====")
 print(f"functions implemented: {passed}/{len(plan.FUNCTIONS)}  (generated: local={by_local}, claude={by_claude}; pinned-reused={by_pinned})")
