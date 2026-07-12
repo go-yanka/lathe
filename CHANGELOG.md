@@ -2,6 +2,51 @@
 
 All notable changes to Lathe. Dates are absolute. This project ships **no model weights**.
 
+## v2.63.0 — 2026-07-12 — v2.62.6 shakedown: 14 fixes + the Senior Team operating model
+
+The independent v2.62.6 terminal shakedown filed real bugs and design gaps as issues; this release closes
+them. Every fix ships with a `review_tests/*.py` acceptance test that fails on the prior code and passes here.
+
+**Security (2):**
+- **#35** `LATHE_SANDBOX=docker-ssh` ran plans **UNSANDBOXED** — the engine rejected the mode before it reached
+  `sandbox.run_unit` (which routes docker-ssh to a remote, fail-closed container). Now recognized.
+- **#36** `lathe ack` / `assume` / `trace` `exec_module`'d a plan (arbitrary code) with **no validation** — the
+  same `build any.py = RCE` hole build/verify already close. Data-safety guard added (read-only paths skip the
+  build-only OUT_DIR-escape check so legitimate plans aren't false-refused).
+
+**Fail-open / crash / silent-green (5):**
+- **#39** the gate retry loop retried *every* gate — an intermittent-but-real failure in a deterministic gate
+  cleared on re-run and shipped green. Retries are now scoped to the HEAVY browser gates; deterministic gates
+  fail **closed** on first failure.
+- **#40** a blank/typo `GATE_RETRIES`/`GATE_TIMEOUT` crashed the whole regression — new `_int_env` falls back +
+  warns, rejects negatives.
+- **#41** artifact/web-only builds skipped the standing regression and still shipped green — it now runs whenever
+  the build produced output (module **or** artifacts).
+- **#42** an integration-test **TIMEOUT shipped as GREEN** — `build_ok` now rejects a non-optional TIMEOUT
+  (opt out per-plan via `INTEGRATION_OPTIONAL` / `LATHE_ITEST_OPTIONAL`).
+- **#44** INTEGRATION tests could not build through the validated path (validator bans `import`) — the engine now
+  auto-imports the module into the itest. **#46** `claude_proxy` no longer hard-defaults `CLAUDE_BIN` to a
+  Windows path (resolves via env → `shutil.which` → fallback; `/health` probes the binary). **#47** the
+  test-kind gate no longer false-refuses real edge tests.
+
+**Under-delivery (1):**
+- **#45** a `lathe do` run could silently collapse a complex goal into trivial helpers and ship "gated-green".
+  The build surface is now compared against the **original goal** (not the drafted spec); a missing requested
+  capability prints an `[UNDER-DELIVERY]` warning and is fed to the Advocate's delivery **veto**.
+
+**The Senior Team operating model — enhancements (4):**
+- **#48 Project framing** — `lathe clarify` opens with a framing round (purpose/users/scope/deliverable/stack/
+  hosting), skipping what the goal already states; answers seed `CLARIFIED_GOAL.md`.
+- **#49 `lathe architect "<goal>"`** — a first-class architecture step: goal → validated module/file/folder
+  decomposition **before** building; writes `ARCHITECTURE.md` + seeds one plan per module in dependency order.
+- **#50 Standing team** — permanent architect / senior-dev / senior-tester personas, each with a real soul
+  (`ce_personas/*.md`); the Architect reviews its own decomposition (P0/P1 blocks; `--assume` overrides).
+- **#51 `lathe review --gate`** — a conditional-mandatory, severity-routed review GATE that **fails closed** on
+  P0/P1 or a mandatory lens that didn't run (advisory by default).
+
+Open, tracked separately: **#37** (persona bandit exploit needs a post-review outcome loop) and **#38**
+(`select_personas` is dead code in a pinned/generated module).
+
 ## v2.62.3 — 2026-07-09 — dedup at the source + review no longer looks stuck
 
 - Assumptions were duplicated because the analyst listed the same choice twice; the assumption prompt now
