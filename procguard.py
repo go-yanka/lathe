@@ -111,17 +111,33 @@ def kill_tree(pid):
                            capture_output=True, timeout=30)
         else:
             import signal
-            os.killpg(os.getpgid(pid), signal.SIGKILL)
+            # Only kill the GROUP when `pid` actually leads its own group — otherwise
+            # os.killpg(getpgid(pid)) would target the CALLER's group and SIGKILL us.
+            # (run() is a passthrough off Windows, so this is defensive for direct callers.)
+            try:
+                if os.getpgid(pid) == pid:
+                    os.killpg(pid, signal.SIGKILL)
+                else:
+                    os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
     except Exception:
         pass
 
 
 def run(cmd, timeout=None, **kw):
-    """subprocess.run work-alike that kills the child's WHOLE tree on timeout.
+    """subprocess.run work-alike that, ON WINDOWS, kills the child's WHOLE tree on
+    timeout (taskkill /T) instead of just the direct child.
 
-    Supports the kwargs the harness uses (capture_output, text, encoding, errors,
-    cwd, env, stdin). On TimeoutExpired the entire subtree is reaped, then the
-    original TimeoutExpired is re-raised so callers keep their existing handling."""
+    Off Windows this is a STRICT passthrough to subprocess.run. The orphan-explosion
+    problem is Windows-only (arm() no-ops there too), and a POSIX tree-kill is unsafe
+    here: the child is NOT started in a new session, so it shares the CALLER's process
+    group — os.killpg would SIGKILL the caller (e.g. run_gates) before it could handle
+    the timeout. So we never take the custom path off Windows. (Reviewer finding,
+    2026-07-13.) Supports the kwargs the harness uses (capture_output, text, encoding,
+    errors, cwd, env, stdin); re-raises TimeoutExpired so callers keep their handling."""
+    if os.name != "nt":
+        return subprocess.run(cmd, timeout=timeout, **kw)
     capture = kw.pop("capture_output", False)
     text = kw.pop("text", False)
     if capture:
