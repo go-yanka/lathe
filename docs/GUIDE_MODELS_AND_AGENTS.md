@@ -1,4 +1,4 @@
-# Guide — models & agents: plug in Hermes, GPT, Ollama, Claude Code, and more
+# Guide — models & agents: plug in Qwen, GPT, Ollama, Claude Code, and more
 
 *Lathe is **pluggable at both ends**. The **analyst** (writes spec + tests — the "thinker") and the
 **implementer** (writes the code — the "builder") are independent endpoints you choose. This guide shows how
@@ -7,7 +7,7 @@ to wire common models and agents into each role.*
 ```
           ANALYST (thinker)                          IMPLEMENTER (builder)
    Claude subscription · any OpenAI-              local by default: Ollama · llama.cpp ·
-   compatible endpoint · or a human      ──▶      vLLM · LM Studio (Hermes/Qwen/Llama/…) · or Claude
+   compatible endpoint · or a human      ──▶      vLLM · LM Studio (Qwen/Llama/Mistral/…) · or Claude
         writes spec + tests                            writes the code, under the gate
 ```
 
@@ -28,9 +28,9 @@ Set them per-command, in your shell, or in `lathe.config.json`. Full list + defa
 
 ## Implementer recipes (the local "builder")
 
-### Hermes / Qwen / Llama on an OpenAI-compatible server (llama.cpp, vLLM, LM Studio)
+### Qwen / Llama / Mistral on an OpenAI-compatible server (llama.cpp, vLLM, LM Studio)
 
-Any open model served over an OpenAI-compatible `/v1/chat/completions` endpoint works. Example — a Hermes
+Any open model served over an OpenAI-compatible `/v1/chat/completions` endpoint works. Example — a Qwen-Coder
 model on a local llama.cpp / vLLM server:
 
 ```bash
@@ -41,7 +41,7 @@ LOCAL_OPENAI_URL=http://127.0.0.1:8080/v1/chat/completions \
 ```
 
 `openai:local` tells Lathe "use the OpenAI-compatible endpoint at `LOCAL_OPENAI_URL`." The model that
-endpoint serves (Hermes, Qwen-Coder, Llama, Mistral, whatever you loaded) is the implementer. Tuning:
+endpoint serves (Qwen-Coder, Llama, Mistral, whatever you loaded) is the implementer. Tuning:
 `LOCAL_OPENAI_MAXTOK` (default 16384), `LOCAL_GEN_TIMEOUT` (default 900s).
 
 ### Ollama (bare model name)
@@ -109,7 +109,7 @@ required; the CLI *is* the interface.
 
 ## Mix and match — a common setup
 
-Claude subscription as the analyst (sharp specs, $0/token), a local Hermes/Qwen as the implementer (cheap,
+Claude subscription as the analyst (sharp specs, $0/token), a local Qwen as the implementer (cheap,
 private code gen), full rigor on:
 
 ```bash

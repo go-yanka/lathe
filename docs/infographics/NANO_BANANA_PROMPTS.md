@@ -118,7 +118,7 @@ claim.*
 ### 12 — "Works with the stack you already have" (compatibility / interop; 16:9) — GENERATED & FINAL
 *File: `12_works_with_your_stack.png`. The adoption-forward interop story — pluggable at BOTH ends × runs
 anywhere. Stronger than #9 for "it fits what I already run." **Honesty checks that passed on the render:**
-MCP badged ○ (available, NOT ●); Hermes framed as an EXAMPLE open model (Hermes · Qwen · Llama), not a
+MCP badged ○ (available, NOT ●); Qwen framed as an EXAMPLE open model (Qwen · Llama · Mistral), not a
 named Lathe integration — the code names only Ollama / llama.cpp / vLLM / LM Studio + any OpenAI-compatible
 endpoint.*
 ```
@@ -126,14 +126,14 @@ endpoint.*
 anywhere · bring your own models". Center: a rounded teal core box "LATHE" with "spec → gate → pin" under
 it; an arrow IN from the left, OUT to the right. LEFT, header "THINKING END" + brain icon, a card:
 "Claude" / "any OpenAI-compatible endpoint" / "or a human"; caption "the analyst writes spec + tests".
-RIGHT, header "BUILDING END" + chip icon, a card: "local open models — Hermes · Qwen · Llama" / "via
+RIGHT, header "BUILDING END" + chip icon, a card: "local open models — Qwen · Llama · Mistral" / "via
 Ollama · llama.cpp · vLLM · LM Studio" / "or Claude"; caption "the implementer writes the code". BOTTOM:
 three equal cards "RUN IT" each with icon + bold label + one detail + status dot — ● "STANDALONE" "its own
 CLI + chat REPL"; ○ "INSIDE YOUR AGENT" "MCP tool in Claude Code, Cursor, Copilot"; ● "EMBEDDED" "import
 the engine". Legend "● live  ○ available". Footer ribbon: "bring your own models at both ends — Lathe is
 the gate in the middle".
 ```
-*Status: standalone ● , MCP ○ , embedded ● . Hermes = illustrative open model, not a special connector.*
+*Status: standalone ● , MCP ○ , embedded ● . Qwen = illustrative open model, not a special connector.*
 
 ### 13 — "The methodology, enforced by the build" (the enforcement stack; 16:9) — ⚠️ REGENERATE (v2.5.1: 3 → 7 gates)
 *File: `13_methodology_enforced.png` (current render shows only THREE gates — STALE). The payoff to #11's

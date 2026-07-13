@@ -19,8 +19,6 @@ A. **Three ways to run it** (usage modes), from the architecture's DRIVERS + int
    - Programmatic / embedded — import the engine; or driven by a prior/driving agent (any shell-running agent).
    - (Both roles are pluggable: analyst = Claude proxy / any OpenAI-compatible / a human; implementer =
      Ollama / llama.cpp / vLLM / local / Claude.)
-   - NOTE: the owner referenced a third-party integration "Hermes" that does not appear anywhere in the repo;
-     unverifiable — must be confirmed, not invented.
 B. **Repo-map for cheap context** (`lathe map`, ctags): give an LLM the code STRUCTURE (names, kinds,
    signatures, scopes) instead of dumping full files → far fewer tokens, fewer tool calls. A real
    token-efficiency lever, entirely absent from the graphics.
