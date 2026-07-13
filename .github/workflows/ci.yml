@@ -66,7 +66,14 @@ jobs:
           python review_tests/test_review_gate.py
           python review_tests/test_bandit_grades.py
           python review_tests/test_persona_select_dedup.py
+          python review_tests/test_goal_delivery_gap.py
+          python review_tests/test_kind_gate_repairable.py
+          python review_tests/test_integration_import.py
+          python review_tests/test_build_ok.py
+          python review_tests/test_itest_prelude.py
+          python review_tests/test_procguard.py
           # test_pin_deps_e2e.py needs a live local model endpoint - run locally, not in CI
+          # test_claude_proxy_health.py needs fastapi/uvicorn (claude_proxy deps) - run locally, not in CI
 
       - name: Reproducibility — pinned demo rebuilds offline, zero model calls
         run: |

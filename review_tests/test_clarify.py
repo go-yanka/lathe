@@ -55,6 +55,7 @@ tmp = tempfile.mkdtemp(prefix="clar_")
 ans = os.path.join(tmp, "ans.txt")
 # #48: the PROJECT FRAMING round asks the un-prefilled framing dimensions FIRST; a vague goal prefills none,
 # so scripted answers begin with one line per framing dimension (blank = skip) before the functional answers.
+sys.path.insert(0, os.path.join(ROOT, "projects", "agentic-harness", "tools"))
 from framing import FRAMING as _FR
 _fr_skip = "\n" * len(_FR)
 open(ans, "w", encoding="utf-8").write(_fr_skip + "two CSV files\none merged CSV\nno limit\n")

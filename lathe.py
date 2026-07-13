@@ -715,6 +715,13 @@ def _goal_delivery_gap(goal, built_names):
     return missing
 
 
+def _under_delivery_should_hold(missing, strict):
+    """#45: whether a goal-vs-deliverable gap is a DETERMINISTIC hold. Under LATHE_STRICT a non-empty gap
+    HOLDS on its own — like the assumption gate — instead of only being fed to the Advocate's discretion
+    (which is off on --assume runs, exactly when under-delivery is most likely). Pure/testable."""
+    return bool(missing) and bool(strict)
+
+
 def cmd_do(args):
     # owner design (draft-time targeting): --for <frontier|local-large|local-small|all> drafts the spec(s)
     # FOR a chosen model class up front (not post-failure adaptation). 'all' saves all three variants in
@@ -950,6 +957,12 @@ def cmd_do(args):
               % (", ".join("%s()" % m for m in _ud_missing[:5]),
                  "" if (_advocate_on and _charter) else
                  " (Re-run with the Advocate on — drop --assume / LATHE_ADVOCATE=off — to HOLD under-delivery.)"))
+    if _under_delivery_should_hold(_ud_missing, os.environ.get("LATHE_STRICT") == "1"):
+        # #45: under LATHE_STRICT an under-delivery is a DETERMINISTIC hold — independent of the Advocate
+        # (which is off on --assume runs, exactly when a trivial-subset build is most likely to slip through).
+        print("  [HOLD] LATHE_STRICT: under-delivery is a deterministic hold — the goal named %s but the "
+              "build did not deliver it. Not certified." % ", ".join("%s()" % m for m in _ud_missing[:5]))
+        return 1
     if _advocate_on and _charter and greens:
         _artifact = _advocate_artifact_summary(_ws_abs) if _ws_abs else ""
         _v = _adv_step(_charter, "delivery", _artifact, _ws_abs,
@@ -1141,8 +1154,23 @@ def cmd_review(args):
             # an engaged lens produced verifiable findings, so it scores. Without this the exploit signal never
             # forms (record_run only ever wrote contributions={} at selection time) and the bandit only explores.
             import persona_orchestrator as _po_g
-            _outcomes = {l: (1 if v == "engaged" else 0) for l, v in _lens_verdicts.items()}
-            _g = _po_g.record_outcomes(_outcomes, os.environ.get("LATHE_RUN_ID", "adhoc"))
+            import review_gate as _RG37
+            _ce37 = os.path.join(INNER, "docs", "ce")
+            _outcomes37 = {}
+            for _l37, _v37 in _lens_verdicts.items():
+                if _v37 != "engaged":
+                    continue
+                _raised37 = _confirmed37 = 0
+                for _cand37 in ("review_%s.txt" % _l37, "%s.txt" % _l37):
+                    _fp37 = os.path.join(_ce37, _cand37)
+                    if os.path.isfile(_fp37):
+                        try:
+                            _raised37, _confirmed37 = _RG37.count_findings(open(_fp37, encoding="utf-8", errors="replace").read())
+                        except OSError:
+                            pass
+                        break
+                _outcomes37[_l37] = {"raised": _raised37, "confirmed": _confirmed37}
+            _g = _po_g.record_outcomes(_outcomes37, os.environ.get("LATHE_RUN_ID", "adhoc"))
             if _g:
                 print("review outcomes -> bandit grades updated: %d persona(s)" % len(_g))
         except Exception as _ge2:
@@ -1182,7 +1210,8 @@ def cmd_review(args):
             _must = _RG.applicable(_code, release=_release)
             _ce_dir = os.path.join(INNER, "docs", "ce")
             _found = _RG.scan_findings_dir(_ce_dir, _must)
-            _v = _RG.verdict(_found, applicable_lenses=_must)
+            _waive = [w.strip() for w in os.environ.get("LATHE_REVIEW_WAIVE", "").split(",") if w.strip()]   # #51 operator override
+            _v = _RG.verdict(_found, applicable_lenses=_must, waive=_waive)
             print("\n========== review GATE (#51) ==========")
             print("  mandatory panel: %s" % ", ".join(_must))
             if _v["missing"]:
@@ -2475,11 +2504,13 @@ def cmd_clarify(args):
             if scripted is not None:
                 _fraw = (scripted[_fi - 1] if _fi - 1 < len(scripted) else "").strip()
                 print("     > %s" % _fraw)
-            else:
+            elif sys.stdin.isatty():
                 try:
                     _fraw = input("     > ").strip()
                 except (EOFError, KeyboardInterrupt):
                     _fraw = ""
+            else:
+                _fraw = ""            # #48: non-interactive with no --answers -> skip the dimension, never block on input()
             _fchosen = _fraw
             if _fopts and _fraw.isdigit() and 1 <= int(_fraw) <= len(_fopts):
                 _fchosen = _fopts[int(_fraw) - 1]
@@ -2499,11 +2530,13 @@ def cmd_clarify(args):
             _si = _fr_off + i - 1                         # #48: framing answers consumed the first _fr_off scripted lines
             raw = (scripted[_si] if _si < len(scripted) else "").strip()
             print("     > %s" % raw)
-        else:
+        elif sys.stdin.isatty():
             try:
                 raw = input("     > ").strip()
             except (EOFError, KeyboardInterrupt):
                 raw = ""
+        else:
+            raw = ""              # #48: non-interactive with no --answers -> take the default, never block on input()
         # resolve the reply against the options: a bare number picks; empty -> default; else free text
         chosen = raw
         if opts and raw.isdigit() and 1 <= int(raw) <= len(opts):
@@ -2876,6 +2909,14 @@ def _dispatch(cmd, rest, argv):
 
 
 def main(argv):
+    # Orphan guard (2026-07-12): every `lathe` command can spawn a build tree (engine -> run_gates -> lane
+    # gates -> Playwright -> Chromium). Enroll this process in a Windows kill-on-close Job Object so that tree
+    # can never outlive the CLI — if lathe dies for any reason, the OS reaps every descendant. No-op off Windows.
+    try:
+        import procguard
+        procguard.arm()
+    except Exception:
+        pass
     # Windows-safe stdout: the CLI prints unicode (→, box chars) in several commands (trace, review). The
     # default Windows console codec is cp1252, which raises UnicodeEncodeError on those and crashes mid-command
     # (e.g. a build workflow's trailing trace step). Force UTF-8 on our own streams; harmless on POSIX.

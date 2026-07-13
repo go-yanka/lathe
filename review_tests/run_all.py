@@ -5,10 +5,11 @@
 Phases:
   1. battery_security   — validator/sandbox/spec-lint adversarial cases (no model needed)
   2. unit_functions     — direct tests of every pure toolchain + generated-ledger function
-  3. repo's own tests   — projects/agentic-harness/tools/test_*.py
-  4. ledger rebuild     — the multi-plan demo rebuilds offline from pins (scaling claim)
-  5. CI steps           — the three .github/workflows/ci.yml checks, run locally
-  6. cli_matrix         — every CLI command, all 5 workflows, B1-B7 repros (starts mock models)
+  3. review_tests       — review_tests/test_*.py (offline acceptance suite; model-gated ones skipped)
+  4. repo's own tests   — projects/agentic-harness/tools/test_*.py
+  5. ledger rebuild     — the multi-plan demo rebuilds offline from pins (scaling claim)
+  6. CI steps           — the three .github/workflows/ci.yml checks, run locally
+  7. cli_matrix         — every CLI command, all 5 workflows, B1-B7 repros (starts mock models)
 
 Exit 0 = every phase green. Leaves the tree as it found it (kills mocks, restores state).
 """
@@ -39,6 +40,42 @@ def run(name, args, cwd=ROOT, timeout=900, env=None):
     return ok
 
 
+def _tree_snapshot():
+    """Return the set of `git status --porcelain` lines, or None if not a git tree."""
+    try:
+        p = subprocess.run(["git", "status", "--porcelain"], cwd=ROOT,
+                           capture_output=True, text=True, timeout=30)
+        if p.returncode != 0:
+            return None
+        return set(l for l in p.stdout.splitlines() if l.strip())
+    except Exception:
+        return None
+
+
+def _tree_restore(pre):
+    """Undo any tree change a phase introduced since `pre` (best-effort, git-based).
+
+    Tracked files modified during the phase are checked out; files that became
+    untracked are removed. A no-op when `pre` is None (not a git checkout)."""
+    if pre is None:
+        return
+    post = _tree_snapshot()
+    if post is None:
+        return
+    for line in post - pre:
+        status, path = line[:2], line[3:].strip().strip('"')
+        try:
+            if "?" in status:  # newly untracked -> remove
+                fp = os.path.join(ROOT, path)
+                if os.path.isfile(fp):
+                    os.remove(fp)
+            else:               # newly modified/added tracked -> restore
+                subprocess.run(["git", "checkout", "--", path], cwd=ROOT,
+                               capture_output=True, text=True, timeout=30)
+        except Exception:
+            pass
+
+
 def wait_up(url, tries=20):
     for _ in range(tries):
         try:
@@ -53,9 +90,53 @@ def main():
     print("=" * 70)
     print("Lathe independent test system — full sweep")
     print("=" * 70)
+    # GUARANTEE (2026-07-12): enroll this run in a Windows kill-on-close Job Object
+    # so that if the run dies for ANY reason (timeout, exception, terminal/session
+    # teardown) the OS reaps EVERY descendant — cli_matrix's lathe builds, run_gates,
+    # the lane gates, Playwright and Chromium. Windows has no process groups; without
+    # this an interrupted full sweep orphans its whole subprocess tree.
+    sys.path.insert(0, ROOT)
+    try:
+        import procguard
+        _armed = procguard.arm()
+    except Exception:
+        _armed = False
+    print("procguard: kill-on-close job %s\n" % ("ARMED — no orphan can outlive this run"
+                                                 if _armed else "UNAVAILABLE (run in foreground!)"))
 
     run("battery_security", [PY, os.path.join(HERE, "battery_security.py")])
     run("unit_functions", [PY, os.path.join(HERE, "unit_functions.py")])
+
+    # review_tests acceptance suite (offline). Runs BEFORE the heavy cli_matrix so a
+    # fast failure surfaces early. Each test runs with cwd=ROOT and stdin CLOSED so the
+    # #48 isatty/clarify path cannot block the suite. Model/endpoint-gated tests are
+    # skipped by name (they need a live implementer/analyst/GitHub or only self-skip
+    # offline — cli_matrix and the ledger phase cover the live paths).
+    REVIEW_MODEL_GATED = {
+        "test_api.py",             # posts to a live analyst endpoint; hangs offline
+        "test_persona_fetch.py",   # fetches personas from GitHub (network)
+        "test_regression_proof.py",  # e2e: needs a live implementer; only self-skips offline
+        "test_reproducibility.py",   # e2e pin/rebuild: needs a live implementer; self-skips offline
+    }
+    rt_ok, rt_ran, rt_names = True, 0, []
+    rt_pre = _tree_snapshot()
+    for t in sorted(glob.glob(os.path.join(HERE, "test_*.py"))):
+        base = os.path.basename(t)
+        if base in REVIEW_MODEL_GATED:
+            continue
+        p = subprocess.run([PY, t], cwd=ROOT, stdin=subprocess.DEVNULL,
+                           capture_output=True, text=True, timeout=300)
+        rt_ran += 1
+        rt_names.append(base)
+        if p.returncode != 0:
+            rt_ok = False
+            print("  [FAIL] %s\n%s" % (base, (p.stdout + p.stderr)[-500:]))
+        else:
+            print("  [PASS] %s" % base)
+    _tree_restore(rt_pre)  # leave the tree as it found it (suite is non-hermetic)
+    print("  ran %d review_tests: %s" % (rt_ran, ", ".join(rt_names)))
+    PHASES.append(("review_tests (%d files)" % rt_ran, rt_ok, ""))
+    print(">>> phase %-22s %s\n" % ("review_tests", "GREEN" if rt_ok else "RED"))
 
     # repo's own tests
     ok_all, ran = True, 0

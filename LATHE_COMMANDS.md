@@ -145,10 +145,16 @@ decider selected lenses for this code: correctness, adversarial, security, relia
 **Enforce it as a GATE — `lathe review --gate [--release] <files...>` (#51).** By default `review` is advisory
 (it prints findings, exit code reflects only whether the reviewers ran). With **`--gate`** it becomes a
 **conditional-mandatory, severity-routed GATE that fails closed**: the *applicable* panel — the always-core
-lenses plus the conditionals the code triggers (e.g. `api-contract` for API code, `data-migration` for a
-migration) — **must** have run and **must** be free of P0/P1 findings, else the review blocks (non-zero). A
+lenses plus the conditionals the code triggers (the **real lens tokens** the reviewer actually runs: `api` for
+API code, `data` for a migration or persistence, `ui` for async front-end, `perf` for a hot path) — **must**
+have run and **must** be free of `critical`/`high` (P0/P1) findings, else the review blocks (non-zero). The
+gate reads the reviewer's own **word severities** (`critical/high/medium/low`), not just `P0–P3` literals. A
 mandatory lens that didn't run also blocks (a missing check is not a silent pass). `--release` adds
 project-standards to the mandatory set for a pre-release bar.
+
+**Operator override — `LATHE_REVIEW_WAIVE=lens1,lens2`.** If a mandatory lens is genuinely stuck (e.g. an
+endpoint outage means it can't run), the operator can consciously waive it: a waived lens neither blocks nor
+counts as missing. Use it deliberately — it is the escape hatch, not the default.
 
 ### `lathe verify <plan.py>`
 Rebuild a plan and confirm it still passes its gates (a targeted regression for one plan).

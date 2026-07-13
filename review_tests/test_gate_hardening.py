@@ -1,90 +1,84 @@
-"""ACCEPTANCE — the four fail-open / crash shakedown findings:
+"""ACCEPTANCE — #39/#40 (BEHAVIORAL): the standing-regression retry policy, driven through run_gates.main()
+with a STUB gate — not a source grep.
 
-  #39  run_gates retried EVERY gate, so an intermittently-REAL failure in a DETERMINISTIC gate cleared on
-       re-run and shipped green. Retries must be scoped to the HEAVY browser gates only.
-  #40  int(GATE_RETRIES)/int(GATE_TIMEOUT) had no guard — a blank/typo env var crashed the whole regression.
-       _int_env must fall back + warn, and reject negatives.
-  #41  artifact/web-only builds (module_ok=False) SKIPPED the standing regression and still shipped green.
-       The regression must run whenever the build produced output (module OR artifacts).
-  #42  an integration-test TIMEOUT shipped as a GREEN build. build_ok must reject a non-optional TIMEOUT.
+#39: retries must be scoped to the HEAVY browser gates. A DETERMINISTIC gate that fails must fail CLOSED on the
+     first failure (no retry that could clear an intermittently-real bug); a HEAVY gate that flakes IS retried.
+#40: `_int_env` must not crash the whole regression on a blank/typo/negative GATE_RETRIES/GATE_TIMEOUT.
 
-#40 is a live unit test of the shipped helper; #39/#41/#42 assert the fix is present in the shipped source
-(their full behavioral paths need a model build). Model-free. Run:  python review_tests/test_gate_hardening.py
+The stub gate fails on its FIRST invocation and passes afterwards (a classic flake), tracked by a counter file,
+so "was it retried?" is observable as the invocation count. Model-free. Run: python review_tests/test_gate_hardening.py
 """
+import importlib.util
 import os
 import sys
+import tempfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-GATES = os.path.join(ROOT, "projects", "agentic-harness", "qa", "run_gates.py")
-ENGINE = os.path.join(ROOT, "engine_v2.py")
+RG_PATH = os.path.join(ROOT, "projects", "agentic-harness", "qa", "run_gates.py")
 fails = []
 
 
 def check(name, ok, detail=""):
-    print("  %-66s %s %s" % (name, "PASS" if ok else "FAIL", detail if not ok else ""))
+    print("  %-64s %s %s" % (name, "PASS" if ok else "FAIL", detail if not ok else ""))
     if not ok:
         fails.append(name)
 
 
-# ---- #40: _int_env is a live, crash-proof env reader ----
-import importlib.util
-spec = importlib.util.spec_from_file_location("run_gates", GATES)
+# load run_gates as a module (its main() only runs under __main__, so import is side-effect-free)
+spec = importlib.util.spec_from_file_location("run_gates_mod", RG_PATH)
 rg = importlib.util.module_from_spec(spec)
-try:
-    spec.loader.exec_module(rg)
-    _loaded = True
-except SystemExit:
-    _loaded = True          # run_gates has no main-guard side effects at import beyond defs; tolerate
-except Exception as e:
-    _loaded = False
-    check("#40 run_gates imports", False, str(e))
+spec.loader.exec_module(rg)
 
-if _loaded and hasattr(rg, "_int_env"):
-    for env, default, want, label in [
-        (None, 5, 5, "unset -> default"),
-        ("", 5, 5, "blank -> default"),
-        ("foo", 5, 5, "non-int -> default (no crash)"),
-        ("-1", 5, 5, "negative -> default (would break range/timeout)"),
-        ("7", 5, 7, "valid int -> parsed"),
-        ("0", 5, 0, "zero -> honored (disables retries)"),
-    ]:
-        os.environ.pop("GX", None)
-        if env is not None:
-            os.environ["GX"] = env
-        try:
-            got = rg._int_env("GX", default)
-        except Exception as e:
-            got = "EXC:%s" % e
-        check("#40 _int_env %s" % label, got == want, "got %r" % got)
-        os.environ.pop("GX", None)
-else:
-    check("#40 _int_env exists in run_gates", False)
+# --- #40: _int_env is crash-proof ---
+for env, default, want, label in [(None, 5, 5, "unset->default"), ("", 5, 5, "blank->default"),
+                                  ("foo", 5, 5, "typo->default"), ("-1", 5, 5, "negative->default"),
+                                  ("3", 5, 3, "valid->parsed"), ("0", 5, 0, "zero->honored")]:
+    os.environ.pop("GX", None)
+    if env is not None:
+        os.environ["GX"] = env
+    got = rg._int_env("GX", default)
+    check("#40 _int_env %s" % label, got == want, "got %r" % got)
+    os.environ.pop("GX", None)
 
-# ---- #39: retries scoped to HEAVY (not every gate) ----
-gsrc = open(GATES, encoding="utf-8").read()
-check("#39 retries are scoped to HEAVY gates only",
-      "_int_env(\"GATE_RETRIES\", 2) if name in HEAVY else 0" in gsrc,
-      "retry line is not HEAVY-scoped")
-check("#39 GATE_TIMEOUT read through the crash-proof _int_env",
-      "_int_env(\"GATE_TIMEOUT\"" in gsrc)
-check("#39 the old fail-open 'int(GATE_RETRIES)' is gone",
-      'int(os.environ.get("GATE_RETRIES"' not in gsrc)
+td = tempfile.mkdtemp(prefix="gate_")
+counter = os.path.join(td, "count.txt")
+stub = os.path.join(td, "stub_gate.py")
+open(stub, "w", encoding="utf-8").write(
+    "import os, sys\n"
+    "cf = os.environ['STUB_COUNTER']\n"
+    "n = (int(open(cf).read() or '0') if os.path.exists(cf) else 0) + 1\n"
+    "open(cf, 'w').write(str(n))\n"
+    "sys.exit(1 if n == 1 else 0)   # fail the FIRST run (flake), pass after\n")
+os.environ["STUB_COUNTER"] = counter
 
-# ---- #41 + #42: engine source carries the fixes ----
-esrc = open(ENGINE, encoding="utf-8").read()
-check("#41 regression gates on _produced (module OR artifacts), not module_ok alone",
-      ("_produced = module_ok or artifacts_total > 0" in esrc)
-      and ("if _produced and os.environ.get(\"SKIP_REGRESSION\")" in esrc))
-check("#41 the old module_ok-only regression guard is gone",
-      'if module_ok and os.environ.get("SKIP_REGRESSION")' not in esrc)
-check("#42 build_ok rejects a non-optional integration TIMEOUT",
-      'startswith("TIMEOUT") and not _itest_optional' in esrc)
-check("#42 _itest_optional honors INTEGRATION_OPTIONAL + LATHE_ITEST_OPTIONAL",
-      ('getattr(plan, "INTEGRATION_OPTIONAL"' in esrc) and ('LATHE_ITEST_OPTIONAL' in esrc))
 
-# ---- #42: env var is registered (keeps env_not_drifted gate green) ----
-ecsrc = open(os.path.join(ROOT, "env_catalog.py"), encoding="utf-8").read()
-check("#42 LATHE_ITEST_OPTIONAL registered in env_catalog", "LATHE_ITEST_OPTIONAL" in ecsrc)
+def run_main_with(checks, full):
+    open(counter, "w").write("0")
+    rg.CHECKS = checks
+    os.environ["LATHE_GATE_FULL"] = "1" if full else "0"
+    os.environ["GATE_RETRIES"] = "2"
+    try:
+        rg.main()
+        rc = 0
+    except SystemExit as e:
+        rc = e.code if isinstance(e.code, int) else 1
+    return rc, int(open(counter).read())
 
-print("\ngate-hardening acceptance: %s" % ("ALL PASS" if not fails else "FAILED: %s" % ", ".join(fails)))
+
+# --- #39a: a DETERMINISTIC (non-HEAVY) gate fails CLOSED and is NOT retried ---
+rcA, nA = run_main_with([("stub_det", stub)], full=False)
+check("#39 a deterministic gate fails CLOSED (regression exit 1)", rcA == 1, "rc=%r" % rcA)
+check("#39 a deterministic gate is NOT retried (ran exactly once)", nA == 1, "ran %d times" % nA)
+
+# --- #39b: a HEAVY gate (skeleton_lane) IS retried, so a genuine flake clears ---
+rcB, nB = run_main_with([("skeleton_lane", stub)], full=True)     # skeleton_lane is in rg.HEAVY
+check("#39 a HEAVY gate IS retried (flake clears -> exit 0)", rcB == 0, "rc=%r" % rcB)
+check("#39 a HEAVY gate ran more than once (retried)", nB >= 2, "ran %d times" % nB)
+
+os.environ.pop("LATHE_GATE_FULL", None)
+os.environ.pop("GATE_RETRIES", None)
+os.environ.pop("STUB_COUNTER", None)
+import shutil
+shutil.rmtree(td, ignore_errors=True)
+print("\ngate-hardening #39/#40 acceptance: %s" % ("ALL PASS" if not fails else "FAILED: %s" % ", ".join(fails)))
 sys.exit(0 if not fails else 1)

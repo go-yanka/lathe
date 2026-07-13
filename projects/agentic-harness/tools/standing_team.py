@@ -13,6 +13,14 @@ for the whole run). This module gives the three judging seniors that same perman
 
 The pure parts (roster, charter seed, prompt build, verdict parse, memory update) are model-free and testable;
 `engage()` takes the analyst callable so the frontier call stays injectable.
+
+STATUS (honest, as of this pass): only the **Application Architect** is actually WIRED into a stage today — it
+reviews its own decomposition inside `lathe architect` (`cmd_architect`) and can block a scope-collapsed design.
+The Senior Developer and Senior Tester have real SOUL files and are in the roster, but they are NOT yet engaged
+in any build/spec/review stage — the machinery here (charter/memory/engage/verdict) supports them, the wiring
+does not exist. Do not read "standing crew of three" as "all three engage": that is the target, not today's
+behavior. Wiring senior-developer -> build/review and senior-tester -> spec/review (with block paths + behavioral
+tests) is tracked as a SEPARATE enhancement.
 """
 import os
 import re
